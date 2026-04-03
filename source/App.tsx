@@ -47,7 +47,7 @@ function App() {
   const [authPassword, setAuthPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
-  const [rememberMe, setRememberMe] = useState(true) // ✅ Bouton "Se souvenir de moi"
+  const [rememberMe, setRememberMe] = useState(true)
 
   // Notifications
   const [notificationPermission, setNotificationPermission] = useState('default')
@@ -218,7 +218,7 @@ function App() {
     setAuthLoading(false)
   }
 
-  // ✅ Se connecter AVEC "Se souvenir de moi"
+  // Se connecter AVEC "Se souvenir de moi"
   const handleSignIn = async () => {
     if (!email || !authPassword) {
       alert('⚠️ Remplis tous les champs !')
@@ -226,7 +226,6 @@ function App() {
     }
     setAuthLoading(true)
     try {
-      // Si "Se souvenir de moi" est coché, la persistance est déjà activée
       await signInWithEmailAndPassword(auth, email, authPassword)
       alert('✅ Connecté !' + (rememberMe ? '\n📝 Connexion enregistrée' : ''))
       setEmail('')
@@ -324,7 +323,7 @@ function App() {
   }
 
   // ✅ SUPPRIMER UN MATCH (Admin)
-  const supprimerMatch = async (matchId: string, matchData: any) => {
+  const supprimerMatch = async (matchId: string) => {
     if (!confirm('⚠️ Supprimer ce match ?\n\nCette action est irréversible !')) return
     
     try {
@@ -380,13 +379,6 @@ function App() {
     })
     setNouveauJoueur({ pseudo: '', role: 'Joueur', rang: '' })
     alert('✅ Joueur ajouté !')
-  }
-
-  // Supprimer un joueur (Admin)
-  const supprimerJoueur = async (playerId: string) => {
-    if (!confirm('⚠️ Supprimer ce joueur du roster ?')) return
-    await updateDoc(doc(db, 'players', playerId), { actif: false })
-    alert('✅ Joueur supprimé !')
   }
 
   // Stats
@@ -739,7 +731,7 @@ function App() {
                             <span className="text-xs text-gray-400">{match.date}</span>
                           </div>
                           <button 
-                            onClick={() => supprimerMatch(match.id, match)}
+                            onClick={() => supprimerMatch(match.id)}
                             className="w-full bg-red-900/50 border border-red-500 text-red-400 py-2 rounded-lg text-sm hover:bg-red-900 transition"
                           >
                             🗑️ Supprimer ce match
