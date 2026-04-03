@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
-import { getMessaging, getToken, onMessage } from 'firebase/messaging'
+import { getMessaging, getToken } from 'firebase/messaging'
 
 // Configuration Firebase
 const firebaseConfig = {
@@ -44,7 +44,6 @@ function App() {
 
   // Notifications
   const [notificationPermission, setNotificationPermission] = useState('default')
-  const [fcmToken, setFcmToken] = useState('')
 
   // Matchs
   const [matchs, setMatchs] = useState<any[]>([])
@@ -65,7 +64,7 @@ function App() {
   })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
 
-  // Charger le pseudo et les notifications
+  // Charger le pseudo
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
@@ -74,7 +73,6 @@ function App() {
         if (userDoc.exists()) {
           const data = userDoc.data()
           setPseudo(data.pseudo)
-          setFcmToken(data.fcmToken || '')
         }
       }
       setLoading(false)
@@ -129,7 +127,7 @@ function App() {
     })
   }, [])
 
-  // Notifications
+  // Notifications permission
   useEffect(() => {
     if ('Notification' in window) {
       setNotificationPermission(Notification.permission)
@@ -150,12 +148,11 @@ function App() {
         const token = await getToken(messaging, { vapidKey: VAPID_KEY })
         if (token) {
           await updateDoc(doc(db, 'users', user.uid), { fcmToken: token })
-          setFcmToken(token)
           alert('✅ Notifications activées !')
         }
       } catch (error) {
         console.error('Erreur FCM:', error)
-        alert('⚠️ Active les notifications dans Firebase Console d\'abord')
+        alert('⚠️ Erreur lors de l\'activation')
       }
     }
   }
