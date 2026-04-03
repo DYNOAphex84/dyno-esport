@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { getMessaging, getToken } from 'firebase/messaging'
 
 // Configuration Firebase
@@ -21,6 +21,9 @@ const VAPID_KEY = 'BIhsEPrWBagYPmnPjpiR3tlKZB0ehBMqkgMnoZUFv1jkNXb6DrkiFT7UOyBET
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 const auth = getAuth(app)
+
+// 🔐 Persistance de la connexion (LOCAL = reste connecté)
+setPersistence(auth, browserLocalPersistence)
 
 const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
 
@@ -44,6 +47,7 @@ function App() {
   const [authPassword, setAuthPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true) // ✅ Bouton "Se souvenir de moi"
 
   // Notifications
   const [notificationPermission, setNotificationPermission] = useState('default')
@@ -214,7 +218,7 @@ function App() {
     setAuthLoading(false)
   }
 
-  // Se connecter
+  // ✅ Se connecter AVEC "Se souvenir de moi"
   const handleSignIn = async () => {
     if (!email || !authPassword) {
       alert('⚠️ Remplis tous les champs !')
@@ -222,8 +226,9 @@ function App() {
     }
     setAuthLoading(true)
     try {
+      // Si "Se souvenir de moi" est coché, la persistance est déjà activée
       await signInWithEmailAndPassword(auth, email, authPassword)
-      alert('✅ Connecté !')
+      alert('✅ Connecté !' + (rememberMe ? '\n📝 Connexion enregistrée' : ''))
       setEmail('')
       setAuthPassword('')
     } catch (error: any) {
@@ -318,6 +323,18 @@ function App() {
     alert('✅ Match ajouté ! Notification Discord envoyée à l\'équipe.')
   }
 
+  // ✅ SUPPRIMER UN MATCH (Admin)
+  const supprimerMatch = async (matchId: string, matchData: any) => {
+    if (!confirm('⚠️ Supprimer ce match ?\n\nCette action est irréversible !')) return
+    
+    try {
+      await deleteDoc(doc(db, 'matchs', matchId))
+      alert('✅ Match supprimé !')
+    } catch (error: any) {
+      alert('❌ Erreur: ' + error.message)
+    }
+  }
+
   // Mettre à jour le score
   const updateScore = async () => {
     if (!scoreEdit) return
@@ -363,6 +380,13 @@ function App() {
     })
     setNouveauJoueur({ pseudo: '', role: 'Joueur', rang: '' })
     alert('✅ Joueur ajouté !')
+  }
+
+  // Supprimer un joueur (Admin)
+  const supprimerJoueur = async (playerId: string) => {
+    if (!confirm('⚠️ Supprimer ce joueur du roster ?')) return
+    await updateDoc(doc(db, 'players', playerId), { actif: false })
+    alert('✅ Joueur supprimé !')
   }
 
   // Stats
@@ -701,6 +725,34 @@ function App() {
                   <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
                 </div>
 
+                {/* ✅ SUPPRIMER DES MATCHS (Admin) */}
+                <div className="card-relief rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🗑️ Supprimer un Match</h3>
+                  {matchs.length === 0 ? (
+                    <p className="text-gray-500 text-center">Aucun match</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {matchs.map(match => (
+                        <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-bold text-[#D4AF37]">{match.adversaire}</p>
+                            <span className="text-xs text-gray-400">{match.date}</span>
+                          </div>
+                          <button 
+                            onClick={() => supprimerMatch(match.id, match)}
+                            className="w-full bg-red-900/50 border border-red-500 text-red-400 py-2 rounded-lg text-sm hover:bg-red-900 transition"
+                          >
+                            🗑️ Supprimer ce match
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 mt-3 text-center">
+                    ⚠️ La suppression mettra à jour les stats automatiquement
+                  </p>
+                </div>
+
                 <div className="card-relief rounded-xl p-6">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">👥 Ajouter un Joueur</h3>
                   <input type="text" placeholder="Pseudo" value={nouveauJoueur.pseudo}
@@ -779,17 +831,35 @@ function App() {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
             <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">{isSignUp ? '📝 Créer un compte' : '👤 Connexion'}</h3>
+            
             {isSignUp && (
               <input type="text" placeholder="Pseudo" value={pseudo}
                 onChange={(e) => setPseudo(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
             )}
+            
             <input type="email" placeholder="Email" value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+            
             <input type="password" placeholder="Mot de passe" value={authPassword}
               onChange={(e) => setAuthPassword(e.target.value)}
-              className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white" />
+              className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+            
+            {/* ✅ BOUTON "SE SOUVENIR DE MOI" */}
+            <div className="flex items-center gap-2 mb-4">
+              <input 
+                type="checkbox" 
+                id="rememberMe"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 accent-[#D4AF37]"
+              />
+              <label htmlFor="rememberMe" className="text-sm text-gray-400">
+                📝 Se souvenir de moi
+              </label>
+            </div>
+            
             {authLoading ? (
               <button disabled className="w-full bg-gray-600 text-gray-400 py-3 rounded-lg font-bold">⏳...</button>
             ) : isSignUp ? (
@@ -797,6 +867,7 @@ function App() {
             ) : (
               <button onClick={handleSignIn} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">🔐 Connexion</button>
             )}
+            
             <div className="border-t border-gray-700 pt-3">
               {isSignUp ? (
                 <button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm">Déjà un compte ? Se connecter</button>
