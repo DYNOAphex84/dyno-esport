@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 
 // Configuration Firebase
 const firebaseConfig = {
@@ -15,6 +16,7 @@ const firebaseConfig = {
 // Initialiser Firebase
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
+const auth = getAuth(app)
 
 // Types
 interface Match {
@@ -42,14 +44,31 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstall, setShowInstall] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
-  const [pseudo, setPseudo] = useState<string>(() => {
-    return localStorage.getItem('dyno-pseudo') || ''
-  })
-  const [showPseudoInput, setShowPseudoInput] = useState(false)
   const [loading, setLoading] = useState(true)
+  
+  // Authentication
+  const [user, setUser] = useState<any>(null)
+  const [pseudo, setPseudo] = useState('')
+  const [email, setEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [isSignUp, setIsSignUp] = useState(false)
+  const [authLoading, setAuthLoading] = useState(false)
 
   const [matchs, setMatchs] = useState<Match[]>([])
 
+  // Écouter l'état de connexion (persisté automatiquement)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user)
+      if (user) {
+        setPseudo(user.email.split('@')[0])
+      }
+      setLoading(false)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  // Écouter les matchs en temps réel
   useEffect(() => {
     const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -58,33 +77,15 @@ function App() {
         matchsData.push({ id: doc.id, ...doc.data() } as Match)
       })
       setMatchs(matchsData)
-      setLoading(false)
     })
     return () => unsubscribe()
   }, [])
-
-  useEffect(() => {
-    if (pseudo) {
-      localStorage.setItem('dyno-pseudo', pseudo)
-    }
-  }, [pseudo])
 
   // Détection iOS
   useEffect(() => {
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
     setIsIOS(ios)
   }, [])
-
-  const [nouveauMatch, setNouveauMatch] = useState({
-    adversaire: '',
-    date: '',
-    horaire1: '',
-    horaire2: '',
-    arene: 'Arène 1' as 'Arène 1' | 'Arène 2',
-    type: 'Ligue' as 'Ligue' | 'Scrim' | 'Tournoi'
-  })
-
-  const [scoreEdit, setScoreEdit] = useState<{id: string, scoreDyno: string, scoreAdv: string} | null>(null)
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500)
@@ -109,6 +110,7 @@ function App() {
     }
   }
 
+  // Login Admin
   const handleLogin = () => {
     if (password === 'dyno2026') {
       setIsAdmin(true)
@@ -118,6 +120,65 @@ function App() {
       alert('❌ Mot de passe incorrect !')
     }
   }
+
+  // Inscription
+  const handleSignUp = async () => {
+    if (!email || !authPassword || !pseudo) {
+      alert('⚠️ Remplis tous les champs !')
+      return
+    }
+    setAuthLoading(true)
+    try {
+      await createUserWithEmailAndPassword(auth, email, authPassword)
+      alert('✅ Compte créé ! Tu es maintenant connecté.')
+      setIsSignUp(false)
+      setEmail('')
+      setAuthPassword('')
+      setPseudo('')
+    } catch (error: any) {
+      alert('❌ Erreur : ' + error.message)
+    }
+    setAuthLoading(false)
+  }
+
+  // Connexion
+  const handleSignIn = async () => {
+    if (!email || !authPassword) {
+      alert('⚠️ Remplis tous les champs !')
+      return
+    }
+    setAuthLoading(true)
+    try {
+      await signInWithEmailAndPassword(auth, email, authPassword)
+      alert('✅ Connecté !')
+      setEmail('')
+      setAuthPassword('')
+    } catch (error: any) {
+      alert('❌ Erreur : ' + error.message)
+    }
+    setAuthLoading(false)
+  }
+
+  // Déconnexion
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth)
+      alert('✅ Déconnecté !')
+    } catch (error: any) {
+      alert('❌ Erreur : ' + error.message)
+    }
+  }
+
+  const [nouveauMatch, setNouveauMatch] = useState({
+    adversaire: '',
+    date: '',
+    horaire1: '',
+    horaire2: '',
+    arene: 'Arène 1' as 'Arène 1' | 'Arène 2',
+    type: 'Ligue' as 'Ligue' | 'Scrim' | 'Tournoi'
+  })
+
+  const [scoreEdit, setScoreEdit] = useState<{id: string, scoreDyno: string, scoreAdv: string} | null>(null)
 
   const ajouterMatch = async () => {
     if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) {
@@ -165,8 +226,8 @@ function App() {
 
   const toggleDisponibilite = async (matchId: string | undefined) => {
     if (!matchId) return
-    if (!pseudo) {
-      setShowPseudoInput(true)
+    if (!user) {
+      alert('⚠️ Tu dois être connecté pour te marquer disponible !')
       return
     }
     try {
@@ -192,6 +253,7 @@ function App() {
   const prochainsMatchs = matchs.filter(m => !m.termine)
   const historique = matchs.filter(m => m.termine)
 
+  // Splash Screen
   if (showSplash) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -230,12 +292,21 @@ function App() {
                 📱 Installer
               </button>
             )}
-            <button 
-              onClick={() => isAdmin ? setIsAdmin(false) : setShowLogin(true)}
-              className={`px-4 py-2 rounded-lg font-medium transition ${isAdmin ? 'bg-[#D4AF37] text-black' : 'border border-[#D4AF37] text-[#D4AF37]'}`}
-            >
-              {isAdmin ? '👑 Admin' : '🔐'}
-            </button>
+            {user ? (
+              <button 
+                onClick={handleSignOut}
+                className="px-4 py-2 rounded-lg font-medium border border-red-500 text-red-500"
+              >
+                👋 {pseudo}
+              </button>
+            ) : (
+              <button 
+                onClick={() => setShowLogin(true)}
+                className="px-4 py-2 rounded-lg font-medium btn-gold"
+              >
+                👤 Compte
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -309,13 +380,16 @@ function App() {
 
                     <button 
                       onClick={() => toggleDisponibilite(match.id)}
+                      disabled={!user}
                       className={`w-full py-3 rounded-lg font-bold transition ${
+                        !user ? 'bg-gray-700 text-gray-400' :
                         match.disponibles.includes(pseudo)
                           ? 'bg-[#D4AF37] text-black'
                           : 'border border-[#D4AF37] text-[#D4AF37]'
                       }`}
                     >
-                      {match.disponibles.includes(pseudo) ? '✅ Je suis disponible' : '📅 Je me marque disponible'}
+                      {!user ? '🔐 Connecte-toi pour te marquer' :
+                       match.disponibles.includes(pseudo) ? '✅ Je suis disponible' : '📅 Je me marque disponible'}
                     </button>
                   </div>
                 ))}
@@ -555,7 +629,7 @@ function App() {
         </div>
       </nav>
 
-      {/* Modal Login */}
+      {/* Modal Login Admin */}
       {showLogin && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
@@ -580,39 +654,78 @@ function App() {
         </div>
       )}
 
-      {/* Modal Pseudo */}
-      {showPseudoInput && (
+      {/* Modal Compte Joueur */}
+      {!user && showLogin === false && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
-            <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">👤 Ton Pseudo</h3>
-            <p className="text-gray-400 text-sm mb-4 text-center">Entre ton pseudo pour te marquer disponible</p>
+            <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">
+              {isSignUp ? '📝 Créer un compte' : '👤 Connexion'}
+            </h3>
+            
+            {isSignUp && (
+              <input
+                type="text"
+                placeholder="Ton pseudo"
+                value={pseudo}
+                onChange={(e) => setPseudo(e.target.value)}
+                className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"
+              />
+            )}
+            
             <input
-              type="text"
-              placeholder="Ton pseudo"
-              value={pseudo}
-              onChange={(e) => setPseudo(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && pseudo.trim()) {
-                  setShowPseudoInput(false)
-                }
-              }}
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"
+            />
+            
+            <input
+              type="password"
+              placeholder="Mot de passe"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
               className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:border-[#D4AF37]"
             />
-            <div className="flex gap-3">
-              <button onClick={() => setShowPseudoInput(false)} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">
-                Annuler
+            
+            {authLoading ? (
+              <button disabled className="w-full bg-gray-600 text-gray-400 py-3 rounded-lg font-bold">
+                ⏳ Chargement...
               </button>
-              <button 
-                onClick={() => {
-                  if (pseudo.trim()) {
-                    setShowPseudoInput(false)
-                  }
-                }} 
-                className="flex-1 btn-gold py-3 rounded-lg"
-              >
-                Valider
+            ) : isSignUp ? (
+              <button onClick={handleSignUp} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">
+                ✅ Créer un compte
               </button>
+            ) : (
+              <button onClick={handleSignIn} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">
+                🔐 Se connecter
+              </button>
+            )}
+            
+            <div className="border-t border-gray-700 pt-3">
+              {isSignUp ? (
+                <button 
+                  onClick={() => setIsSignUp(false)}
+                  className="w-full text-[#D4AF37] text-sm"
+                >
+                  Déjà un compte ? Se connecter
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setIsSignUp(true)}
+                  className="w-full text-[#D4AF37] text-sm"
+                >
+                  Pas de compte ? S'inscrire
+                </button>
+              )}
             </div>
+            
+            <button 
+              onClick={() => { setShowLogin(false); setIsSignUp(false) }}
+              className="w-full border border-gray-600 text-gray-400 py-2 rounded-lg mt-3 text-sm"
+            >
+              Fermer
+            </button>
           </div>
         </div>
       )}
