@@ -22,7 +22,16 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstall, setShowInstall] = useState(false)
 
-  const [matchs, setMatchs] = useState<Match[]>([])
+  // Charger les matchs depuis le stockage local
+const [matchs, setMatchs] = useState<Match[]>(() => {
+  const stored = localStorage.getItem('dyno-matchs')
+  return stored ? JSON.parse(stored) : []
+})
+
+// Sauvegarder dans le stockage local à chaque changement
+useEffect(() => {
+  localStorage.setItem('dyno-matchs', JSON.stringify(matchs))
+}, [matchs])
 
   const [nouveauMatch, setNouveauMatch] = useState({
     adversaire: '',
