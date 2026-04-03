@@ -31,7 +31,10 @@ const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 
 // 🎬 Lien de la chaîne YouTube DYNO
-const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=y_DRX1Hi7DeDzOej'
+const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=7uwQsFIXxZNp4kRR'
+
+// 👑 EMAIL ADMIN (ton email)
+const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com' // ⚠️ REMPLACE PAR TON EMAIL !
 
 function App() {
   const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'roster' | 'rec' | 'stats' | 'admin'>('matchs')
@@ -77,7 +80,15 @@ function App() {
   })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
 
-  // Charger le pseudo
+  // 🔐 Charger la session Admin + Vérifier si user est admin
+  useEffect(() => {
+    const savedAdmin = localStorage.getItem('dyno-admin')
+    if (savedAdmin === 'true') {
+      setIsAdmin(true)
+    }
+  }, [])
+
+  // Charger le pseudo + Vérifier si admin
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
@@ -86,6 +97,12 @@ function App() {
         if (userDoc.exists()) {
           const data = userDoc.data()
           setPseudo(data.pseudo)
+          
+          // 👑 VÉRIFIER SI C'EST L'ADMIN
+          if (user.email === ADMIN_EMAIL || data.isAdmin === true) {
+            setIsAdmin(true)
+            localStorage.setItem('dyno-admin', 'true')
+          }
         }
       }
       setLoading(false)
@@ -217,7 +234,8 @@ function App() {
         pseudo: pseudo,
         email: email,
         createdAt: Date.now(),
-        fcmToken: ''
+        fcmToken: '',
+        isAdmin: email === ADMIN_EMAIL // 👑 Admin auto si c'est ton email
       })
       await addDoc(collection(db, 'players'), {
         pseudo: pseudo,
@@ -259,17 +277,28 @@ function App() {
   const handleSignOut = async () => {
     await signOut(auth)
     setPseudo('')
+    setIsAdmin(false)
+    localStorage.removeItem('dyno-admin')
     alert('✅ Déconnecté !')
   }
 
-  // Login Admin
+  // 🔐 Login Admin (gardé pour les autres admins)
   const handleAdminLogin = () => {
     if (adminPassword === 'dyno2026') {
       setIsAdmin(true)
+      localStorage.setItem('dyno-admin', 'true')
       setAdminPassword('')
+      alert('✅ Admin connecté !')
     } else {
       alert('❌ Mot de passe incorrect !')
     }
+  }
+
+  // 🔐 Déconnexion Admin
+  const handleAdminLogout = () => {
+    setIsAdmin(false)
+    localStorage.removeItem('dyno-admin')
+    alert('✅ Admin déconnecté !')
   }
 
   // 🎮 Ajouter un match AVEC NOTIFICATION DISCORD
@@ -943,7 +972,7 @@ function App() {
                   )}
                 </div>
 
-                <button onClick={() => setIsAdmin(false)} className="w-full border border-red-500 text-red-500 py-3 rounded-lg">Déconnexion</button>
+                <button onClick={handleAdminLogout} className="w-full border border-red-500 text-red-500 py-3 rounded-lg">🚪 Déconnexion Admin</button>
               </div>
             )}
           </div>
