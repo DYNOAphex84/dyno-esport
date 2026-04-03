@@ -250,30 +250,77 @@ function App() {
   }
 
   // Ajouter un match
-  const ajouterMatch = async () => {
-    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) {
-      alert('⚠️ Remplis tous les champs !')
-      return
-    }
-    const horaires = [nouveauMatch.horaire1]
-    if (nouveauMatch.horaire2) horaires.push(nouveauMatch.horaire2)
-    
-    await addDoc(collection(db, 'matchs'), {
-      adversaire: nouveauMatch.adversaire,
-      date: nouveauMatch.date,
-      horaires: horaires,
-      arene: nouveauMatch.arene,
-      type: nouveauMatch.type,
-      vod: nouveauMatch.vod,
-      termine: false,
-      disponibles: [],
-      createdAt: Date.now()
-    })
-    
-    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', vod: '' })
-    alert('✅ Match ajouté !')
+const ajouterMatch = async () => {
+  if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) {
+    alert('⚠️ Remplis tous les champs !')
+    return
   }
-
+  const horaires = [nouveauMatch.horaire1]
+  if (nouveauMatch.horaire2) horaires.push(nouveauMatch.horaire2)
+  
+  const matchDateTime = new Date(`${nouveauMatch.date}T${nouveauMatch.horaire1}`)
+  const reminderDateTime = new Date(matchDateTime.getTime() - (reminderTime * 60 * 60 * 1000))
+  
+  await addDoc(collection(db, 'matchs'), {
+    adversaire: nouveauMatch.adversaire,
+    date: nouveauMatch.date,
+    horaires: horaires,
+    arene: nouveauMatch.arene,
+    type: nouveauMatch.type,
+    vod: nouveauMatch.vod,
+    termine: false,
+    disponibles: [],
+    createdAt: Date.now(),
+    reminderTime: reminderTime,
+    reminderSent: false,
+    matchTimestamp: matchDateTime.getTime()
+  })
+  
+  // 🎮 NOTIFICATION DISCORD
+  const webhookURL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
+  
+  const discordMessage = {
+    embeds: [{
+      title: '🎮 NOUVEAU MATCH DYNO !',
+      color: 13934871,
+      fields: [
+        { name: '⚔️ Adversaire', value: nouveauMatch.adversaire, inline: true },
+        { name: '📅 Date', value: nouveauMatch.date, inline: true },
+        { name: '⏰ Horaire', value: horaires.join(' / '), inline: true },
+        { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true },
+        { name: '🏆 Type', value: nouveauMatch.type, inline: true }
+      ],
+      footer: {
+        text: 'DYNO Esport',
+        icon_url: LOGO_URL
+      },
+      thumbnail: {
+        url: LOGO_URL
+      }
+    }]
+  }
+  
+  try {
+    await fetch(webhookURL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(discordMessage)
+    })
+    console.log('✅ Notification Discord envoyée !')
+  } catch (error) {
+    console.error('❌ Erreur Discord:', error)
+  }
+  
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('🎮 Nouveau Match DYNO !', {
+      body: `Match contre ${nouveauMatch.adversaire} le ${nouveauMatch.date}`,
+      icon: LOGO_URL
+    })
+  }
+  
+  setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', vod: '' })
+  alert('✅ Match ajouté ! Notification Discord envoyée à l\'équipe.')
+}
   // Mettre à jour le score
   const updateScore = async () => {
     if (!scoreEdit) return
