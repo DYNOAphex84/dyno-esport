@@ -49,7 +49,9 @@ function App() {
   const [joueurs, setJoueurs] = useState<any[]>([])
   const [nouveauJoueur, setNouveauJoueur] = useState({ pseudo: '', role: 'Joueur', rang: '' })
   const [notes, setNotes] = useState<any[]>([])
-  const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', joueur: '', communication: '', mental: '', performance: '', commentaire: '' })
+  const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', matchNom: '', joueur: '', communication: '', mental: '', performance: '', commentaire: '' })
+  const [showNoteForm, setShowNoteForm] = useState(false)
+  const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
 
@@ -244,7 +246,6 @@ function App() {
     if (nouveauMatch.horaire2) horaires.push(nouveauMatch.horaire2)
     await addDoc(collection(db, 'matchs'), { adversaire: nouveauMatch.adversaire, date: nouveauMatch.date, horaires, arene: nouveauMatch.arene, type: nouveauMatch.type, termine: false, disponibles: [], createdAt: Date.now() })
     
-    // 🎮 NOTIFICATION DISCORD
     const discordMessage = {
       embeds: [{
         title: '🎮 NOUVEAU MATCH DYNO !',
@@ -260,7 +261,6 @@ function App() {
     }
     try {
       await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(discordMessage) })
-      console.log('✅ Notification Discord envoyée !')
     } catch (error) {
       console.error('❌ Erreur Discord:', error)
     }
@@ -288,10 +288,26 @@ function App() {
       alert('⚠️ Tu dois être connecté !')
       return
     }
-    const note = { ...nouvelleNote, communication: parseInt(nouvelleNote.communication), mental: parseInt(nouvelleNote.mental), performance: parseInt(nouvelleNote.performance), moyenne: Math.round((parseInt(nouvelleNote.communication) + parseInt(nouvelleNote.mental) + parseInt(nouvelleNote.performance)) / 3), author: pseudo, authorId: user.uid, createdAt: Date.now() }
+    const note = { 
+      ...nouvelleNote, 
+      communication: parseInt(nouvelleNote.communication), 
+      mental: parseInt(nouvelleNote.mental), 
+      performance: parseInt(nouvelleNote.performance), 
+      moyenne: Math.round((parseInt(nouvelleNote.communication) + parseInt(nouvelleNote.mental) + parseInt(nouvelleNote.performance)) / 3), 
+      author: pseudo, 
+      authorId: user.uid, 
+      createdAt: Date.now() 
+    }
     await addDoc(collection(db, 'notes'), note)
-    setNouvelleNote({ matchId: '', joueur: '', communication: '', mental: '', performance: '', commentaire: '' })
+    setNouvelleNote({ matchId: '', matchNom: '', joueur: '', communication: '', mental: '', performance: '', commentaire: '' })
+    setShowNoteForm(false)
+    setSelectedMatchForNotes(null)
     alert('✅ Note ajoutée !')
+  }
+
+  const ouvrirFormulaireNotes = (match: any) => {
+    setSelectedMatchForNotes(match)
+    setShowNoteForm(true)
   }
 
   const supprimerMatch = async (matchId: string) => {
@@ -495,25 +511,10 @@ function App() {
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">📊 Notes Individuelles</h2>
-              <p className="text-gray-400 text-sm">Performance de chaque joueur</p>
+              <p className="text-gray-400 text-sm">Performance de chaque joueur par match</p>
             </div>
-            {user ? (
-              <div className="card-relief rounded-xl p-6 mb-6">
-                <h3 className="text-lg font-bold text-[#D4AF37] mb-4">✍️ Ajouter une Note</h3>
-                <input type="text" placeholder="Pseudo du joueur" value={nouvelleNote.joueur} onChange={(e) => setNouvelleNote({...nouvelleNote, joueur: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  <div><label className="text-xs text-gray-400">💬 Comm (0-10)</label><input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.communication} onChange={(e) => setNouvelleNote({...nouvelleNote, communication: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" /></div>
-                  <div><label className="text-xs text-gray-400">🧠 Mental (0-10)</label><input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.mental} onChange={(e) => setNouvelleNote({...nouvelleNote, mental: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" /></div>
-                  <div><label className="text-xs text-gray-400">🎯 Perf (0-10)</label><input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.performance} onChange={(e) => setNouvelleNote({...nouvelleNote, performance: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" /></div>
-                </div>
-                <input type="text" placeholder="Commentaire (optionnel)" value={nouvelleNote.commentaire} onChange={(e) => setNouvelleNote({...nouvelleNote, commentaire: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
-                <button onClick={ajouterNote} className="btn-gold w-full py-3 rounded-lg">Ajouter la note</button>
-              </div>
-            ) : (
-              <div className="card-relief rounded-xl p-6 mb-6 text-center"><p className="text-gray-400">🔐 Connecte-toi pour ajouter des notes</p></div>
-            )}
             {notes.length === 0 ? (
-              <div className="text-center py-10 text-gray-500"><p>📊 Aucune note pour le moment</p></div>
+              <div className="text-center py-10 text-gray-500"><p>📊 Aucune note pour le moment</p><p className="text-sm mt-2">Les notes sont ajoutées après les matchs dans l'onglet Admin !</p></div>
             ) : (
               <div className="space-y-4">
                 {notes.map(note => (
@@ -523,17 +524,32 @@ function App() {
                         <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-bold">{note.joueur[0]?.toUpperCase()}</div>
                         <div>
                           <p className="font-bold text-[#D4AF37]">{note.joueur}</p>
-                          <p className="text-xs text-gray-400">Moyenne: <span className="text-[#D4AF37] font-bold">{note.moyenne}/10</span> {note.author && `• par ${note.author}`}</p>
+                          <p className="text-xs text-gray-400">Match: <span className="text-[#D4AF37] font-bold">{note.matchNom || 'N/A'}</span></p>
+                          <p className="text-xs text-gray-400">par {note.author} • Moy: <span className="text-[#D4AF37] font-bold">{note.moyenne}/10</span></p>
                         </div>
                       </div>
                       {(isAdmin || user?.uid === note.authorId) && <button onClick={() => supprimerNote(note.id, note.authorId)} className="bg-red-900/50 border border-red-500 text-red-400 px-3 py-1 rounded-lg text-sm">🗑️</button>}
                     </div>
                     <div className="grid grid-cols-3 gap-2 mb-3">
-                      <div className="bg-[#0a0a0a] rounded-lg p-2 text-center border border-[#D4AF37]/20"><p className="text-xs text-gray-400">💬 Comm</p><p className="text-lg font-bold text-[#D4AF37]">{note.communication}/10</p></div>
-                      <div className="bg-[#0a0a0a] rounded-lg p-2 text-center border border-[#D4AF37]/20"><p className="text-xs text-gray-400">🧠 Mental</p><p className="text-lg font-bold text-[#D4AF37]">{note.mental}/10</p></div>
-                      <div className="bg-[#0a0a0a] rounded-lg p-2 text-center border border-[#D4AF37]/20"><p className="text-xs text-gray-400">🎯 Perf</p><p className="text-lg font-bold text-[#D4AF37]">{note.performance}/10</p></div>
+                      <div className="bg-[#0a0a0a] rounded-lg p-2 text-center border border-[#D4AF37]/20">
+                        <p className="text-xs text-gray-400">💬 Comm</p>
+                        <p className="text-lg font-bold text-[#D4AF37]">{note.communication}/10</p>
+                      </div>
+                      <div className="bg-[#0a0a0a] rounded-lg p-2 text-center border border-[#D4AF37]/20">
+                        <p className="text-xs text-gray-400">🧠 Mental</p>
+                        <p className="text-lg font-bold text-[#D4AF37]">{note.mental}/10</p>
+                      </div>
+                      <div className="bg-[#0a0a0a] rounded-lg p-2 text-center border border-[#D4AF37]/20">
+                        <p className="text-xs text-gray-400">🎯 Perf</p>
+                        <p className="text-lg font-bold text-[#D4AF37]">{note.performance}/10</p>
+                      </div>
                     </div>
-                    {note.commentaire && (<div className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20"><p className="text-xs text-gray-400 mb-1">💬 Commentaire:</p><p className="text-sm text-gray-300">{note.commentaire}</p></div>)}
+                    {note.commentaire && (
+                      <div className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
+                        <p className="text-xs text-gray-400 mb-1">💬 Commentaire:</p>
+                        <p className="text-sm text-gray-300">{note.commentaire}</p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -597,7 +613,7 @@ function App() {
                 </div>
               ))}
             </div>
-            {isAdmin && (<div className="mt-6 card-relief rounded-xl p-4 text-center"><p className="text-gray-400 text-sm">👆 Clique sur 🗑️ pour supprimer un joueur</p></div>)}
+            {isAdmin && (<div className="mt-6 card-relief rounded-xl p-4 text-center"><p className="text-gray-400 text-sm">👆 Clique sur ️ pour supprimer un joueur</p></div>)}
           </div>
         )}
 
@@ -670,6 +686,51 @@ function App() {
                   </div>
                   <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
                 </div>
+
+                <div className="card-relief rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Scores & Notes</h3>
+                  {historique.length === 0 ? (
+                    <p className="text-gray-500 text-center">Aucun match terminé</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {historique.map(match => (
+                        <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-4 border border-[#D4AF37]/20">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="font-bold text-[#D4AF37]">{match.adversaire}</p>
+                            <span className="text-xs text-gray-400">{match.date}</span>
+                          </div>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-lg font-bold text-[#D4AF37]">DYNO {match.scoreDyno}</span>
+                            <span className="text-gray-500">-</span>
+                            <span className="text-lg font-bold text-gray-400">{match.scoreAdversaire} {match.adversaire}</span>
+                          </div>
+                          <button onClick={() => ouvrirFormulaireNotes(match)} className="btn-gold w-full py-2 rounded-lg text-sm">
+                            📊 Noter les joueurs de ce match
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {showNoteForm && selectedMatchForNotes && (
+                  <div className="card-relief rounded-xl p-6 bg-[#1a1a1a]">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-[#D4AF37]">📝 Notes - {selectedMatchForNotes.adversaire}</h3>
+                      <button onClick={() => { setShowNoteForm(false); setSelectedMatchForNotes(null); }} className="text-gray-400 text-sm">✕ Fermer</button>
+                    </div>
+                    <p className="text-xs text-gray-400 mb-4">Match du {selectedMatchForNotes.date}</p>
+                    <input type="text" placeholder="Pseudo du joueur" value={nouvelleNote.joueur} onChange={(e) => setNouvelleNote({...nouvelleNote, joueur: e.target.value, matchId: selectedMatchForNotes.id, matchNom: `${selectedMatchForNotes.adversaire} (${selectedMatchForNotes.date})`})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                    <div className="grid grid-cols-3 gap-3 mb-3">
+                      <div><label className="text-xs text-gray-400">💬 Comm (0-10)</label><input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.communication} onChange={(e) => setNouvelleNote({...nouvelleNote, communication: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" /></div>
+                      <div><label className="text-xs text-gray-400">🧠 Mental (0-10)</label><input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.mental} onChange={(e) => setNouvelleNote({...nouvelleNote, mental: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" /></div>
+                      <div><label className="text-xs text-gray-400">🎯 Perf (0-10)</label><input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.performance} onChange={(e) => setNouvelleNote({...nouvelleNote, performance: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" /></div>
+                    </div>
+                    <input type="text" placeholder="Commentaire (optionnel)" value={nouvelleNote.commentaire} onChange={(e) => setNouvelleNote({...nouvelleNote, commentaire: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                    <button onClick={ajouterNote} className="btn-gold w-full py-3 rounded-lg">✅ Ajouter la note</button>
+                  </div>
+                )}
+
                 <div className="card-relief rounded-xl p-6">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Ajouter un Replay</h3>
                   <input type="text" placeholder="Titre de la vidéo" value={nouveauReplay.titre} onChange={(e) => setNouveauReplay({...nouveauReplay, titre: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
@@ -705,32 +766,6 @@ function App() {
                     <input type="text" placeholder="Rang" value={nouveauJoueur.rang} onChange={(e) => setNouveauJoueur({...nouveauJoueur, rang: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
                   </div>
                   <button onClick={ajouterJoueur} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
-                </div>
-                <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Scores</h3>
-                  {prochainsMatchs.length === 0 ? (<p className="text-gray-500 text-center">Aucun match</p>) : (
-                    <div className="space-y-3">
-                      {prochainsMatchs.map(match => (
-                        <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
-                          <p className="font-bold text-[#D4AF37] mb-2">{match.adversaire}</p>
-                          {scoreEdit?.id === match.id ? (
-                            <div>
-                              <div className="grid grid-cols-2 gap-2 mb-2">
-                                <input type="number" placeholder="DYNO" value={scoreEdit.scoreDyno} onChange={(e) => setScoreEdit({...scoreEdit, scoreDyno: e.target.value})} className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-3 py-2 text-white text-center" />
-                                <input type="number" placeholder="Adv" value={scoreEdit.scoreAdv} onChange={(e) => setScoreEdit({...scoreEdit, scoreAdv: e.target.value})} className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-3 py-2 text-white text-center" />
-                              </div>
-                              <div className="flex gap-2">
-                                <button onClick={updateScore} className="btn-gold flex-1 py-2 rounded text-sm">Valider</button>
-                                <button onClick={() => setScoreEdit(null)} className="border border-gray-600 flex-1 py-2 rounded text-sm text-gray-400">Annuler</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button onClick={() => setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})} className="btn-gold w-full py-2 rounded text-sm">Mettre le score</button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 <button onClick={handleAdminLogout} className="w-full border border-red-500 text-red-500 py-3 rounded-lg">🚪 Déconnexion Admin</button>
               </div>
