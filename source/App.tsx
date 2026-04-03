@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
 
 // Configuration Firebase
 const firebaseConfig = {
@@ -47,10 +47,8 @@ function App() {
   const [showPseudoInput, setShowPseudoInput] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // État des matchs (synchronisé avec Firebase)
   const [matchs, setMatchs] = useState<Match[]>([])
 
-  // Écouter les changements en temps réel depuis Firebase
   useEffect(() => {
     const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -64,7 +62,6 @@ function App() {
     return () => unsubscribe()
   }, [])
 
-  // Sauvegarder le pseudo localement
   useEffect(() => {
     if (pseudo) {
       localStorage.setItem('dyno-pseudo', pseudo)
@@ -82,13 +79,11 @@ function App() {
 
   const [scoreEdit, setScoreEdit] = useState<{id: string, scoreDyno: string, scoreAdv: string} | null>(null)
 
-  // Splash screen
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500)
     return () => clearTimeout(timer)
   }, [])
 
-  // PWA install prompt
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault()
@@ -107,7 +102,6 @@ function App() {
     }
   }
 
-  // Login admin
   const handleLogin = () => {
     if (password === 'dyno2026') {
       setIsAdmin(true)
@@ -118,7 +112,6 @@ function App() {
     }
   }
 
-  // Ajouter un match (Firebase)
   const ajouterMatch = async () => {
     if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) {
       alert('⚠️ Remplis tous les champs !')
@@ -147,9 +140,8 @@ function App() {
     }
   }
 
-  // Mettre à jour le score (Firebase)
   const updateScore = async () => {
-    if (!scoreEdit || !scoreEdit.id) return
+    if (!scoreEdit) return
     try {
       const matchRef = doc(db, 'matchs', scoreEdit.id)
       await updateDoc(matchRef, {
@@ -164,7 +156,6 @@ function App() {
     }
   }
 
-  // Toggle disponibilité (Firebase)
   const toggleDisponibilite = async (matchId: string | undefined) => {
     if (!matchId) return
     if (!pseudo) {
@@ -187,7 +178,6 @@ function App() {
     }
   }
 
-  // Stats
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter(m => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const nuls = matchs.filter(m => m.termine && (m.scoreDyno || 0) === (m.scoreAdversaire || 0)).length
@@ -195,7 +185,6 @@ function App() {
   const prochainsMatchs = matchs.filter(m => !m.termine)
   const historique = matchs.filter(m => m.termine)
 
-  // Splash Screen
   if (showSplash) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -478,21 +467,21 @@ function App() {
                       {prochainsMatchs.map(match => (
                         <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
                           <p className="font-bold text-[#D4AF37] mb-2">{match.adversaire}</p>
-                          {scoreEdit?.id === match.id ? (
+                          {scoreEdit && scoreEdit.id === match.id ? (
                             <div>
                               <div className="grid grid-cols-2 gap-2 mb-2">
                                 <input
                                   type="number"
                                   placeholder="Score DYNO"
                                   value={scoreEdit.scoreDyno}
-                                  onChange={(e) => setScoreEdit({...scoreEdit, scoreDyno: e.target.value})}
+                                  onChange={(e) => setScoreEdit({id: scoreEdit.id, scoreDyno: e.target.value, scoreAdv: scoreEdit.scoreAdv})}
                                   className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-3 py-2 text-white text-center"
                                 />
                                 <input
                                   type="number"
                                   placeholder="Score Adv"
                                   value={scoreEdit.scoreAdv}
-                                  onChange={(e) => setScoreEdit({...scoreEdit, scoreAdv: e.target.value})}
+                                  onChange={(e) => setScoreEdit({id: scoreEdit.id, scoreDyno: scoreEdit.scoreDyno, scoreAdv: e.target.value})}
                                   className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-3 py-2 text-white text-center"
                                 />
                               </div>
@@ -503,7 +492,7 @@ function App() {
                             </div>
                           ) : (
                             <button 
-                              onClick={() => setScoreEdit({id: match.id!, scoreDyno: '', scoreAdv: ''})}
+                              onClick={() => match.id && setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})}
                               className="btn-gold w-full py-2 rounded text-sm"
                             >
                               Mettre le score
