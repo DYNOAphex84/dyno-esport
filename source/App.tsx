@@ -1,7 +1,24 @@
 import { useState, useEffect } from 'react'
+import { initializeApp } from 'firebase/app'
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
 
+// Configuration Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDXwItLM0OZ0VmHj-DLZcH8OBy7wXiHBsM",
+  authDomain: "dyno-esport.firebaseapp.com",
+  projectId: "dyno-esport",
+  storageBucket: "dyno-esport.firebasestorage.app",
+  messagingSenderId: "808658404731",
+  appId: "1:808658404731:web:f3cf29142d3038816f29de"
+}
+
+// Initialiser Firebase
+const app = initializeApp(firebaseConfig)
+const db = getFirestore(app)
+
+// Types
 interface Match {
-  id: number
+  id?: string
   adversaire: string
   date: string
   horaires: string[]
@@ -11,6 +28,7 @@ interface Match {
   scoreAdversaire?: number
   termine: boolean
   disponibles: string[]
+  createdAt?: number
 }
 
 const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
@@ -27,16 +45,26 @@ function App() {
     return localStorage.getItem('dyno-pseudo') || ''
   })
   const [showPseudoInput, setShowPseudoInput] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const [matchs, setMatchs] = useState<Match[]>(() => {
-    const stored = localStorage.getItem('dyno-matchs')
-    return stored ? JSON.parse(stored) : []
-  })
+  // État des matchs (synchronisé avec Firebase)
+  const [matchs, setMatchs] = useState<Match[]>([])
 
+  // Écouter les changements en temps réel depuis Firebase
   useEffect(() => {
-    localStorage.setItem('dyno-matchs', JSON.stringify(matchs))
-  }, [matchs])
+    const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc'))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const matchsData: Match[] = []
+      snapshot.forEach((doc) => {
+        matchsData.push({ id: doc.id, ...doc.data() } as Match)
+      })
+      setMatchs(matchsData)
+      setLoading(false)
+    })
+    return () => unsubscribe()
+  }, [])
 
+  // Sauvegarder le pseudo localement
   useEffect(() => {
     if (pseudo) {
       localStorage.setItem('dyno-pseudo', pseudo)
@@ -52,13 +80,15 @@ function App() {
     type: 'Ligue' as 'Ligue' | 'Scrim' | 'Tournoi'
   })
 
-  const [scoreEdit, setScoreEdit] = useState<{id: number, scoreDyno: string, scoreAdv: string} | null>(null)
+  const [scoreEdit, setScoreEdit] = useState<{id: string, scoreDyno: string, scoreAdv: string} | null>(null)
 
+  // Splash screen
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500)
     return () => clearTimeout(timer)
   }, [])
 
+  // PWA install prompt
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault()
@@ -77,6 +107,7 @@ function App() {
     }
   }
 
+  // Login admin
   const handleLogin = () => {
     if (password === 'dyno2026') {
       setIsAdmin(true)
@@ -87,7 +118,8 @@ function App() {
     }
   }
 
-  const ajouterMatch = () => {
+  // Ajouter un match (Firebase)
+  const ajouterMatch = async () => {
     if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) {
       alert('⚠️ Remplis tous les champs !')
       return
@@ -97,50 +129,65 @@ function App() {
       horaires.push(nouveauMatch.horaire2)
     }
     const match: Match = {
-      id: Date.now(),
       adversaire: nouveauMatch.adversaire,
       date: nouveauMatch.date,
       horaires: horaires,
       arene: nouveauMatch.arene,
       type: nouveauMatch.type,
       termine: false,
-      disponibles: []
+      disponibles: [],
+      createdAt: Date.now()
     }
-    setMatchs([match, ...matchs])
-    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
-    alert('✅ Match ajouté !')
+    try {
+      await addDoc(collection(db, 'matchs'), match)
+      setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
+      alert('✅ Match ajouté !')
+    } catch (error) {
+      alert('❌ Erreur lors de l\'ajout : ' + error)
+    }
   }
 
-  const updateScore = () => {
-    if (!scoreEdit) return
-    setMatchs(matchs.map(m => 
-      m.id === scoreEdit.id 
-        ? { ...m, scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true }
-        : m
-    ))
-    setScoreEdit(null)
-    alert('✅ Score mis à jour !')
+  // Mettre à jour le score (Firebase)
+  const updateScore = async () => {
+    if (!scoreEdit || !scoreEdit.id) return
+    try {
+      const matchRef = doc(db, 'matchs', scoreEdit.id)
+      await updateDoc(matchRef, {
+        scoreDyno: parseInt(scoreEdit.scoreDyno),
+        scoreAdversaire: parseInt(scoreEdit.scoreAdv),
+        termine: true
+      })
+      setScoreEdit(null)
+      alert('✅ Score mis à jour !')
+    } catch (error) {
+      alert('❌ Erreur lors de la mise à jour : ' + error)
+    }
   }
 
-  const toggleDisponibilite = (matchId: number) => {
+  // Toggle disponibilité (Firebase)
+  const toggleDisponibilite = async (matchId: string | undefined) => {
+    if (!matchId) return
     if (!pseudo) {
       setShowPseudoInput(true)
       return
     }
-    setMatchs(matchs.map(m => {
-      if (m.id === matchId) {
-        const estDispo = m.disponibles.includes(pseudo)
-        return {
-          ...m,
-          disponibles: estDispo 
-            ? m.disponibles.filter(p => p !== pseudo)
-            : [...m.disponibles, pseudo]
-        }
-      }
-      return m
-    }))
+    try {
+      const matchRef = doc(db, 'matchs', matchId)
+      const match = matchs.find(m => m.id === matchId)
+      if (!match) return
+      const estDispo = match.disponibles.includes(pseudo)
+      const nouveauxDisponibles = estDispo 
+        ? match.disponibles.filter(p => p !== pseudo)
+        : [...match.disponibles, pseudo]
+      await updateDoc(matchRef, {
+        disponibles: nouveauxDisponibles
+      })
+    } catch (error) {
+      alert('❌ Erreur : ' + error)
+    }
   }
 
+  // Stats
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter(m => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const nuls = matchs.filter(m => m.termine && (m.scoreDyno || 0) === (m.scoreAdversaire || 0)).length
@@ -148,6 +195,7 @@ function App() {
   const prochainsMatchs = matchs.filter(m => !m.termine)
   const historique = matchs.filter(m => m.termine)
 
+  // Splash Screen
   if (showSplash) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -200,7 +248,11 @@ function App() {
               <p className="text-gray-400 text-sm">Restez prêts pour la victoire</p>
             </div>
 
-            {prochainsMatchs.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-10 text-[#D4AF37]">
+                <p>⏳ Chargement des matchs...</p>
+              </div>
+            ) : prochainsMatchs.length === 0 ? (
               <div className="text-center py-10 text-gray-500">
                 <p>📭 Aucun match prévu pour le moment</p>
                 <p className="text-sm mt-2">Ajoute un match via l'onglet Admin</p>
@@ -290,7 +342,11 @@ function App() {
               </div>
             </div>
 
-            {historique.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-10 text-[#D4AF37]">
+                <p>⏳ Chargement de l'historique...</p>
+              </div>
+            ) : historique.length === 0 ? (
               <div className="text-center py-10 text-gray-500">
                 <p>📜 Aucun match joué pour le moment</p>
                 <p className="text-sm mt-2">Les résultats apparaîtront ici</p>
@@ -447,7 +503,7 @@ function App() {
                             </div>
                           ) : (
                             <button 
-                              onClick={() => setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})}
+                              onClick={() => setScoreEdit({id: match.id!, scoreDyno: '', scoreAdv: ''})}
                               className="btn-gold w-full py-2 rounded text-sm"
                             >
                               Mettre le score
