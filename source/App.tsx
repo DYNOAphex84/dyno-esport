@@ -31,7 +31,7 @@ const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 
 // 🎬 Lien de la chaîne YouTube DYNO
-const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=7uwQsFIXxZNp4kRR'
+const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 
 // 👑 EMAIL ADMIN (ton email)
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com' // ⚠️ REMPLACE PAR TON EMAIL !
