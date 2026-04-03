@@ -334,6 +334,18 @@ function App() {
     }
   }
 
+  // ✅ SUPPRIMER UN JOUEUR (Admin)
+  const supprimerJoueur = async (playerId: string, playerPseudo: string) => {
+    if (!confirm(`⚠️ Supprimer "${playerPseudo}" du roster ?\n\nCette action est irréversible !`)) return
+    
+    try {
+      await deleteDoc(doc(db, 'players', playerId))
+      alert('✅ Joueur supprimé !')
+    } catch (error: any) {
+      alert('❌ Erreur: ' + error.message)
+    }
+  }
+
   // Mettre à jour le score
   const updateScore = async () => {
     if (!scoreEdit) return
@@ -579,10 +591,29 @@ function App() {
                       <p className="font-bold text-[#D4AF37]">{joueur.pseudo}</p>
                       <p className="text-sm text-gray-400">🎮 {joueur.role} {joueur.rang && `• ${joueur.rang}`}</p>
                     </div>
+                    {/* ✅ BOUTON SUPPRIMER (Admin seulement) */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => supprimerJoueur(joueur.id, joueur.pseudo)}
+                        className="bg-red-900/50 border border-red-500 text-red-400 px-3 py-2 rounded-lg text-sm hover:bg-red-900 transition"
+                        title="Supprimer ce joueur"
+                      >
+                        🗑️
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Info pour admin */}
+            {isAdmin && (
+              <div className="mt-6 card-relief rounded-xl p-4 text-center">
+                <p className="text-gray-400 text-sm">
+                  👆 Clique sur 🗑️ pour supprimer un joueur
+                </p>
+              </div>
+            )}
           </div>
         )}
 
