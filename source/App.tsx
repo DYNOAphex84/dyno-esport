@@ -61,7 +61,7 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user)
       if (user) {
-        setPseudo(user.email.split('@')[0])
+        setPseudo(user.email?.split('@')[0] || user.uid)
       }
       setLoading(false)
     })
@@ -655,7 +655,7 @@ function App() {
       )}
 
       {/* Modal Compte Joueur */}
-      {!user && showLogin === false && (
+      {!user && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
             <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">
