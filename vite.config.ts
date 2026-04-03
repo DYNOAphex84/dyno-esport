@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   base: '/dyno-esport/',
   root: 'source',
+  publicDir: '../public',
   build: {
     outDir: '../dist',
     sourcemap: false
