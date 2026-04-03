@@ -14,6 +14,7 @@ const firebaseConfig = {
 }
 
 const VAPID_KEY = 'BIhsEPrWBagYPmnPjpiR3tlKZB0ehBMqkgMnoZUFv1jkNXb6DrkiFT7UOyBETE83ba_tGueF1uV0KNIz0mMXepk'
+const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
@@ -22,7 +23,6 @@ const auth = getAuth(app)
 setPersistence(auth, browserLocalPersistence)
 
 const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
-const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
@@ -243,6 +243,28 @@ function App() {
     const horaires = [nouveauMatch.horaire1]
     if (nouveauMatch.horaire2) horaires.push(nouveauMatch.horaire2)
     await addDoc(collection(db, 'matchs'), { adversaire: nouveauMatch.adversaire, date: nouveauMatch.date, horaires, arene: nouveauMatch.arene, type: nouveauMatch.type, termine: false, disponibles: [], createdAt: Date.now() })
+    
+    // 🎮 NOTIFICATION DISCORD
+    const discordMessage = {
+      embeds: [{
+        title: '🎮 NOUVEAU MATCH DYNO !',
+        color: 13934871,
+        fields: [
+          { name: '⚔️ Adversaire', value: nouveauMatch.adversaire, inline: true },
+          { name: '📅 Date', value: nouveauMatch.date, inline: true },
+          { name: '⏰ Horaire', value: horaires.join(' / '), inline: true },
+          { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true }
+        ],
+        footer: { text: 'DYNO Esport', icon_url: LOGO_URL }
+      }]
+    }
+    try {
+      await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(discordMessage) })
+      console.log('✅ Notification Discord envoyée !')
+    } catch (error) {
+      console.error('❌ Erreur Discord:', error)
+    }
+    
     setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
     alert('✅ Match ajouté !')
   }
