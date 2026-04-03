@@ -31,7 +31,7 @@ const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 
 // 🎬 Lien de la chaîne YouTube DYNO
-const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=gyqnT3v-xZY3cwd1'
+const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=y_DRX1Hi7DeDzOej'
 
 function App() {
   const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'roster' | 'rec' | 'stats' | 'admin'>('matchs')
@@ -58,9 +58,9 @@ function App() {
   // Matchs
   const [matchs, setMatchs] = useState<any[]>([])
 
-  // Replays (Rec)
+  // Replays (Rec) - SIMPLIFIÉ : juste titre et lien
   const [replays, setReplays] = useState<any[]>([])
-  const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '', adversaire: '' })
+  const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
 
   // Roster
   const [joueurs, setJoueurs] = useState<any[]>([])
@@ -340,7 +340,7 @@ function App() {
     alert('✅ Match ajouté ! Notification Discord envoyée à l\'équipe.')
   }
 
-  // 🎬 Ajouter un Replay (Admin)
+  // 🎬 Ajouter un Replay (Admin) - SIMPLIFIÉ
   const ajouterReplay = async () => {
     if (!nouveauReplay.titre || !nouveauReplay.lien) {
       alert('⚠️ Remplis le titre et le lien YouTube !')
@@ -350,11 +350,10 @@ function App() {
     await addDoc(collection(db, 'replays'), {
       titre: nouveauReplay.titre,
       lien: nouveauReplay.lien,
-      adversaire: nouveauReplay.adversaire || 'N/A',
       createdAt: Date.now()
     })
     
-    setNouveauReplay({ titre: '', lien: '', adversaire: '' })
+    setNouveauReplay({ titre: '', lien: '' })
     alert('✅ Replay ajouté !')
   }
 
@@ -613,7 +612,7 @@ function App() {
           </div>
         )}
 
-        {/* 🎬 Onglet REC (Replays) */}
+        {/* 🎬 Onglet REC (Replays) - SIMPLIFIÉ */}
         {activeTab === 'rec' && (
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
@@ -652,7 +651,6 @@ function App() {
                           </button>
                         )}
                       </div>
-                      <p className="text-gray-400 text-sm mb-3">VS: {replay.adversaire}</p>
                       {videoId ? (
                         <div className="relative w-full pb-[56.25%] rounded-lg overflow-hidden bg-gray-900">
                           <iframe
@@ -718,7 +716,7 @@ function App() {
             {isAdmin && (
               <div className="mt-6 card-relief rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm">
-                  👆 Clique sur 🗑️ pour supprimer un joueur
+                  👆 Clique sur ️ pour supprimer un joueur
                 </p>
               </div>
             )}
@@ -853,14 +851,11 @@ function App() {
                   <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
                 </div>
 
-                {/* 🎬 Ajouter un Replay */}
+                {/* 🎬 Ajouter un Replay - SIMPLIFIÉ */}
                 <div className="card-relief rounded-xl p-6">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Ajouter un Replay</h3>
                   <input type="text" placeholder="Titre de la vidéo" value={nouveauReplay.titre}
                     onChange={(e) => setNouveauReplay({...nouveauReplay, titre: e.target.value})}
-                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
-                  <input type="text" placeholder="Adversaire" value={nouveauReplay.adversaire}
-                    onChange={(e) => setNouveauReplay({...nouveauReplay, adversaire: e.target.value})}
                     className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
                   <input type="text" placeholder="Lien YouTube (ex: https://youtu.be/...)" value={nouveauReplay.lien}
                     onChange={(e) => setNouveauReplay({...nouveauReplay, lien: e.target.value})}
