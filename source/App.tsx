@@ -136,24 +136,40 @@ function App() {
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
-      alert('❌ Notifications non supportées')
+      alert('❌ Notifications non supportées sur cet appareil')
       return
     }
+    
+    // Vérifier si c'est iOS
+    if (isIOS) {
+      alert('📱 iPhone :\n\n1. Ajoute l\'app à l\'écran d\'accueil\n2. iOS 16.4+ requis\n3. Réouvre l\'app depuis l\'écran d\'accueil\n\nSinon, utilise Discord pour les rappels !')
+      return
+    }
+    
     const permission = await Notification.requestPermission()
     setNotificationPermission(permission)
     
     if (permission === 'granted' && user) {
       try {
+        // Enregistrer le service worker
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+          console.log('SW registered:', registration)
+        }
+        
         const messaging = getMessaging(app)
         const token = await getToken(messaging, { vapidKey: VAPID_KEY })
+        
         if (token) {
           await updateDoc(doc(db, 'users', user.uid), { fcmToken: token })
-          alert('✅ Notifications activées !')
+          alert('✅ Notifications activées !\n\nTu recevras des rappels avant les matchs.')
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Erreur FCM:', error)
-        alert('⚠️ Erreur lors de l\'activation')
+        alert('⚠️ Erreur: ' + error.message + '\n\nVérifie que firebase-messaging-sw.js existe dans le dossier public/')
       }
+    } else if (permission === 'denied') {
+      alert('❌ Notifications refusées. Tu peux les réactiver dans les paramètres du navigateur.')
     }
   }
 
@@ -557,15 +573,27 @@ function App() {
               </div>
             </div>
 
-            {notificationPermission !== 'granted' && (
-              <div className="card-relief rounded-xl p-6">
-                <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🔔 Notifications</h3>
-                <p className="text-gray-400 text-sm mb-4">Reçois des rappels avant les matchs</p>
-                <button onClick={requestNotificationPermission} className="btn-gold w-full py-3 rounded-lg font-bold">
-                  Activer les notifications
-                </button>
-              </div>
-            )}
+            <div className="card-relief rounded-xl p-6">
+              <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🔔 Notifications</h3>
+              {notificationPermission === 'granted' ? (
+                <div className="text-center">
+                  <p className="text-green-400 mb-4">✅ Notifications activées !</p>
+                  <p className="text-gray-400 text-sm">Tu recevras des rappels avant les matchs.</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-gray-400 text-sm mb-4">Reçois des rappels avant les matchs</p>
+                  <button onClick={requestNotificationPermission} className="btn-gold w-full py-3 rounded-lg font-bold">
+                    {isIOS ? '📱 iPhone : Voir instructions' : '🔔 Activer les notifications'}
+                  </button>
+                  {isIOS && (
+                    <p className="text-gray-500 text-xs mt-3 text-center">
+                      iOS nécessite iOS 16.4+ et l'app installée sur l'écran d'accueil
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
