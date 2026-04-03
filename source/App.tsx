@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import import { useState, useEffect } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth'
@@ -37,7 +37,7 @@ const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com' // ⚠️ REMPLACE PAR TON EMAIL !
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'roster' | 'rec' | 'stats' | 'admin'>('matchs')
+  const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'notes' | 'rec' | 'roster' | 'stats' | 'admin'>('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
   const [showSplash, setShowSplash] = useState(true)
@@ -68,6 +68,17 @@ function App() {
   // Roster
   const [joueurs, setJoueurs] = useState<any[]>([])
   const [nouveauJoueur, setNouveauJoueur] = useState({ pseudo: '', role: 'Joueur', rang: '' })
+
+  // Notes individuelles
+  const [notes, setNotes] = useState<any[]>([])
+  const [nouvelleNote, setNouvelleNote] = useState({
+    matchId: '',
+    joueur: '',
+    communication: '',
+    mental: '',
+    performance: '',
+    commentaire: ''
+  })
 
   // Admin forms
   const [nouveauMatch, setNouveauMatch] = useState({
@@ -145,6 +156,19 @@ function App() {
         joueursData.push({ id: doc.id, ...doc.data() })
       })
       setJoueurs(joueursData)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  // Charger les notes
+  useEffect(() => {
+    const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc'))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notesData: any[] = []
+      snapshot.forEach((doc) => {
+        notesData.push({ id: doc.id, ...doc.data() })
+      })
+      setNotes(notesData)
     })
     return () => unsubscribe()
   }, [])
@@ -235,7 +259,7 @@ function App() {
         email: email,
         createdAt: Date.now(),
         fcmToken: '',
-        isAdmin: email === ADMIN_EMAIL // 👑 Admin auto si c'est ton email
+        isAdmin: email === ADMIN_EMAIL
       })
       await addDoc(collection(db, 'players'), {
         pseudo: pseudo,
@@ -386,6 +410,44 @@ function App() {
     alert('✅ Replay ajouté !')
   }
 
+  // 📊 Ajouter une Note Individuelle (OUVERT À TOUS LES JOUEURS)
+  const ajouterNote = async () => {
+    if (!nouvelleNote.joueur || !nouvelleNote.communication || !nouvelleNote.mental || !nouvelleNote.performance) {
+      alert('⚠️ Remplis au moins le joueur et les 3 notes !')
+      return
+    }
+    
+    if (!user) {
+      alert('⚠️ Tu dois être connecté pour ajouter une note !')
+      return
+    }
+    
+    const note = {
+      matchId: nouvelleNote.matchId,
+      joueur: nouvelleNote.joueur,
+      communication: parseInt(nouvelleNote.communication),
+      mental: parseInt(nouvelleNote.mental),
+      performance: parseInt(nouvelleNote.performance),
+      commentaire: nouvelleNote.commentaire || '',
+      moyenne: Math.round((parseInt(nouvelleNote.communication) + parseInt(nouvelleNote.mental) + parseInt(nouvelleNote.performance)) / 3),
+      author: pseudo, // Qui a mis la note
+      authorId: user.uid,
+      createdAt: Date.now()
+    }
+    
+    await addDoc(collection(db, 'notes'), note)
+    
+    setNouvelleNote({
+      matchId: '',
+      joueur: '',
+      communication: '',
+      mental: '',
+      performance: '',
+      commentaire: ''
+    })
+    alert('✅ Note ajoutée !')
+  }
+
   // ✅ SUPPRIMER UN MATCH (Admin)
   const supprimerMatch = async (matchId: string) => {
     if (!confirm('⚠️ Supprimer ce match ?\n\nCette action est irréversible !')) return
@@ -405,6 +467,24 @@ function App() {
     try {
       await deleteDoc(doc(db, 'replays', replayId))
       alert('✅ Replay supprimé !')
+    } catch (error: any) {
+      alert('❌ Erreur: ' + error.message)
+    }
+  }
+
+  // ✅ SUPPRIMER UNE NOTE (Admin ou author)
+  const supprimerNote = async (noteId: string, noteAuthorId: string) => {
+    if (!confirm('⚠️ Supprimer cette note ?')) return
+    
+    // Vérifier si c'est l'admin ou l'auteur de la note
+    if (!isAdmin && user?.uid !== noteAuthorId) {
+      alert('❌ Tu ne peux supprimer que tes propres notes !')
+      return
+    }
+    
+    try {
+      await deleteDoc(doc(db, 'notes', noteId))
+      alert('✅ Note supprimée !')
     } catch (error: any) {
       alert('❌ Erreur: ' + error.message)
     }
@@ -636,6 +716,114 @@ function App() {
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 📊 Onglet NOTES INDIVIDUELLES - OUVERT À TOUS */}
+        {activeTab === 'notes' && (
+          <div>
+            <div className="card-relief rounded-2xl p-6 mb-6 text-center">
+              <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">📊 Notes Individuelles</h2>
+              <p className="text-gray-400 text-sm">Performance de chaque joueur</p>
+            </div>
+
+            {/* Formulaire pour ajouter une note - OUVERT À TOUS */}
+            {user ? (
+              <div className="card-relief rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-bold text-[#D4AF37] mb-4">✍️ Ajouter une Note</h3>
+                <input type="text" placeholder="Pseudo du joueur" value={nouvelleNote.joueur}
+                  onChange={(e) => setNouvelleNote({...nouvelleNote, joueur: e.target.value})}
+                  className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <label className="text-xs text-gray-400">💬 Comm (0-10)</label>
+                    <input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.communication}
+                      onChange={(e) => setNouvelleNote({...nouvelleNote, communication: e.target.value})}
+                      className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400">🧠 Mental (0-10)</label>
+                    <input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.mental}
+                      onChange={(e) => setNouvelleNote({...nouvelleNote, mental: e.target.value})}
+                      className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400">🎯 Perf (0-10)</label>
+                    <input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.performance}
+                      onChange={(e) => setNouvelleNote({...nouvelleNote, performance: e.target.value})}
+                      className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
+                  </div>
+                </div>
+                <input type="text" placeholder="Commentaire (optionnel)" value={nouvelleNote.commentaire}
+                  onChange={(e) => setNouvelleNote({...nouvelleNote, commentaire: e.target.value})}
+                  className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                <button onClick={ajouterNote} className="btn-gold w-full py-3 rounded-lg">Ajouter la note</button>
+              </div>
+            ) : (
+              <div className="card-relief rounded-xl p-6 mb-6 text-center">
+                <p className="text-gray-400">🔐 Connecte-toi pour ajouter des notes</p>
+              </div>
+            )}
+
+            {/* Liste des notes */}
+            {notes.length === 0 ? (
+              <div className="text-center py-10 text-gray-500">
+                <p>📊 Aucune note pour le moment</p>
+                <p className="text-sm mt-2">Soyez les premiers à noter vos performances !</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {notes.map(note => (
+                  <div key={note.id} className="card-relief rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-bold">
+                          {note.joueur[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-[#D4AF37]">{note.joueur}</p>
+                          <p className="text-xs text-gray-400">
+                            Moyenne: <span className="text-[#D4AF37] font-bold">{note.moyenne}/10</span>
+                            {note.author && ` • par ${note.author}`}
+                          </p>
+                        </div>
+                      </div>
+                      {(isAdmin || user?.uid === note.authorId) && (
+                        <button
+                          onClick={() => supprimerNote(note.id, note.authorId)}
+                          className="bg-red-900/50 border border-red-500 text-red-400 px-3 py-1 rounded-lg text-sm"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="bg-[#0a0a0a] rounded-lg p-2 text-center border border-[#D4AF37]/20">
+                        <p className="text-xs text-gray-400">💬 Comm</p>
+                        <p className="text-lg font-bold text-[#D4AF37]">{note.communication}/10</p>
+                      </div>
+                      <div className="bg-[#0a0a0a] rounded-lg p-2 text-center border border-[#D4AF37]/20">
+                        <p className="text-xs text-gray-400">🧠 Mental</p>
+                        <p className="text-lg font-bold text-[#D4AF37]">{note.mental}/10</p>
+                      </div>
+                      <div className="bg-[#0a0a0a] rounded-lg p-2 text-center border border-[#D4AF37]/20">
+                        <p className="text-xs text-gray-400">🎯 Perf</p>
+                        <p className="text-lg font-bold text-[#D4AF37]">{note.performance}/10</p>
+                      </div>
+                    </div>
+                    
+                    {note.commentaire && (
+                      <div className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
+                        <p className="text-xs text-gray-400 mb-1">💬 Commentaire:</p>
+                        <p className="text-sm text-gray-300">{note.commentaire}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -984,6 +1172,7 @@ function App() {
         <div className="max-w-lg mx-auto flex">
           <button onClick={() => setActiveTab('matchs')} className={`flex-1 py-4 text-center ${activeTab === 'matchs' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📅 Matchs</button>
           <button onClick={() => setActiveTab('historique')} className={`flex-1 py-4 text-center ${activeTab === 'historique' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📜 Historique</button>
+          <button onClick={() => setActiveTab('notes')} className={`flex-1 py-4 text-center ${activeTab === 'notes' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📊 Notes</button>
           <button onClick={() => setActiveTab('rec')} className={`flex-1 py-4 text-center ${activeTab === 'rec' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🎬 Rec</button>
           <button onClick={() => setActiveTab('roster')} className={`flex-1 py-4 text-center ${activeTab === 'roster' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>👥 Roster</button>
           <button onClick={() => setActiveTab('stats')} className={`flex-1 py-4 text-center ${activeTab === 'stats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📊 Stats</button>
