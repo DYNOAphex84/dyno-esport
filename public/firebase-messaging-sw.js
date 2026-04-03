@@ -13,10 +13,11 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const notificationTitle = payload.notification.title;
+  const notificationTitle = payload.notification?.title || 'DYNO Esport';
   const notificationOptions = {
-    body: payload.notification.body,
-    icon: 'https://i.imgur.com/DyKOdtX.png'
+    body: payload.notification?.body || 'Nouveau message',
+    icon: 'https://i.imgur.com/DyKOdtX.png',
+    badge: 'https://i.imgur.com/DyKOdtX.png'
   };
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
