@@ -4,8 +4,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/dyno-esport/',
+  root: 'source',
   build: {
-    outDir: 'dist',
+    outDir: '../dist',
     sourcemap: false
   }
 })
