@@ -8,6 +8,7 @@ export default defineConfig({
   publicDir: '../public',
   build: {
     outDir: '../dist',
-    sourcemap: false
+    sourcemap: false,
+    emptyOutDir: true
   }
 })
