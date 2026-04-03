@@ -4,11 +4,13 @@ interface Match {
   id: number
   adversaire: string
   date: string
-  heure: string
+  horaires: string[]
+  arene: 'Arène 1' | 'Arène 2'
   type: 'Ligue' | 'Scrim' | 'Tournoi'
   scoreDyno?: number
   scoreAdversaire?: number
   termine: boolean
+  disponibles: string[]
 }
 
 const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
@@ -21,22 +23,32 @@ function App() {
   const [showSplash, setShowSplash] = useState(true)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstall, setShowInstall] = useState(false)
+  const [pseudo, setPseudo] = useState<string>(() => {
+    return localStorage.getItem('dyno-pseudo') || ''
+  })
+  const [showPseudoInput, setShowPseudoInput] = useState(false)
 
-  // Charger les matchs depuis le stockage local
-const [matchs, setMatchs] = useState<Match[]>(() => {
-  const stored = localStorage.getItem('dyno-matchs')
-  return stored ? JSON.parse(stored) : []
-})
+  const [matchs, setMatchs] = useState<Match[]>(() => {
+    const stored = localStorage.getItem('dyno-matchs')
+    return stored ? JSON.parse(stored) : []
+  })
 
-// Sauvegarder dans le stockage local à chaque changement
-useEffect(() => {
-  localStorage.setItem('dyno-matchs', JSON.stringify(matchs))
-}, [matchs])
+  useEffect(() => {
+    localStorage.setItem('dyno-matchs', JSON.stringify(matchs))
+  }, [matchs])
+
+  useEffect(() => {
+    if (pseudo) {
+      localStorage.setItem('dyno-pseudo', pseudo)
+    }
+  }, [pseudo])
 
   const [nouveauMatch, setNouveauMatch] = useState({
     adversaire: '',
     date: '',
-    heure: '',
+    horaire1: '',
+    horaire2: '',
+    arene: 'Arène 1' as 'Arène 1' | 'Arène 2',
     type: 'Ligue' as 'Ligue' | 'Scrim' | 'Tournoi'
   })
 
@@ -76,17 +88,26 @@ useEffect(() => {
   }
 
   const ajouterMatch = () => {
-    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.heure) {
+    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) {
       alert('⚠️ Remplis tous les champs !')
       return
     }
+    const horaires = [nouveauMatch.horaire1]
+    if (nouveauMatch.horaire2) {
+      horaires.push(nouveauMatch.horaire2)
+    }
     const match: Match = {
       id: Date.now(),
-      ...nouveauMatch,
-      termine: false
+      adversaire: nouveauMatch.adversaire,
+      date: nouveauMatch.date,
+      horaires: horaires,
+      arene: nouveauMatch.arene,
+      type: nouveauMatch.type,
+      termine: false,
+      disponibles: []
     }
     setMatchs([match, ...matchs])
-    setNouveauMatch({ adversaire: '', date: '', heure: '', type: 'Ligue' })
+    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
     alert('✅ Match ajouté !')
   }
 
@@ -99,6 +120,25 @@ useEffect(() => {
     ))
     setScoreEdit(null)
     alert('✅ Score mis à jour !')
+  }
+
+  const toggleDisponibilite = (matchId: number) => {
+    if (!pseudo) {
+      setShowPseudoInput(true)
+      return
+    }
+    setMatchs(matchs.map(m => {
+      if (m.id === matchId) {
+        const estDispo = m.disponibles.includes(pseudo)
+        return {
+          ...m,
+          disponibles: estDispo 
+            ? m.disponibles.filter(p => p !== pseudo)
+            : [...m.disponibles, pseudo]
+        }
+      }
+      return m
+    }))
   }
 
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
@@ -179,14 +219,48 @@ useEffect(() => {
                       </span>
                       <span className="text-[#D4AF37] font-bold">{match.date}</span>
                     </div>
-                    <div className="flex items-center gap-4">
+                    
+                    <div className="flex items-center gap-4 mb-3">
                       <img src={LOGO_URL} alt="DYNO" className="w-12 h-12" />
                       <span className="text-xs text-gray-500">VS</span>
                       <div className="flex-1 text-right">
                         <p className="font-bold text-lg">{match.adversaire}</p>
-                        <p className="text-sm text-gray-400">⏰ {match.heure}</p>
+                        <p className="text-sm text-[#D4AF37]">🏟️ {match.arene}</p>
                       </div>
                     </div>
+
+                    <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
+                      <p className="text-xs text-gray-400 mb-1">⏰ Horaires</p>
+                      <p className="text-[#D4AF37] font-bold">
+                        {match.horaires.join(' / ')}
+                      </p>
+                    </div>
+
+                    <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
+                      <p className="text-xs text-gray-400 mb-2">👥 Disponibles ({match.disponibles.length})</p>
+                      {match.disponibles.length === 0 ? (
+                        <p className="text-gray-500 text-sm">Aucun joueur disponible</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {match.disponibles.map((p, i) => (
+                            <span key={i} className="bg-[#D4AF37]/20 text-[#D4AF37] px-2 py-1 rounded text-xs font-bold">
+                              {p}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <button 
+                      onClick={() => toggleDisponibilite(match.id)}
+                      className={`w-full py-3 rounded-lg font-bold transition ${
+                        match.disponibles.includes(pseudo)
+                          ? 'bg-[#D4AF37] text-black'
+                          : 'border border-[#D4AF37] text-[#D4AF37]'
+                      }`}
+                    >
+                      {match.disponibles.includes(pseudo) ? '✅ Je suis disponible' : '📅 Je me marque disponible'}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -293,29 +367,47 @@ useEffect(() => {
                     onChange={(e) => setNouveauMatch({...nouveauMatch, adversaire: e.target.value})}
                     className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"
                   />
+                  <input
+                    type="date"
+                    value={nouveauMatch.date}
+                    onChange={(e) => setNouveauMatch({...nouveauMatch, date: e.target.value})}
+                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                  />
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <input
-                      type="date"
-                      value={nouveauMatch.date}
-                      onChange={(e) => setNouveauMatch({...nouveauMatch, date: e.target.value})}
+                      type="time"
+                      placeholder="1er horaire"
+                      value={nouveauMatch.horaire1}
+                      onChange={(e) => setNouveauMatch({...nouveauMatch, horaire1: e.target.value})}
                       className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]"
                     />
                     <input
                       type="time"
-                      value={nouveauMatch.heure}
-                      onChange={(e) => setNouveauMatch({...nouveauMatch, heure: e.target.value})}
+                      placeholder="2ème horaire (option)"
+                      value={nouveauMatch.horaire2}
+                      onChange={(e) => setNouveauMatch({...nouveauMatch, horaire2: e.target.value})}
                       className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
-                  <select
-                    value={nouveauMatch.type}
-                    onChange={(e) => setNouveauMatch({...nouveauMatch, type: e.target.value as any})}
-                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:border-[#D4AF37]"
-                  >
-                    <option value="Ligue">Ligue</option>
-                    <option value="Scrim">Scrim</option>
-                    <option value="Tournoi">Tournoi</option>
-                  </select>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <select
+                      value={nouveauMatch.arene}
+                      onChange={(e) => setNouveauMatch({...nouveauMatch, arene: e.target.value as any})}
+                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                    >
+                      <option value="Arène 1">Arène 1</option>
+                      <option value="Arène 2">Arène 2</option>
+                    </select>
+                    <select
+                      value={nouveauMatch.type}
+                      onChange={(e) => setNouveauMatch({...nouveauMatch, type: e.target.value as any})}
+                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                    >
+                      <option value="Ligue">Ligue</option>
+                      <option value="Scrim">Scrim</option>
+                      <option value="Tournoi">Tournoi</option>
+                    </select>
+                  </div>
                   <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">
                     Ajouter le match
                   </button>
@@ -422,6 +514,43 @@ useEffect(() => {
               </button>
               <button onClick={handleLogin} className="flex-1 btn-gold py-3 rounded-lg">
                 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pseudo */}
+      {showPseudoInput && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
+            <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">👤 Ton Pseudo</h3>
+            <p className="text-gray-400 text-sm mb-4 text-center">Entre ton pseudo pour te marquer disponible</p>
+            <input
+              type="text"
+              placeholder="Ton pseudo"
+              value={pseudo}
+              onChange={(e) => setPseudo(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && pseudo.trim()) {
+                  setShowPseudoInput(false)
+                }
+              }}
+              className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:border-[#D4AF37]"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setShowPseudoInput(false)} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">
+                Annuler
+              </button>
+              <button 
+                onClick={() => {
+                  if (pseudo.trim()) {
+                    setShowPseudoInput(false)
+                  }
+                }} 
+                className="flex-1 btn-gold py-3 rounded-lg"
+              >
+                Valider
               </button>
             </div>
           </div>
