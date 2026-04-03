@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 
 // Configuration Firebase
@@ -18,28 +18,12 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 const auth = getAuth(app)
 
-// Types
-interface Match {
-  id?: string
-  adversaire: string
-  date: string
-  horaires: string[]
-  arene: 'Arène 1' | 'Arène 2'
-  type: 'Ligue' | 'Scrim' | 'Tournoi'
-  scoreDyno?: number
-  scoreAdversaire?: number
-  termine: boolean
-  disponibles: string[]
-  createdAt?: number
-}
-
 const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
 
 function App() {
   const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'admin'>('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
-  const [showLogin, setShowLogin] = useState(false)
-  const [password, setPassword] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
   const [showSplash, setShowSplash] = useState(true)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstall, setShowInstall] = useState(false)
@@ -54,27 +38,47 @@ function App() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
 
-  const [matchs, setMatchs] = useState<Match[]>([])
+  // Matchs
+  const [matchs, setMatchs] = useState<any[]>([])
 
-  // Écouter l'état de connexion (persisté automatiquement)
+  // Admin match form
+  const [nouveauMatch, setNouveauMatch] = useState({
+    adversaire: '',
+    date: '',
+    horaire1: '',
+    horaire2: '',
+    arene: 'Arène 1',
+    type: 'Ligue'
+  })
+
+  // Score edit
+  const [scoreEdit, setScoreEdit] = useState<any>(null)
+
+  // Charger le pseudo depuis Firebase quand on se connecte
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
       if (user) {
-        setPseudo(user.email?.split('@')[0] || user.uid)
+        // Récupérer le pseudo depuis Firestore
+        const userDoc = await getDoc(doc(db, 'users', user.uid))
+        if (userDoc.exists()) {
+          setPseudo(userDoc.data().pseudo)
+        } else {
+          setPseudo(user.email?.split('@')[0] || 'Joueur')
+        }
       }
       setLoading(false)
     })
     return () => unsubscribe()
   }, [])
 
-  // Écouter les matchs en temps réel
+  // Charger les matchs en temps réel
   useEffect(() => {
     const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const matchsData: Match[] = []
+      const matchsData: any[] = []
       snapshot.forEach((doc) => {
-        matchsData.push({ id: doc.id, ...doc.data() } as Match)
+        matchsData.push({ id: doc.id, ...doc.data() })
       })
       setMatchs(matchsData)
     })
@@ -83,17 +87,19 @@ function App() {
 
   // Détection iOS
   useEffect(() => {
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent)
     setIsIOS(ios)
   }, [])
 
+  // Splash screen
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2500)
+    const timer = setTimeout(() => setShowSplash(false), 2000)
     return () => clearTimeout(timer)
   }, [])
 
+  // PWA install
   useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
+    window.addEventListener('beforeinstallprompt', (e: any) => {
       e.preventDefault()
       setDeferredPrompt(e)
       setShowInstall(true)
@@ -103,25 +109,12 @@ function App() {
   const handleInstall = () => {
     if (deferredPrompt) {
       deferredPrompt.prompt()
-      deferredPrompt.userChoice.then(() => {
-        setShowInstall(false)
-        setDeferredPrompt(null)
-      })
+      setDeferredPrompt(null)
+      setShowInstall(false)
     }
   }
 
-  // Login Admin
-  const handleLogin = () => {
-    if (password === 'dyno2026') {
-      setIsAdmin(true)
-      setShowLogin(false)
-      setPassword('')
-    } else {
-      alert('❌ Mot de passe incorrect !')
-    }
-  }
-
-  // Inscription
+  // Créer un compte
   const handleSignUp = async () => {
     if (!email || !authPassword || !pseudo) {
       alert('⚠️ Remplis tous les champs !')
@@ -129,19 +122,25 @@ function App() {
     }
     setAuthLoading(true)
     try {
-      await createUserWithEmailAndPassword(auth, email, authPassword)
-      alert('✅ Compte créé ! Tu es maintenant connecté.')
+      const result = await createUserWithEmailAndPassword(auth, email, authPassword)
+      // Sauvegarder le pseudo dans Firestore
+      await setDoc(doc(db, 'users', result.user.uid), {
+        pseudo: pseudo,
+        email: email,
+        createdAt: Date.now()
+      })
+      alert('✅ Compte créé !')
       setIsSignUp(false)
       setEmail('')
       setAuthPassword('')
       setPseudo('')
     } catch (error: any) {
-      alert('❌ Erreur : ' + error.message)
+      alert('❌ ' + error.message)
     }
     setAuthLoading(false)
   }
 
-  // Connexion
+  // Se connecter
   const handleSignIn = async () => {
     if (!email || !authPassword) {
       alert('⚠️ Remplis tous les champs !')
@@ -154,42 +153,38 @@ function App() {
       setEmail('')
       setAuthPassword('')
     } catch (error: any) {
-      alert('❌ Erreur : ' + error.message)
+      alert('❌ ' + error.message)
     }
     setAuthLoading(false)
   }
 
-  // Déconnexion
+  // Se déconnecter
   const handleSignOut = async () => {
-    try {
-      await signOut(auth)
-      alert('✅ Déconnecté !')
-    } catch (error: any) {
-      alert('❌ Erreur : ' + error.message)
+    await signOut(auth)
+    setPseudo('')
+    alert('✅ Déconnecté !')
+  }
+
+  // Login Admin
+  const handleAdminLogin = () => {
+    if (adminPassword === 'dyno2026') {
+      setIsAdmin(true)
+      setAdminPassword('')
+    } else {
+      alert('❌ Mot de passe incorrect !')
     }
   }
 
-  const [nouveauMatch, setNouveauMatch] = useState({
-    adversaire: '',
-    date: '',
-    horaire1: '',
-    horaire2: '',
-    arene: 'Arène 1' as 'Arène 1' | 'Arène 2',
-    type: 'Ligue' as 'Ligue' | 'Scrim' | 'Tournoi'
-  })
-
-  const [scoreEdit, setScoreEdit] = useState<{id: string, scoreDyno: string, scoreAdv: string} | null>(null)
-
+  // Ajouter un match
   const ajouterMatch = async () => {
     if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) {
       alert('⚠️ Remplis tous les champs !')
       return
     }
     const horaires = [nouveauMatch.horaire1]
-    if (nouveauMatch.horaire2) {
-      horaires.push(nouveauMatch.horaire2)
-    }
-    const match: Match = {
+    if (nouveauMatch.horaire2) horaires.push(nouveauMatch.horaire2)
+    
+    await addDoc(collection(db, 'matchs'), {
       adversaire: nouveauMatch.adversaire,
       date: nouveauMatch.date,
       horaires: horaires,
@@ -198,58 +193,47 @@ function App() {
       termine: false,
       disponibles: [],
       createdAt: Date.now()
-    }
-    try {
-      await addDoc(collection(db, 'matchs'), match)
-      setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
-      alert('✅ Match ajouté !')
-    } catch (error) {
-      alert('❌ Erreur lors de l\'ajout : ' + error)
-    }
+    })
+    
+    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
+    alert('✅ Match ajouté !')
   }
 
+  // Mettre à jour le score
   const updateScore = async () => {
     if (!scoreEdit) return
-    try {
-      const matchRef = doc(db, 'matchs', scoreEdit.id)
-      await updateDoc(matchRef, {
-        scoreDyno: parseInt(scoreEdit.scoreDyno),
-        scoreAdversaire: parseInt(scoreEdit.scoreAdv),
-        termine: true
-      })
-      setScoreEdit(null)
-      alert('✅ Score mis à jour !')
-    } catch (error) {
-      alert('❌ Erreur lors de la mise à jour : ' + error)
-    }
+    await updateDoc(doc(db, 'matchs', scoreEdit.id), {
+      scoreDyno: parseInt(scoreEdit.scoreDyno),
+      scoreAdversaire: parseInt(scoreEdit.scoreAdv),
+      termine: true
+    })
+    setScoreEdit(null)
+    alert('✅ Score mis à jour !')
   }
 
-  const toggleDisponibilite = async (matchId: string | undefined) => {
-    if (!matchId) return
+  // Toggle disponibilité
+  const toggleDisponibilite = async (matchId: string) => {
     if (!user) {
-      alert('⚠️ Tu dois être connecté pour te marquer disponible !')
+      alert('⚠️ Connecte-toi pour te marquer disponible !')
       return
     }
-    try {
-      const matchRef = doc(db, 'matchs', matchId)
-      const match = matchs.find(m => m.id === matchId)
-      if (!match) return
-      const estDispo = match.disponibles.includes(pseudo)
-      const nouveauxDisponibles = estDispo 
-        ? match.disponibles.filter(p => p !== pseudo)
-        : [...match.disponibles, pseudo]
-      await updateDoc(matchRef, {
-        disponibles: nouveauxDisponibles
-      })
-    } catch (error) {
-      alert('❌ Erreur : ' + error)
-    }
+    const match = matchs.find(m => m.id === matchId)
+    if (!match) return
+    
+    const estDispo = match.disponibles.includes(pseudo)
+    const nouveauxDisponibles = estDispo 
+      ? match.disponibles.filter((p: string) => p !== pseudo)
+      : [...match.disponibles, pseudo]
+    
+    await updateDoc(doc(db, 'matchs', matchId), {
+      disponibles: nouveauxDisponibles
+    })
   }
 
+  // Stats
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter(m => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const nuls = matchs.filter(m => m.termine && (m.scoreDyno || 0) === (m.scoreAdversaire || 0)).length
-
   const prochainsMatchs = matchs.filter(m => !m.termine)
   const historique = matchs.filter(m => m.termine)
 
@@ -258,7 +242,7 @@ function App() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-center">
-          <img src={LOGO_URL} alt="DYNO Logo" className="w-56 h-56 mx-auto animate-pulse-gold" />
+          <img src={LOGO_URL} alt="DYNO" className="w-56 h-56 mx-auto animate-pulse-gold" />
           <h1 className="text-4xl font-bold text-[#D4AF37] mt-6 animate-glow">DYNO</h1>
           <p className="text-gray-400 mt-2">Esport Team</p>
         </div>
@@ -286,24 +270,18 @@ function App() {
             )}
             {isIOS && (
               <button 
-                onClick={() => alert('📱 Pour installer sur iPhone :\n\n1. Appuie sur le bouton Partager (carré avec flèche vers le haut)\n2. Choisis "Sur l\'écran d\'accueil"\n3. Confirme l\'ajout')} 
+                onClick={() => alert('📱 iPhone : Bouton Partager → "Sur l\'écran d\'accueil"')} 
                 className="btn-gold px-3 py-1.5 rounded-lg text-sm"
               >
                 📱 Installer
               </button>
             )}
             {user ? (
-              <button 
-                onClick={handleSignOut}
-                className="px-4 py-2 rounded-lg font-medium border border-red-500 text-red-500"
-              >
+              <button onClick={handleSignOut} className="px-4 py-2 rounded-lg font-medium border border-red-500 text-red-500">
                 👋 {pseudo}
               </button>
             ) : (
-              <button 
-                onClick={() => setShowLogin(true)}
-                className="px-4 py-2 rounded-lg font-medium btn-gold"
-              >
+              <button onClick={() => setIsSignUp(false)} className="px-4 py-2 rounded-lg font-medium btn-gold">
                 👤 Compte
               </button>
             )}
@@ -311,7 +289,7 @@ function App() {
         </div>
       </header>
 
-      {/* Contenu principal */}
+      {/* Contenu */}
       <main className="max-w-lg mx-auto px-4 py-6">
         
         {/* Onglet Matchs */}
@@ -324,13 +302,10 @@ function App() {
             </div>
 
             {loading ? (
-              <div className="text-center py-10 text-[#D4AF37]">
-                <p>⏳ Chargement des matchs...</p>
-              </div>
+              <div className="text-center py-10 text-[#D4AF37]">⏳ Chargement...</div>
             ) : prochainsMatchs.length === 0 ? (
               <div className="text-center py-10 text-gray-500">
-                <p>📭 Aucun match prévu pour le moment</p>
-                <p className="text-sm mt-2">Ajoute un match via l'onglet Admin</p>
+                <p>📭 Aucun match prévu</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -349,27 +324,25 @@ function App() {
                     
                     <div className="flex items-center gap-4 mb-3">
                       <img src={LOGO_URL} alt="DYNO" className="w-12 h-12" />
-                      <span className="text-xs text-gray-500">VS</span>
+                      <span className="text-gray-500">VS</span>
                       <div className="flex-1 text-right">
-                        <p className="font-bold text-lg">{match.adversaire}</p>
+                        <p className="font-bold">{match.adversaire}</p>
                         <p className="text-sm text-[#D4AF37]">🏟️ {match.arene}</p>
                       </div>
                     </div>
 
                     <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
-                      <p className="text-xs text-gray-400 mb-1">⏰ Horaires</p>
-                      <p className="text-[#D4AF37] font-bold">
-                        {match.horaires.join(' / ')}
-                      </p>
+                      <p className="text-xs text-gray-400">⏰ Horaires</p>
+                      <p className="text-[#D4AF37] font-bold">{match.horaires.join(' / ')}</p>
                     </div>
 
                     <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
-                      <p className="text-xs text-gray-400 mb-2">👥 Disponibles ({match.disponibles.length})</p>
+                      <p className="text-xs text-gray-400">👥 Disponibles ({match.disponibles.length})</p>
                       {match.disponibles.length === 0 ? (
-                        <p className="text-gray-500 text-sm">Aucun joueur disponible</p>
+                        <p className="text-gray-500 text-sm">Aucun joueur</p>
                       ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {match.disponibles.map((p, i) => (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {match.disponibles.map((p: string, i: number) => (
                             <span key={i} className="bg-[#D4AF37]/20 text-[#D4AF37] px-2 py-1 rounded text-xs font-bold">
                               {p}
                             </span>
@@ -381,14 +354,14 @@ function App() {
                     <button 
                       onClick={() => toggleDisponibilite(match.id)}
                       disabled={!user}
-                      className={`w-full py-3 rounded-lg font-bold transition ${
+                      className={`w-full py-3 rounded-lg font-bold ${
                         !user ? 'bg-gray-700 text-gray-400' :
                         match.disponibles.includes(pseudo)
                           ? 'bg-[#D4AF37] text-black'
                           : 'border border-[#D4AF37] text-[#D4AF37]'
                       }`}
                     >
-                      {!user ? '🔐 Connecte-toi pour te marquer' :
+                      {!user ? '🔐 Connecte-toi' :
                        match.disponibles.includes(pseudo) ? '✅ Je suis disponible' : '📅 Je me marque disponible'}
                     </button>
                   </div>
@@ -420,14 +393,9 @@ function App() {
               </div>
             </div>
 
-            {loading ? (
-              <div className="text-center py-10 text-[#D4AF37]">
-                <p>⏳ Chargement de l'historique...</p>
-              </div>
-            ) : historique.length === 0 ? (
+            {historique.length === 0 ? (
               <div className="text-center py-10 text-gray-500">
-                <p>📜 Aucun match joué pour le moment</p>
-                <p className="text-sm mt-2">Les résultats apparaîtront ici</p>
+                <p>📜 Aucun match joué</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -478,15 +446,15 @@ function App() {
 
             {!isAdmin ? (
               <div className="card-relief rounded-xl p-6">
-                <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🔐 Connexion Admin</h3>
+                <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🔐 Admin</h3>
                 <input
                   type="password"
                   placeholder="Mot de passe"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:border-[#D4AF37]"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white"
                 />
-                <button onClick={handleLogin} className="btn-gold w-full py-3 rounded-lg">
+                <button onClick={handleAdminLogin} className="btn-gold w-full py-3 rounded-lg">
                   Se connecter
                 </button>
               </div>
@@ -496,46 +464,46 @@ function App() {
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">➕ Ajouter un Match</h3>
                   <input
                     type="text"
-                    placeholder="Nom de l'adversaire"
+                    placeholder="Adversaire"
                     value={nouveauMatch.adversaire}
                     onChange={(e) => setNouveauMatch({...nouveauMatch, adversaire: e.target.value})}
-                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white"
                   />
                   <input
                     type="date"
                     value={nouveauMatch.date}
                     onChange={(e) => setNouveauMatch({...nouveauMatch, date: e.target.value})}
-                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white"
                   />
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <input
                       type="time"
-                      placeholder="1er horaire"
+                      placeholder="Horaire 1"
                       value={nouveauMatch.horaire1}
                       onChange={(e) => setNouveauMatch({...nouveauMatch, horaire1: e.target.value})}
-                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white"
                     />
                     <input
                       type="time"
-                      placeholder="2ème horaire (option)"
+                      placeholder="Horaire 2"
                       value={nouveauMatch.horaire2}
                       onChange={(e) => setNouveauMatch({...nouveauMatch, horaire2: e.target.value})}
-                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <select
                       value={nouveauMatch.arene}
-                      onChange={(e) => setNouveauMatch({...nouveauMatch, arene: e.target.value as any})}
-                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                      onChange={(e) => setNouveauMatch({...nouveauMatch, arene: e.target.value})}
+                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white"
                     >
                       <option value="Arène 1">Arène 1</option>
                       <option value="Arène 2">Arène 2</option>
                     </select>
                     <select
                       value={nouveauMatch.type}
-                      onChange={(e) => setNouveauMatch({...nouveauMatch, type: e.target.value as any})}
-                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                      onChange={(e) => setNouveauMatch({...nouveauMatch, type: e.target.value})}
+                      className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white"
                     >
                       <option value="Ligue">Ligue</option>
                       <option value="Scrim">Scrim</option>
@@ -543,34 +511,28 @@ function App() {
                     </select>
                   </div>
                   <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">
-                    Ajouter le match
+                    Ajouter
                   </button>
                 </div>
 
                 <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Mettre à jour un Score</h3>
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Scores</h3>
                   {prochainsMatchs.length === 0 ? (
-                    <p className="text-gray-500 text-center">Aucun match en cours</p>
+                    <p className="text-gray-500 text-center">Aucun match</p>
                   ) : (
                     <div className="space-y-3">
                       {prochainsMatchs.map(match => (
                         <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
                           <p className="font-bold text-[#D4AF37] mb-2">{match.adversaire}</p>
-                          {scoreEdit && scoreEdit.id === match.id ? (
+                          {scoreEdit?.id === match.id ? (
                             <div>
                               <div className="grid grid-cols-2 gap-2 mb-2">
-                                <input
-                                  type="number"
-                                  placeholder="Score DYNO"
-                                  value={scoreEdit.scoreDyno}
-                                  onChange={(e) => setScoreEdit({id: scoreEdit.id, scoreDyno: e.target.value, scoreAdv: scoreEdit.scoreAdv})}
+                                <input type="number" placeholder="DYNO" value={scoreEdit.scoreDyno}
+                                  onChange={(e) => setScoreEdit({...scoreEdit, scoreDyno: e.target.value})}
                                   className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-3 py-2 text-white text-center"
                                 />
-                                <input
-                                  type="number"
-                                  placeholder="Score Adv"
-                                  value={scoreEdit.scoreAdv}
-                                  onChange={(e) => setScoreEdit({id: scoreEdit.id, scoreDyno: scoreEdit.scoreDyno, scoreAdv: e.target.value})}
+                                <input type="number" placeholder="Adv" value={scoreEdit.scoreAdv}
+                                  onChange={(e) => setScoreEdit({...scoreEdit, scoreAdv: e.target.value})}
                                   className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-3 py-2 text-white text-center"
                                 />
                               </div>
@@ -580,10 +542,8 @@ function App() {
                               </div>
                             </div>
                           ) : (
-                            <button 
-                              onClick={() => match.id && setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})}
-                              className="btn-gold w-full py-2 rounded text-sm"
-                            >
+                            <button onClick={() => setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})}
+                              className="btn-gold w-full py-2 rounded text-sm">
                               Mettre le score
                             </button>
                           )}
@@ -593,10 +553,7 @@ function App() {
                   )}
                 </div>
 
-                <button 
-                  onClick={() => setIsAdmin(false)}
-                  className="w-full border border-red-500 text-red-500 py-3 rounded-lg"
-                >
+                <button onClick={() => setIsAdmin(false)} className="w-full border border-red-500 text-red-500 py-3 rounded-lg">
                   Déconnexion
                 </button>
               </div>
@@ -605,56 +562,22 @@ function App() {
         )}
       </main>
 
-      {/* Navigation du bas */}
+      {/* Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[#D4AF37]/30">
         <div className="max-w-lg mx-auto flex">
-          <button 
-            onClick={() => setActiveTab('matchs')}
-            className={`flex-1 py-4 text-center transition ${activeTab === 'matchs' ? 'text-[#D4AF37]' : 'text-gray-500'}`}
-          >
+          <button onClick={() => setActiveTab('matchs')} className={`flex-1 py-4 text-center ${activeTab === 'matchs' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>
             📅 Matchs
           </button>
-          <button 
-            onClick={() => setActiveTab('historique')}
-            className={`flex-1 py-4 text-center transition ${activeTab === 'historique' ? 'text-[#D4AF37]' : 'text-gray-500'}`}
-          >
+          <button onClick={() => setActiveTab('historique')} className={`flex-1 py-4 text-center ${activeTab === 'historique' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>
             📜 Historique
           </button>
-          <button 
-            onClick={() => setActiveTab('admin')}
-            className={`flex-1 py-4 text-center transition ${activeTab === 'admin' ? 'text-[#D4AF37]' : 'text-gray-500'}`}
-          >
+          <button onClick={() => setActiveTab('admin')} className={`flex-1 py-4 text-center ${activeTab === 'admin' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>
             ⚙️ Admin
           </button>
         </div>
       </nav>
 
-      {/* Modal Login Admin */}
-      {showLogin && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
-            <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">🔐 Admin</h3>
-            <input
-              type="password"
-              placeholder="Mot de passe"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-              className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:border-[#D4AF37]"
-            />
-            <div className="flex gap-3">
-              <button onClick={() => { setShowLogin(false); setPassword('') }} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">
-                Annuler
-              </button>
-              <button onClick={handleLogin} className="flex-1 btn-gold py-3 rounded-lg">
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Compte Joueur */}
+      {/* Modal Compte */}
       {!user && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
@@ -665,10 +588,10 @@ function App() {
             {isSignUp && (
               <input
                 type="text"
-                placeholder="Ton pseudo"
+                placeholder="Pseudo"
                 value={pseudo}
                 onChange={(e) => setPseudo(e.target.value)}
-                className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"
+                className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white"
               />
             )}
             
@@ -677,7 +600,7 @@ function App() {
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"
+              className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white"
             />
             
             <input
@@ -685,47 +608,34 @@ function App() {
               placeholder="Mot de passe"
               value={authPassword}
               onChange={(e) => setAuthPassword(e.target.value)}
-              className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:border-[#D4AF37]"
+              className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white"
             />
             
             {authLoading ? (
               <button disabled className="w-full bg-gray-600 text-gray-400 py-3 rounded-lg font-bold">
-                ⏳ Chargement...
+                ⏳...
               </button>
             ) : isSignUp ? (
               <button onClick={handleSignUp} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">
-                ✅ Créer un compte
+                ✅ Créer
               </button>
             ) : (
               <button onClick={handleSignIn} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">
-                🔐 Se connecter
+                🔐 Connexion
               </button>
             )}
             
             <div className="border-t border-gray-700 pt-3">
               {isSignUp ? (
-                <button 
-                  onClick={() => setIsSignUp(false)}
-                  className="w-full text-[#D4AF37] text-sm"
-                >
+                <button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm">
                   Déjà un compte ? Se connecter
                 </button>
               ) : (
-                <button 
-                  onClick={() => setIsSignUp(true)}
-                  className="w-full text-[#D4AF37] text-sm"
-                >
+                <button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm">
                   Pas de compte ? S'inscrire
                 </button>
               )}
             </div>
-            
-            <button 
-              onClick={() => { setShowLogin(false); setIsSignUp(false) }}
-              className="w-full border border-gray-600 text-gray-400 py-2 rounded-lg mt-3 text-sm"
-            >
-              Fermer
-            </button>
           </div>
         </div>
       )}
