@@ -30,8 +30,11 @@ const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
 // URL Webhook Discord
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 
+// 🎬 Lien de la chaîne YouTube DYNO
+const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=gyqnT3v-xZY3cwd1'
+
 function App() {
-  const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'roster' | 'stats' | 'admin'>('matchs')
+  const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'roster' | 'rec' | 'stats' | 'admin'>('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
   const [showSplash, setShowSplash] = useState(true)
@@ -55,6 +58,10 @@ function App() {
   // Matchs
   const [matchs, setMatchs] = useState<any[]>([])
 
+  // Replays (Rec)
+  const [replays, setReplays] = useState<any[]>([])
+  const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '', adversaire: '' })
+
   // Roster
   const [joueurs, setJoueurs] = useState<any[]>([])
   const [nouveauJoueur, setNouveauJoueur] = useState({ pseudo: '', role: 'Joueur', rang: '' })
@@ -66,8 +73,7 @@ function App() {
     horaire1: '',
     horaire2: '',
     arene: 'Arène 1',
-    type: 'Ligue',
-    vod: ''
+    type: 'Ligue'
   })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
 
@@ -96,6 +102,19 @@ function App() {
         matchsData.push({ id: doc.id, ...doc.data() })
       })
       setMatchs(matchsData)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  // Charger les replays
+  useEffect(() => {
+    const q = query(collection(db, 'replays'), orderBy('createdAt', 'desc'))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const replaysData: any[] = []
+      snapshot.forEach((doc) => {
+        replaysData.push({ id: doc.id, ...doc.data() })
+      })
+      setReplays(replaysData)
     })
     return () => unsubscribe()
   }, [])
@@ -270,7 +289,6 @@ function App() {
       horaires: horaires,
       arene: nouveauMatch.arene,
       type: nouveauMatch.type,
-      vod: nouveauMatch.vod,
       termine: false,
       disponibles: [],
       createdAt: Date.now(),
@@ -318,8 +336,26 @@ function App() {
       })
     }
     
-    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', vod: '' })
+    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
     alert('✅ Match ajouté ! Notification Discord envoyée à l\'équipe.')
+  }
+
+  // 🎬 Ajouter un Replay (Admin)
+  const ajouterReplay = async () => {
+    if (!nouveauReplay.titre || !nouveauReplay.lien) {
+      alert('⚠️ Remplis le titre et le lien YouTube !')
+      return
+    }
+    
+    await addDoc(collection(db, 'replays'), {
+      titre: nouveauReplay.titre,
+      lien: nouveauReplay.lien,
+      adversaire: nouveauReplay.adversaire || 'N/A',
+      createdAt: Date.now()
+    })
+    
+    setNouveauReplay({ titre: '', lien: '', adversaire: '' })
+    alert('✅ Replay ajouté !')
   }
 
   // ✅ SUPPRIMER UN MATCH (Admin)
@@ -329,6 +365,18 @@ function App() {
     try {
       await deleteDoc(doc(db, 'matchs', matchId))
       alert('✅ Match supprimé !')
+    } catch (error: any) {
+      alert('❌ Erreur: ' + error.message)
+    }
+  }
+
+  // ✅ SUPPRIMER UN REPLAY (Admin)
+  const supprimerReplay = async (replayId: string) => {
+    if (!confirm('⚠️ Supprimer ce replay ?')) return
+    
+    try {
+      await deleteDoc(doc(db, 'replays', replayId))
+      alert('✅ Replay supprimé !')
     } catch (error: any) {
       alert('❌ Erreur: ' + error.message)
     }
@@ -401,6 +449,12 @@ function App() {
   const winRate = totalMatchs > 0 ? Math.round((victoires / totalMatchs) * 100) : 0
   const prochainsMatchs = matchs.filter(m => !m.termine)
   const historique = matchs.filter(m => m.termine)
+
+  // Extraire l'ID de la vidéo YouTube depuis le lien
+  const getYouTubeId = (url: string) => {
+    const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
+    return match ? match[1] : null
+  }
 
   // Splash Screen
   if (showSplash) {
@@ -486,13 +540,6 @@ function App() {
                       <p className="text-[#D4AF37] font-bold">{match.horaires.join(' / ')}</p>
                     </div>
 
-                    {match.vod && (
-                      <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
-                        <p className="text-xs text-gray-400">📹 VOD / Replay</p>
-                        <a href={match.vod} target="_blank" rel="noopener noreferrer" className="text-[#D4AF37] font-bold underline">Voir la vidéo →</a>
-                      </div>
-                    )}
-
                     <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
                       <p className="text-xs text-gray-400">👥 Disponibles ({match.disponibles.length})</p>
                       {match.disponibles.length === 0 ? (
@@ -558,10 +605,74 @@ function App() {
                         <span className="text-gray-600 text-xl">-</span>
                         <div className="text-center"><p className="font-bold text-gray-400">{match.adversaire}</p><p className="text-3xl font-bold text-gray-400">{match.scoreAdversaire}</p></div>
                       </div>
-                      {match.vod && (
-                        <div className="mt-3 pt-3 border-t border-[#D4AF37]/20">
-                          <a href={match.vod} target="_blank" rel="noopener noreferrer" className="text-[#D4AF37] text-sm underline">📹 Voir le replay</a>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 🎬 Onglet REC (Replays) */}
+        {activeTab === 'rec' && (
+          <div>
+            <div className="card-relief rounded-2xl p-6 mb-6 text-center">
+              <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🎬 Nos Replays</h2>
+              <p className="text-gray-400 text-sm mb-4">Retrouvez tous nos matchs en vidéo</p>
+              <a 
+                href={YOUTUBE_CHANNEL} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn-gold inline-block px-6 py-3 rounded-lg font-bold"
+              >
+                🔴 S'abonner à la chaîne
+              </a>
+            </div>
+
+            {replays.length === 0 ? (
+              <div className="text-center py-10 text-gray-500">
+                <p>📹 Aucun replay pour le moment</p>
+                <p className="text-sm mt-2">Les admins ajouteront vos matchs ici !</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {replays.map(replay => {
+                  const videoId = getYouTubeId(replay.lien)
+                  return (
+                    <div key={replay.id} className="card-relief rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-[#D4AF37] text-lg">{replay.titre}</h3>
+                        {isAdmin && (
+                          <button
+                            onClick={() => supprimerReplay(replay.id)}
+                            className="bg-red-900/50 border border-red-500 text-red-400 px-3 py-1 rounded-lg text-sm"
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-gray-400 text-sm mb-3">VS: {replay.adversaire}</p>
+                      {videoId ? (
+                        <div className="relative w-full pb-[56.25%] rounded-lg overflow-hidden bg-gray-900">
+                          <iframe
+                            src={`https://www.youtube.com/embed/${videoId}`}
+                            title={replay.titre}
+                            className="absolute top-0 left-0 w-full h-full"
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
                         </div>
+                      ) : (
+                        <a 
+                          href={replay.lien} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="btn-gold block text-center py-3 rounded-lg"
+                        >
+                          ▶️ Voir la vidéo
+                        </a>
                       )}
                     </div>
                   )
@@ -591,12 +702,10 @@ function App() {
                       <p className="font-bold text-[#D4AF37]">{joueur.pseudo}</p>
                       <p className="text-sm text-gray-400">🎮 {joueur.role} {joueur.rang && `• ${joueur.rang}`}</p>
                     </div>
-                    {/* ✅ BOUTON SUPPRIMER (Admin seulement) */}
                     {isAdmin && (
                       <button
                         onClick={() => supprimerJoueur(joueur.id, joueur.pseudo)}
-                        className="bg-red-900/50 border border-red-500 text-red-400 px-3 py-2 rounded-lg text-sm hover:bg-red-900 transition"
-                        title="Supprimer ce joueur"
+                        className="bg-red-900/50 border border-red-500 text-red-400 px-3 py-2 rounded-lg text-sm"
                       >
                         🗑️
                       </button>
@@ -606,7 +715,6 @@ function App() {
               ))}
             </div>
 
-            {/* Info pour admin */}
             {isAdmin && (
               <div className="mt-6 card-relief rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm">
@@ -727,9 +835,6 @@ function App() {
                       onChange={(e) => setNouveauMatch({...nouveauMatch, horaire2: e.target.value})}
                       className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
                   </div>
-                  <input type="text" placeholder="Lien VOD/Replay (YouTube/Twitch)" value={nouveauMatch.vod}
-                    onChange={(e) => setNouveauMatch({...nouveauMatch, vod: e.target.value})}
-                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <select value={nouveauMatch.arene}
                       onChange={(e) => setNouveauMatch({...nouveauMatch, arene: e.target.value})}
@@ -746,6 +851,21 @@ function App() {
                     </select>
                   </div>
                   <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
+                </div>
+
+                {/* 🎬 Ajouter un Replay */}
+                <div className="card-relief rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Ajouter un Replay</h3>
+                  <input type="text" placeholder="Titre de la vidéo" value={nouveauReplay.titre}
+                    onChange={(e) => setNouveauReplay({...nouveauReplay, titre: e.target.value})}
+                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                  <input type="text" placeholder="Adversaire" value={nouveauReplay.adversaire}
+                    onChange={(e) => setNouveauReplay({...nouveauReplay, adversaire: e.target.value})}
+                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                  <input type="text" placeholder="Lien YouTube (ex: https://youtu.be/...)" value={nouveauReplay.lien}
+                    onChange={(e) => setNouveauReplay({...nouveauReplay, lien: e.target.value})}
+                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                  <button onClick={ajouterReplay} className="btn-gold w-full py-3 rounded-lg">Ajouter le replay</button>
                 </div>
 
                 {/* ✅ SUPPRIMER DES MATCHS (Admin) */}
@@ -771,9 +891,6 @@ function App() {
                       ))}
                     </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-3 text-center">
-                    ⚠️ La suppression mettra à jour les stats automatiquement
-                  </p>
                 </div>
 
                 <div className="card-relief rounded-xl p-6">
@@ -843,6 +960,7 @@ function App() {
         <div className="max-w-lg mx-auto flex">
           <button onClick={() => setActiveTab('matchs')} className={`flex-1 py-4 text-center ${activeTab === 'matchs' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📅 Matchs</button>
           <button onClick={() => setActiveTab('historique')} className={`flex-1 py-4 text-center ${activeTab === 'historique' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📜 Historique</button>
+          <button onClick={() => setActiveTab('rec')} className={`flex-1 py-4 text-center ${activeTab === 'rec' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🎬 Rec</button>
           <button onClick={() => setActiveTab('roster')} className={`flex-1 py-4 text-center ${activeTab === 'roster' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>👥 Roster</button>
           <button onClick={() => setActiveTab('stats')} className={`flex-1 py-4 text-center ${activeTab === 'stats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📊 Stats</button>
           <button onClick={() => setActiveTab('admin')} className={`flex-1 py-4 text-center ${activeTab === 'admin' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>⚙️ Admin</button>
