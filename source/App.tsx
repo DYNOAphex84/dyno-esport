@@ -41,7 +41,7 @@ const EVA_MAPS = [
   { id: 'cliff', name: 'The Cliff', image: '🏔️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
 
-// Map placeholder colors (en attendant les vraies images)
+// Map placeholder colors
 const MAP_COLORS: Record<string, string> = {
   artefact: '#8B4513',
   atlantis: '#1E90FF',
@@ -88,13 +88,10 @@ function App() {
   // 🗺️ États pour les Strats
   const [strats, setStrats] = useState<any[]>([])
   const [selectedMap, setSelectedMap] = useState<string>('artefact')
-  const [nouvelleStrat, setNouvelleStrat] = useState({ titre: '', description: '', map: 'artefact', type: 'Attaque' })
-  const [showStratForm, setShowStratForm] = useState(false)
   
   // 🎨 États pour le Battle Plan interactif
   const [showBattlePlan, setShowBattlePlan] = useState(false)
   const [markers, setMarkers] = useState<{id: number, x: number, y: number, team: 'attack' | 'defend'}[]>([])
-  const [currentStep, setCurrentStep] = useState(1)
   const [stratTitle, setStratTitle] = useState('')
   const mapRef = useRef<HTMLDivElement>(null)
 
@@ -435,29 +432,6 @@ function App() {
     alert('✅ Joueur ajouté !')
   }
 
-  // 🗺️ Fonctions pour les Strats
-  const ajouterStrat = async () => {
-    if (!nouvelleStrat.titre || !nouvelleStrat.description) {
-      alert('⚠️ Remplis le titre et la description !')
-      return
-    }
-    if (!user) {
-      alert('⚠️ Tu dois être connecté !')
-      return
-    }
-    const strat = {
-      ...nouvelleStrat,
-      auteur: pseudo,
-      auteurId: user.uid,
-      createdAt: Date.now(),
-      likes: 0
-    }
-    await addDoc(collection(db, 'strats'), strat)
-    setNouvelleStrat({ titre: '', description: '', map: selectedMap, type: 'Attaque' })
-    setShowStratForm(false)
-    alert('✅ Stratégie ajoutée !')
-  }
-
   const supprimerStrat = async (stratId: string, stratAuteurId: string) => {
     if (!confirm('⚠️ Supprimer cette stratégie ?')) return
     if (!isAdmin && user?.uid !== stratAuteurId) {
@@ -472,7 +446,6 @@ function App() {
   const ouvrirBattlePlan = () => {
     setShowBattlePlan(true)
     setMarkers([])
-    setCurrentStep(1)
     setStratTitle('')
   }
 
@@ -849,7 +822,7 @@ function App() {
                           {strat.markers.map((marker: any, i: number) => (
                             <div
                               key={i}
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}
                             >
                               {marker.id}
                             </div>
