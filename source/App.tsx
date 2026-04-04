@@ -540,7 +540,15 @@ function App() {
 
                       {maNote ? (
                         <div className="bg-[#D4AF37]/20 rounded-lg p-3 mb-3 border border-[#D4AF37]/30">
-                          <p className="text-sm text-[#D4AF37] font-bold mb-2">✅ Ta note pour ce match :</p>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm text-[#D4AF37] font-bold">✅ Ta note pour ce match :</p>
+                            <button 
+                              onClick={() => supprimerNote(maNote.id, maNote.joueurId)}
+                              className="text-red-400 text-xs hover:text-red-300"
+                            >
+                              🗑️
+                            </button>
+                          </div>
                           <div className="grid grid-cols-3 gap-2">
                             <div className="text-center">
                               <p className="text-xs text-gray-400">🧠 Mental</p>
