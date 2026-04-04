@@ -38,7 +38,6 @@ const EVA_MAPS = [
   { id: 'silva', name: 'Silva', image: 'https://evabattleplan.com/static/maps/silva.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'cliff', name: 'The Cliff', image: 'https://evabattleplan.com/static/maps/cliff.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
-
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
