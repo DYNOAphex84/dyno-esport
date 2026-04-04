@@ -25,17 +25,17 @@ const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', image: '🏛️' },
-  { id: 'atlantis', name: 'Atlantis', image: '🌊' },
-  { id: 'ceres', name: 'Ceres', image: '🛰️' },
-  { id: 'engine', name: 'Engine', image: '⚙️' },
-  { id: 'helios', name: 'Helios', image: '🚀' },
-  { id: 'horizon', name: 'Horizon', image: '🌴' },
-  { id: 'lunar', name: 'Lunar', image: '🌙' },
-  { id: 'outlaw', name: 'Outlaw', image: '🤠' },
-  { id: 'polaris', name: 'Polaris', image: '❄️' },
-  { id: 'silva', name: 'Silva', image: '🌳' },
-  { id: 'cliff', name: 'Cliff', image: '🏔️' }
+  { id: 'artefact', name: 'Artefact', image: '🏛️', color: '#5D4E37' },
+  { id: 'atlantis', name: 'Atlantis', image: '🌊', color: '#1a3a52' },
+  { id: 'ceres', name: 'Ceres', image: '🛰️', color: '#3a3a3a' },
+  { id: 'engine', name: 'Engine', image: '⚙️', color: '#4a3a2a' },
+  { id: 'helios', name: 'Helios', image: '🚀', color: '#524a1a' },
+  { id: 'horizon', name: 'Horizon', image: '🌴', color: '#2a4a3a' },
+  { id: 'lunar', name: 'Lunar', image: '🌙', color: '#2a2a3a' },
+  { id: 'outlaw', name: 'Outlaw', image: '🤠', color: '#4a3a2a' },
+  { id: 'polaris', name: 'Polaris', image: '❄️', color: '#2a3a4a' },
+  { id: 'silva', name: 'Silva', image: '🌳', color: '#2a4a2a' },
+  { id: 'cliff', name: 'Cliff', image: '🏔️', color: '#4a3a2a' }
 ]
 
 function App() {
@@ -61,12 +61,15 @@ function App() {
   const [stratDescription, setStratDescription] = useState('')
   const [currentStep, setCurrentStep] = useState(1)
   const [showLines, setShowLines] = useState(true)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
   const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState(null)
   const mapRef = useRef(null)
+  const [notificationPermission, setNotificationPermission] = useState('default')
+  const [nextMatchReminder, setNextMatchReminder] = useState(null)
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
@@ -135,6 +138,35 @@ function App() {
     const timer = setTimeout(() => setShowSplash(false), 2000)
     return () => clearTimeout(timer)
   }, [])
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission)
+    }
+  }, [])
+
+  useEffect(() => {
+    let interval
+    if (isPlaying) {
+      interval = setInterval(() => {
+        setCurrentStep(prev => {
+          const maxStep = Math.max(...markers.map(m => m.step), 1)
+          return prev >= maxStep ? 1 : prev + 1
+        })
+      }, 2000)
+    }
+    return () => clearInterval(interval)
+  }, [isPlaying, markers])
+
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission()
+      setNotificationPermission(permission)
+      if (permission === 'granted') {
+        alert('✅ Notifications activées !')
+      }
+    }
+  }
 
   const handleSignUp = async () => {
     if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }
@@ -236,7 +268,7 @@ function App() {
     await updateDoc(doc(db, 'matchs', matchId), { disponibles: estDispo ? match.disponibles.filter(p => p !== pseudo) : [...match.disponibles, pseudo] })
   }
 
-  const ouvrirBattlePlan = () => { setShowBattlePlan(true); setMarkers([]); setCurrentStep(1); setStratTitle(''); setStratDescription('') }
+  const ouvrirBattlePlan = () => { setShowBattlePlan(true); setMarkers([]); setCurrentStep(1); setStratTitle(''); setStratDescription(''); setIsPlaying(false) }
 
   const ajouterMarqueur = (e) => {
     if (!mapRef.current) return
@@ -251,11 +283,23 @@ function App() {
   const sauvegarderBattlePlan = async () => {
     if (!stratTitle || markers.length === 0) { alert('⚠️ Titre + marqueurs requis !'); return }
     if (!user) { alert('⚠️ Connecte-toi !'); return }
-    await addDoc(collection(db, 'strats'), { titre: stratTitle, description: stratDescription, map: selectedMap, auteur: pseudo, auteurId: user.uid, markers, totalSteps: currentStep, type: 'Battle Plan', createdAt: Date.now() })
+    await addDoc(collection(db, 'strats'), { titre: stratTitle, description: stratDescription, map: selectedMap, auteur: pseudo, auteurId: user.uid, markers, totalSteps: currentStep, type: 'Battle Plan', likes: [], createdAt: Date.now() })
     setShowBattlePlan(false)
     setMarkers([])
     setStratTitle('')
     alert('✅ Battle Plan sauvegardé !')
+  }
+
+  const likerStrat = async (stratId) => {
+    if (!user) { alert('⚠️ Connecte-toi !'); return }
+    const strat = strats.find(s => s.id === stratId)
+    if (!strat) return
+    const hasLiked = strat.likes?.includes(user.uid)
+    await updateDoc(doc(db, 'strats', stratId), { likes: hasLiked ? strat.likes.filter(id => id !== user.uid) : [...(strat.likes || []), user.uid] })
+  }
+
+  const exporterStrat = async (strat) => {
+    alert('📤 Export en cours...\n\nPour sauvegarder ta strat :\n1. Fais une capture d\'écran\n2. Ou copie le lien de la strat')
   }
 
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
@@ -419,13 +463,17 @@ function App() {
                   <div key={strat.id} className="card-relief rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-bold text-[#D4AF37]">{strat.titre}</h3>
-                      {(isAdmin || user?.uid === strat.auteurId) && <button onClick={() => supprimerStrat(strat.id)} className="text-red-400 text-xs">🗑️</button>}
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => likerStrat(strat.id)} className={`text-sm ${strat.likes?.includes(user?.uid) ? 'text-red-500' : 'text-gray-400'}`}>❤️ {strat.likes?.length || 0}</button>
+                        <button onClick={() => exporterStrat(strat)} className="text-gray-400 text-xs">📤</button>
+                        {(isAdmin || user?.uid === strat.auteurId) && <button onClick={() => supprimerStrat(strat.id)} className="text-red-400 text-xs">🗑️</button>}
+                      </div>
                     </div>
                     <p className="text-xs text-gray-400 mb-2">par {strat.auteur}</p>
                     {strat.description && <p className="text-gray-300 text-sm mb-2 italic">{strat.description}</p>}
                     {strat.markers && strat.markers.length > 0 && (
                       <div className="bg-[#0a0a0a] rounded-lg p-3">
-                        <p className="text-xs text-gray-400 mb-2">📍 {strat.markers.length} joueurs</p>
+                        <p className="text-xs text-gray-400 mb-2">📍 {strat.markers.length} joueurs • {strat.totalSteps || 1} étapes</p>
                         <div className="flex flex-wrap gap-2">
                           {strat.markers.map((marker, i) => (
                             <div key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${marker.team === 'attack' ? 'bg-orange-500' : 'bg-blue-500'}`}>{marker.id}</div>
@@ -451,9 +499,10 @@ function App() {
                   <div className="flex-1 flex flex-col">
                     <div className="h-16 bg-[#1a1a1a] border-b border-[#D4AF37]/30 flex items-center justify-between px-4">
                       <div className="flex items-center gap-4">
-                        <button onClick={() => setCurrentStep(Math.max(1, currentStep - 1))} className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏮️</button>
+                        <button onClick={() => { setCurrentStep(Math.max(1, currentStep - 1)); setIsPlaying(false); }} className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏮️</button>
+                        <button onClick={() => setIsPlaying(!isPlaying)} className={`px-4 py-2 rounded-lg font-bold ${isPlaying ? 'bg-green-500 text-black' : 'bg-[#D4AF37] text-black'}`}>{isPlaying ? '⏸️' : '▶️'}</button>
                         <span className="text-[#D4AF37] font-bold text-lg">Étape {currentStep}</span>
-                        <button onClick={() => setCurrentStep(currentStep + 1)} className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏭️</button>
+                        <button onClick={() => { setCurrentStep(currentStep + 1); setIsPlaying(false); }} className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏭️</button>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
@@ -464,7 +513,7 @@ function App() {
                       </div>
                     </div>
                     <div className="flex-1 relative overflow-hidden bg-black">
-                      <div ref={mapRef} onClick={ajouterMarqueur} className="absolute inset-0 cursor-crosshair flex items-center justify-center">
+                      <div ref={mapRef} onClick={ajouterMarqueur} className="absolute inset-0 cursor-crosshair flex items-center justify-center" style={{ backgroundColor: EVA_MAPS.find(m => m.id === selectedMap)?.color || '#333' }}>
                         <div className="relative w-full h-full max-w-4xl max-h-[600px]">
                           <div className="absolute left-0 top-1/4 w-[12%] h-1/2 bg-orange-500/30 border-r-2 border-orange-500">
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 py-4">
@@ -480,8 +529,8 @@ function App() {
                               ))}
                             </div>
                           </div>
-                          <div className="absolute left-[12%] right-[12%] top-0 bottom-0 bg-[#2a2a2a]">
-                            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+                          <div className="absolute left-[12%] right-[12%] top-0 bottom-0">
+                            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
                             <div className="absolute top-[15%] left-1/2 transform -translate-x-1/2 w-24 h-24 bg-gray-600/50 border-2 border-gray-400 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-3xl">A</span></div>
                             <div className="absolute bottom-[20%] left-[20%] w-20 h-20 bg-gray-600/50 border-2 border-gray-400 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-2xl">B</span></div>
                             <div className="absolute bottom-[20%] right-[20%] w-20 h-20 bg-gray-600/50 border-2 border-gray-400 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-2xl">C</span></div>
@@ -593,6 +642,14 @@ function App() {
                 <div className="flex items-center justify-between mt-4"><span className="text-gray-400">❌ Défaites</span><span className="text-red-500 font-bold">{defaites}</span></div>
                 <div className="w-full bg-gray-800 rounded-full h-2"><div className="bg-red-500 h-2 rounded-full" style={{ width: `${totalMatchs > 0 ? (defaites/totalMatchs)*100 : 0}%` }}></div></div>
               </div>
+            </div>
+            <div className="card-relief rounded-xl p-6 mt-6">
+              <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🔔 Rappels</h3>
+              {notificationPermission === 'granted' ? (
+                <p className="text-green-400">✅ Notifications activées</p>
+              ) : (
+                <button onClick={requestNotificationPermission} className="btn-gold w-full py-3 rounded-lg">Activer les rappels</button>
+              )}
             </div>
           </div>
         )}
