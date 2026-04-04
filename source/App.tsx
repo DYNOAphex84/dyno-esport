@@ -14,7 +14,7 @@ const firebaseConfig = {
 }
 
 const VAPID_KEY = 'BIhsEPrWBagYPmnPjpiR3tlKZB0ehBMqkgMnoZUFv1jkNXb6DrkiFT7UOyBETE83ba_tGueF1uV0KNIz0mMXepk'
-const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
+const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp
 
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
@@ -23,7 +23,7 @@ const auth = getAuth(app)
 setPersistence(auth, browserLocalPersistence)
 
 const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
-const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
+const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wk-EgeiL5Tr_Adbz
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
 function App() {
@@ -337,10 +337,9 @@ function App() {
     await deleteDoc(doc(db, 'players', playerId))
     alert('✅ Joueur supprimé !')
   }
-  
-const mise à jour du score = asynchrone () => {
-    if (!scoreEdit) return
-    await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
+
+  const updateScore = async (matchId: string, scoreDyno: number, scoreAdv: number) => {
+    await updateDoc(doc(db, 'matchs', matchId), { scoreDyno, scoreAdversaire: scoreAdv, termine: true })
     setScoreEdit(null)
     alert('✅ Score mis à jour !')
   }
@@ -730,6 +729,47 @@ const mise à jour du score = asynchrone () => {
                     <button onClick={ajouterNote} className="btn-gold w-full py-3 rounded-lg">✅ Ajouter la note</button>
                   </div>
                 )}
+
+                <div className="card-relief rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">✏️ Modifier un Score</h3>
+                  {scoreEdit ? (
+                    <div className="bg-[#0a0a0a] rounded-lg p-4 border border-[#D4AF37]/20">
+                      <p className="font-bold text-[#D4AF37] mb-3">Match: {prochainsMatchs.find((m: any) => m.id === scoreEdit.id)?.adversaire || 'Inconnu'}</p>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <label className="text-xs text-gray-400">Score DYNO</label>
+                          <input type="number" value={scoreEdit.scoreDyno} onChange={(e) => setScoreEdit({...scoreEdit, scoreDyno: e.target.value})} className="w-full bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white text-center" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-400">Score Adversaire</label>
+                          <input type="number" value={scoreEdit.scoreAdv} onChange={(e) => setScoreEdit({...scoreEdit, scoreAdv: e.target.value})} className="w-full bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white text-center" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => updateScore(scoreEdit.id, parseInt(scoreEdit.scoreDyno), parseInt(scoreEdit.scoreAdv))} className="btn-gold flex-1 py-2 rounded-lg text-sm">✅ Valider</button>
+                        <button onClick={() => setScoreEdit(null)} className="border border-gray-600 flex-1 py-2 rounded-lg text-sm text-gray-400">Annuler</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center">Sélectionne un match ci-dessous</p>
+                  )}
+                </div>
+
+                <div className="card-relief rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📝 Matchs à scorer</h3>
+                  {prochainsMatchs.length === 0 ? (
+                    <p className="text-gray-500 text-center">Aucun match en cours</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {prochainsMatchs.map(match => (
+                        <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
+                          <p className="font-bold text-[#D4AF37] mb-2">{match.adversaire}</p>
+                          <button onClick={() => setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})} className="btn-gold w-full py-2 rounded text-sm">📝 Modifier le score</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div className="card-relief rounded-xl p-6">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Ajouter un Replay</h3>
