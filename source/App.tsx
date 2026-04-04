@@ -24,19 +24,18 @@ const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
-// 🗺️ Maps EVA avec images
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', image: 'https://evabattleplan.com/static/maps/artefact.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'atlantis', name: 'Atlantis', image: 'https://evabattleplan.com/static/maps/atlantis.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'ceres', name: 'Ceres', image: 'https://evabattleplan.com/static/maps/ceres.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'engine', name: 'Engine', image: 'https://evabattleplan.com/static/maps/engine.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'helios', name: 'Helios Station', image: 'https://evabattleplan.com/static/maps/helios.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'horizon', name: 'Horizon', image: 'https://evabattleplan.com/static/maps/horizon.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'lunar', name: 'Lunar Outpost', image: 'https://evabattleplan.com/static/maps/lunar.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'outlaw', name: 'Outlaw', image: 'https://evabattleplan.com/static/maps/outlaw.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'polaris', name: 'Polaris', image: 'https://evabattleplan.com/static/maps/polaris.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'silva', name: 'Silva', image: 'https://evabattleplan.com/static/maps/silva.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'cliff', name: 'The Cliff', image: 'https://evabattleplan.com/static/maps/cliff.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
+  { id: 'artefact', name: 'Artefact', image: 'https://via.placeholder.com/300x200/5D4E37/FFFFFF?text=Artefact', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'atlantis', name: 'Atlantis', image: 'https://via.placeholder.com/300x200/1a3a52/FFFFFF?text=Atlantis', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'ceres', name: 'Ceres', image: 'https://via.placeholder.com/300x200/3a3a3a/FFFFFF?text=Ceres', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'engine', name: 'Engine', image: 'https://via.placeholder.com/300x200/4a3a2a/FFFFFF?text=Engine', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'helios', name: 'Helios Station', image: 'https://via.placeholder.com/300x200/524a1a/FFFFFF?text=Helios', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'horizon', name: 'Horizon', image: 'https://via.placeholder.com/300x200/2a4a3a/FFFFFF?text=Horizon', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'lunar', name: 'Lunar Outpost', image: 'https://via.placeholder.com/300x200/2a2a3a/FFFFFF?text=Lunar', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'outlaw', name: 'Outlaw', image: 'https://via.placeholder.com/300x200/4a3a2a/FFFFFF?text=Outlaw', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'polaris', name: 'Polaris', image: 'https://via.placeholder.com/300x200/2a3a4a/FFFFFF?text=Polaris', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'silva', name: 'Silva', image: 'https://via.placeholder.com/300x200/2a4a2a/FFFFFF?text=Silva', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'cliff', name: 'The Cliff', image: 'https://via.placeholder.com/300x200/4a3a2a/FFFFFF?text=Cliff', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
