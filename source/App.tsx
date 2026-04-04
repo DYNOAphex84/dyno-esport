@@ -28,17 +28,17 @@ const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
 // 🗺️ Maps EVA Esport Arena + Liens Eva Battleplan
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', image: '🏛️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=artefact' },
-  { id: 'atlantis', name: 'Atlantis', image: '', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=atlantis' },
-  { id: 'ceres', name: 'Ceres', image: '🛰️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=ceres' },
-  { id: 'engine', name: 'Engine', image: '⚙️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=engine' },
-  { id: 'helios', name: 'Helios Station', image: '🚀', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=helios-station' },
-  { id: 'horizon', name: 'Horizon', image: '🌴', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=horizon' },
-  { id: 'lunar', name: 'Lunar Outpost', image: '🌙', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=lunar-outpost' },
-  { id: 'outlaw', name: 'Outlaw', image: '🤠', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=outlaw' },
-  { id: 'polaris', name: 'Polaris', image: '❄️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=polaris' },
-  { id: 'silva', name: 'Silva', image: '🌳', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=silva' },
-  { id: 'cliff', name: 'The Cliff', image: '🏔️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=the-cliff' }
+  { id: 'artefact', name: 'Artefact', image: '🏛️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'atlantis', name: 'Atlantis', image: '🌊', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'ceres', name: 'Ceres', image: '🛰️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'engine', name: 'Engine', image: '⚙️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'helios', name: 'Helios Station', image: '🚀', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'horizon', name: 'Horizon', image: '🌴', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'lunar', name: 'Lunar Outpost', image: '🌙', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'outlaw', name: 'Outlaw', image: '🤠', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'polaris', name: 'Polaris', image: '❄️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'silva', name: 'Silva', image: '🌳', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'cliff', name: 'The Cliff', image: '🏔️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
 
 function App() {
@@ -72,8 +72,8 @@ function App() {
   
   // 🗺️ États pour les Strats
   const [strats, setStrats] = useState<any[]>([])
-  const [selectedMap, setSelectedMap] = useState<string>('ascent')
-  const [nouvelleStrat, setNouvelleStrat] = useState({ titre: '', description: '', map: 'ascent', type: 'Attaque' })
+  const [selectedMap, setSelectedMap] = useState<string>('artefact')
+  const [nouvelleStrat, setNouvelleStrat] = useState({ titre: '', description: '', map: 'artefact', type: 'Attaque' })
   const [showStratForm, setShowStratForm] = useState(false)
 
   useEffect(() => {
@@ -702,7 +702,7 @@ function App() {
           </div>
         )}
 
-        {/* 🗺️ ONGLET STRATS */}
+        {/* 🗺️ ONGLET STRATS - EVA ESPORT ARENA */}
         {activeTab === 'strats' && (
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
@@ -714,8 +714,8 @@ function App() {
             {/* Sélecteur de Map */}
             <div className="card-relief rounded-xl p-4 mb-6">
               <h3 className="text-lg font-bold text-[#D4AF37] mb-3">🗺️ Choisir une Map</h3>
-              <div className="grid grid-cols-5 gap-2">
-                {VALORANT_MAPS.map(map => (
+              <div className="grid grid-cols-4 gap-2">
+                {EVA_MAPS.map(map => (
                   <button
                     key={map.id}
                     onClick={() => setSelectedMap(map.id)}
@@ -729,12 +729,12 @@ function App() {
               
               {/* Bouton Eva Battleplan */}
               <a
-                href={VALORANT_MAPS.find(m => m.id === selectedMap)?.evaUrl || '#'}
+                href={EVA_MAPS.find(m => m.id === selectedMap)?.evaUrl || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-gold w-full py-3 rounded-lg mt-4 block text-center"
               >
-                🔗 Ouvrir {VALORANT_MAPS.find(m => m.id === selectedMap)?.name} sur Eva Battleplan
+                🔗 Ouvrir {EVA_MAPS.find(m => m.id === selectedMap)?.name} sur Eva Battleplan
               </a>
             </div>
 
@@ -778,7 +778,7 @@ function App() {
               <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                 <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
                   <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">➕ Nouvelle Stratégie</h3>
-                  <p className="text-xs text-gray-400 mb-4 text-center">Map: {VALORANT_MAPS.find(m => m.id === selectedMap)?.name}</p>
+                  <p className="text-xs text-gray-400 mb-4 text-center">Map: {EVA_MAPS.find(m => m.id === selectedMap)?.name}</p>
                   <div className="space-y-3">
                     <div>
                       <label className="text-xs text-gray-400">Titre</label>
