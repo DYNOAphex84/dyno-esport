@@ -89,10 +89,13 @@ function App() {
   const [strats, setStrats] = useState<any[]>([])
   const [selectedMap, setSelectedMap] = useState<string>('artefact')
   
-  // 🎨 États pour le Battle Plan interactif
+  // 🎨 États pour le Battle Plan interactif PHASE 2
   const [showBattlePlan, setShowBattlePlan] = useState(false)
-  const [markers, setMarkers] = useState<{id: number, x: number, y: number, team: 'attack' | 'defend'}[]>([])
+  const [markers, setMarkers] = useState<{id: number, x: number, y: number, team: 'attack' | 'defend', step: number}[]>([])
   const [stratTitle, setStratTitle] = useState('')
+  const [stratDescription, setStratDescription] = useState('')
+  const [currentStep, setCurrentStep] = useState(1)
+  const [showLines, setShowLines] = useState(true)
   const mapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -442,11 +445,13 @@ function App() {
     alert('✅ Stratégie supprimée !')
   }
 
-  // 🎨 Fonctions pour le Battle Plan interactif
+  // 🎨 Fonctions pour le Battle Plan interactif PHASE 2
   const ouvrirBattlePlan = () => {
     setShowBattlePlan(true)
     setMarkers([])
+    setCurrentStep(1)
     setStratTitle('')
+    setStratDescription('')
   }
 
   const ajouterMarqueur = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -459,13 +464,18 @@ function App() {
       id: markers.length + 1,
       x,
       y,
-      team: markers.length % 2 === 0 ? 'attack' : 'defend' as 'attack' | 'defend'
+      team: markers.length % 2 === 0 ? 'attack' : 'defend' as 'attack' | 'defend',
+      step: currentStep
     }
     setMarkers([...markers, newMarker])
   }
 
   const supprimerMarqueur = (markerId: number) => {
     setMarkers(markers.filter(m => m.id !== markerId))
+  }
+
+  const changerEtape = (newStep: number) => {
+    setCurrentStep(newStep)
   }
 
   const sauvegarderBattlePlan = async () => {
@@ -479,11 +489,13 @@ function App() {
     }
     const strat = {
       titre: stratTitle,
+      description: stratDescription,
       map: selectedMap,
       mapName: EVA_MAPS.find(m => m.id === selectedMap)?.name,
       auteur: pseudo,
       auteurId: user.uid,
       markers: markers,
+      totalSteps: currentStep,
       type: 'Battle Plan',
       createdAt: Date.now()
     }
@@ -491,6 +503,7 @@ function App() {
     setShowBattlePlan(false)
     setMarkers([])
     setStratTitle('')
+    setStratDescription('')
     alert('✅ Battle Plan sauvegardé !')
   }
 
@@ -750,7 +763,7 @@ function App() {
           </div>
         )}
 
-        {/* 🗺️ ONGLET STRATS - BATTLE PLAN INTERACTIF */}
+        {/* 🗺️ ONGLET STRATS - BATTLE PLAN INTERACTIF PHASE 2 */}
         {activeTab === 'strats' && (
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
@@ -815,14 +828,18 @@ function App() {
                         </span>
                       )}
                     </div>
+                    {strat.description && (
+                      <p className="text-gray-300 text-sm mb-2 italic">{strat.description}</p>
+                    )}
                     {strat.markers && strat.markers.length > 0 && (
                       <div className="bg-[#0a0a0a] rounded-lg p-3 mb-2">
-                        <p className="text-xs text-gray-400 mb-2">📍 Marqueurs ({strat.markers.length})</p>
+                        <p className="text-xs text-gray-400 mb-2">📍 Marqueurs ({strat.markers.length}) - {strat.totalSteps || 1} étape(s)</p>
                         <div className="flex flex-wrap gap-2">
                           {strat.markers.map((marker: any, i: number) => (
                             <div
                               key={i}
                               className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}
+                              title={`Étape ${marker.step}`}
                             >
                               {marker.id}
                             </div>
@@ -830,15 +847,12 @@ function App() {
                         </div>
                       </div>
                     )}
-                    {strat.description && (
-                      <p className="text-gray-300 text-sm whitespace-pre-line">{strat.description}</p>
-                    )}
                   </div>
                 ))
               )}
             </div>
 
-            {/* 🎨 Battle Plan Interactif Modal */}
+            {/* 🎨 Battle Plan Interactif Modal PHASE 2 */}
             {showBattlePlan && (
               <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-y-auto">
                 <div className="card-relief rounded-2xl p-4 w-full max-w-2xl my-8">
@@ -847,14 +861,49 @@ function App() {
                     <button onClick={() => setShowBattlePlan(false)} className="text-gray-400 text-2xl">✕</button>
                   </div>
                   
-                  {/* Titre de la strat */}
+                  {/* Titre et description */}
                   <input
                     type="text"
                     placeholder="Titre de la stratégie..."
                     value={stratTitle}
                     onChange={(e) => setStratTitle(e.target.value)}
-                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mb-4"
+                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mb-2"
                   />
+                  <textarea
+                    placeholder="Description de la stratégie (optionnel)..."
+                    value={stratDescription}
+                    onChange={(e) => setStratDescription(e.target.value)}
+                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mb-4 h-20"
+                  />
+                  
+                  {/* Contrôles des étapes */}
+                  <div className="flex items-center justify-between mb-4 bg-[#0a0a0a] rounded-lg p-3">
+                    <button 
+                      onClick={() => changerEtape(Math.max(1, currentStep - 1))}
+                      className="px-3 py-2 rounded-lg bg-[#D4AF37] text-black font-bold"
+                    >
+                      ⏮️ Étape {currentStep - 1}
+                    </button>
+                    <span className="text-[#D4AF37] font-bold">Étape {currentStep} / {Math.max(1, currentStep)}</span>
+                    <button 
+                      onClick={() => changerEtape(currentStep + 1)}
+                      className="px-3 py-2 rounded-lg bg-[#D4AF37] text-black font-bold"
+                    >
+                      Étape {currentStep + 1} ⏭️
+                    </button>
+                  </div>
+                  
+                  {/* Toggle lignes */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <input 
+                      type="checkbox" 
+                      id="showLines"
+                      checked={showLines}
+                      onChange={(e) => setShowLines(e.target.checked)}
+                      className="w-4 h-4 accent-[#D4AF37]"
+                    />
+                    <label htmlFor="showLines" className="text-sm text-gray-400">Afficher les lignes de trajectoire</label>
+                  </div>
                   
                   {/* Map interactive */}
                   <div
@@ -869,20 +918,49 @@ function App() {
                       backgroundSize: '20px 20px'
                     }} />
                     
-                    {/* Marqueurs */}
-                    {markers.map((marker) => (
+                    {/* Zones A/B/C */}
+                    <div className="absolute top-1/4 left-1/4 w-16 h-16 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-xl">A</div>
+                    <div className="absolute top-1/4 right-1/4 w-16 h-16 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-xl">B</div>
+                    <div className="absolute bottom-1/4 left-1/2 transform -translate-x-1/2 w-16 h-16 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-xl">C</div>
+                    
+                    {/* Lignes entre marqueurs de la même étape */}
+                    {showLines && markers.filter(m => m.step === currentStep).length > 1 && (
+                      <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                        {markers.filter(m => m.step === currentStep).map((marker, i, arr) => {
+                          if (i === arr.length - 1) return null
+                          const nextMarker = arr[i + 1]
+                          return (
+                            <line
+                              key={i}
+                              x1={`${marker.x}%`}
+                              y1={`${marker.y}%`}
+                              x2={`${nextMarker.x}%`}
+                              y2={`${nextMarker.y}%`}
+                              stroke={marker.team === 'attack' ? '#EF4444' : '#3B82F6'}
+                              strokeWidth="2"
+                              strokeDasharray="5,5"
+                              opacity="0.6"
+                            />
+                          )
+                        })}
+                      </svg>
+                    )}
+                    
+                    {/* Marqueurs de l'étape actuelle */}
+                    {markers.filter(m => m.step === currentStep).map((marker) => (
                       <div
                         key={marker.id}
                         onClick={(e) => { e.stopPropagation(); supprimerMarqueur(marker.id) }}
                         className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-110 transition ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}
                         style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+                        title={`Étape ${marker.step}`}
                       >
                         {marker.id}
                       </div>
                     ))}
                     
                     {/* Instructions */}
-                    {markers.length === 0 && (
+                    {markers.filter(m => m.step === currentStep).length === 0 && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <p className="text-white/50 text-center">
                           📍 Tape sur la carte pour placer des marqueurs<br/>
@@ -894,7 +972,7 @@ function App() {
                   
                   {/* Infos marqueurs */}
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm text-gray-400">📍 {markers.length} marqueur(s)</p>
+                    <p className="text-sm text-gray-400">📍 {markers.filter(m => m.step === currentStep).length} marqueur(s) à l'étape {currentStep}</p>
                     <div className="flex gap-2">
                       <span className="flex items-center gap-1 text-xs text-red-400">
                         <div className="w-3 h-3 rounded-full bg-red-500" /> Attaque
@@ -907,7 +985,7 @@ function App() {
                   
                   {/* Boutons */}
                   <div className="flex gap-2">
-                    <button onClick={() => { setShowBattlePlan(false); setMarkers([]); }} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
+                    <button onClick={() => { setShowBattlePlan(false); setMarkers([]); setStratTitle(''); setStratDescription(''); }} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
                     <button onClick={sauvegarderBattlePlan} className="flex-1 btn-gold py-3 rounded-lg">✅ Sauvegarder</button>
                   </div>
                 </div>
