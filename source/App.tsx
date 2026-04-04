@@ -22,8 +22,8 @@ const auth = getAuth(app)
 
 setPersistence(auth, browserLocalPersistence)
 
-const LOGO_URL = 'https://i.imgur.com/DyKOdtX.png'
-const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wk-EgeiL5Tr_Adbz'
+const LOGO_URL = 'https://i.imgur.com/DyK0dtX.png'
+const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
 function App() {
@@ -54,6 +54,7 @@ function App() {
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
+  const [showMatchScored, setShowMatchScored] = useState<any>(null)
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
@@ -307,7 +308,8 @@ function App() {
 
   const ouvrirFormulaireNotes = (match: any) => {
     setSelectedMatchForNotes(match)
-    setShowNoteForm(true)
+    setShowMatchScored(match)
+    setShowNoteForm(false)
   }
 
   const supprimerMatch = async (matchId: string) => {
@@ -341,7 +343,8 @@ function App() {
   const updateScore = async (matchId: string, scoreDyno: number, scoreAdv: number) => {
     await updateDoc(doc(db, 'matchs', matchId), { scoreDyno, scoreAdversaire: scoreAdv, termine: true })
     setScoreEdit(null)
-    alert('✅ Score mis à jour !')
+    setShowMatchScored({ id: matchId, adversaire: prochainsMatchs.find((m: any) => m.id === matchId)?.adversaire || 'Inconnu' })
+    alert('✅ Score mis à jour ! Les joueurs peuvent maintenant noter leurs teammates.')
   }
 
   const toggleDisponibilite = async (matchId: string) => {
@@ -686,8 +689,9 @@ function App() {
                   <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
                 </div>
 
+                {/* 📊 Scores & Notes - TOUS LES JOUEURS PEUVENT NOTER */}
                 <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Scores & Notes</h3>
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Scores & Notes d'équipe</h3>
                   {historique.length === 0 ? (
                     <p className="text-gray-500 text-center">Aucun match terminé</p>
                   ) : (
@@ -703,9 +707,39 @@ function App() {
                             <span className="text-gray-500">-</span>
                             <span className="text-lg font-bold text-gray-400">{match.scoreAdversaire} {match.adversaire}</span>
                           </div>
-                          <button onClick={() => ouvrirFormulaireNotes(match)} className="btn-gold w-full py-2 rounded-lg text-sm">
+                          <button onClick={() => ouvrirFormulaireNotes(match)} className="btn-gold w-full py-2 rounded-lg text-sm mb-2">
                             📊 Noter les joueurs de ce match
                           </button>
+                          {showMatchScored?.id === match.id && (
+                            <div className="bg-[#1a1a1a] rounded-lg p-4 mt-3 border border-[#D4AF37]/20">
+                              <p className="text-sm text-gray-400 mb-3">📝 Tous les joueurs peuvent noter leurs teammates :</p>
+                              <div className="space-y-2">
+                                {joueurs.filter(j => j.actif !== false).map((joueur) => (
+                                  <div key={joueur.id} className="bg-[#0a0a0a] rounded p-2 flex items-center justify-between">
+                                    <span className="text-[#D4AF37]">{joueur.pseudo}</span>
+                                    <button 
+                                      onClick={() => {
+                                        setNouvelleNote({
+                                          matchId: match.id,
+                                          matchNom: `${match.adversaire} (${match.date})`,
+                                          joueur: joueur.pseudo,
+                                          communication: '',
+                                          mental: '',
+                                          performance: '',
+                                          commentaire: ''
+                                        })
+                                        setShowNoteForm(true)
+                                        setSelectedMatchForNotes(match)
+                                      }}
+                                      className="btn-gold px-3 py-1 rounded text-xs"
+                                    >
+                                      ✍️ Noter
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -715,11 +749,10 @@ function App() {
                 {showNoteForm && selectedMatchForNotes && (
                   <div className="card-relief rounded-xl p-6 bg-[#1a1a1a]">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-bold text-[#D4AF37]">📝 Notes - {selectedMatchForNotes.adversaire}</h3>
+                      <h3 className="text-lg font-bold text-[#D4AF37]">📝 Note pour {nouvelleNote.joueur}</h3>
                       <button onClick={() => { setShowNoteForm(false); setSelectedMatchForNotes(null); }} className="text-gray-400 text-sm">✕ Fermer</button>
                     </div>
-                    <p className="text-xs text-gray-400 mb-4">Match du {selectedMatchForNotes.date}</p>
-                    <input type="text" placeholder="Pseudo du joueur" value={nouvelleNote.joueur} onChange={(e) => setNouvelleNote({...nouvelleNote, joueur: e.target.value, matchId: selectedMatchForNotes.id, matchNom: `${selectedMatchForNotes.adversaire} (${selectedMatchForNotes.date})`})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                    <p className="text-xs text-gray-400 mb-4">Match: {selectedMatchForNotes.adversaire} - {selectedMatchForNotes.date}</p>
                     <div className="grid grid-cols-3 gap-3 mb-3">
                       <div><label className="text-xs text-gray-400">💬 Comm (0-10)</label><input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.communication} onChange={(e) => setNouvelleNote({...nouvelleNote, communication: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" /></div>
                       <div><label className="text-xs text-gray-400">🧠 Mental (0-10)</label><input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.mental} onChange={(e) => setNouvelleNote({...nouvelleNote, mental: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" /></div>
@@ -729,47 +762,6 @@ function App() {
                     <button onClick={ajouterNote} className="btn-gold w-full py-3 rounded-lg">✅ Ajouter la note</button>
                   </div>
                 )}
-
-                <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">✏️ Modifier un Score</h3>
-                  {scoreEdit ? (
-                    <div className="bg-[#0a0a0a] rounded-lg p-4 border border-[#D4AF37]/20">
-                      <p className="font-bold text-[#D4AF37] mb-3">Match: {prochainsMatchs.find((m: any) => m.id === scoreEdit.id)?.adversaire || 'Inconnu'}</p>
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div>
-                          <label className="text-xs text-gray-400">Score DYNO</label>
-                          <input type="number" value={scoreEdit.scoreDyno} onChange={(e) => setScoreEdit({...scoreEdit, scoreDyno: e.target.value})} className="w-full bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white text-center" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-400">Score Adversaire</label>
-                          <input type="number" value={scoreEdit.scoreAdv} onChange={(e) => setScoreEdit({...scoreEdit, scoreAdv: e.target.value})} className="w-full bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white text-center" />
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => updateScore(scoreEdit.id, parseInt(scoreEdit.scoreDyno), parseInt(scoreEdit.scoreAdv))} className="btn-gold flex-1 py-2 rounded-lg text-sm">✅ Valider</button>
-                        <button onClick={() => setScoreEdit(null)} className="border border-gray-600 flex-1 py-2 rounded-lg text-sm text-gray-400">Annuler</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center">Sélectionne un match ci-dessous</p>
-                  )}
-                </div>
-
-                <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📝 Matchs à scorer</h3>
-                  {prochainsMatchs.length === 0 ? (
-                    <p className="text-gray-500 text-center">Aucun match en cours</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {prochainsMatchs.map(match => (
-                        <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
-                          <p className="font-bold text-[#D4AF37] mb-2">{match.adversaire}</p>
-                          <button onClick={() => setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})} className="btn-gold w-full py-2 rounded text-sm">📝 Modifier le score</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
 
                 <div className="card-relief rounded-xl p-6">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Ajouter un Replay</h3>
