@@ -337,8 +337,7 @@ function App() {
     await deleteDoc(doc(db, 'players', playerId))
     alert('✅ Joueur supprimé !')
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  
 const mise à jour du score = asynchrone () => {
     if (!scoreEdit) return
     await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
