@@ -312,9 +312,16 @@ function App() {
   }
 
   const ouvrirFormulaireNotes = (match: any) => {
-    setSelectedMatchForNotes(match)
-    setShowNoteForm(true)
-  }
+  setSelectedMatchForNotes(match)
+  setNouvelleNote({ 
+    matchId: match.id, 
+    matchNom: `${match.adversaire} (${match.date})`,
+    mental: '', 
+    communication: '', 
+    gameplay: '' 
+  })
+  setShowNoteForm(true)
+}
 
   const supprimerMatch = async (matchId: string) => {
     if (!confirm('⚠️ Supprimer ce match ?')) return
