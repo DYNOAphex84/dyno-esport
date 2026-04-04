@@ -12,6 +12,13 @@ const firebaseConfig = {
   appId: "1:808658404731:web:f3cf29142d3038816f29de"
 }
 
+// Initialiser Firebase
+const app = initializeApp(firebaseConfig)
+const db = getFirestore(app)
+const auth = getAuth(app)
+
+setPersistence(auth, browserLocalPersistence)
+
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
@@ -30,13 +37,6 @@ const EVA_MAPS = [
   { id: 'silva', name: 'Silva', image: '🌳' },
   { id: 'cliff', name: 'Cliff', image: '🏔️' }
 ]
-
-const MAP_COLORS = {
-  artefact: '#5D4E37', atlantis: '#1a3a52', ceres: '#3a3a3a',
-  engine: '#4a3a2a', helios: '#524a1a', horizon: '#2a4a3a',
-  lunar: '#2a2a3a', outlaw: '#4a3a2a', polaris: '#2a3a4a',
-  silva: '#2a4a2a', cliff: '#4a3a2a'
-}
 
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
@@ -64,6 +64,8 @@ function App() {
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
+  const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
+  const [selectedMatchForNotes, setSelectedMatchForNotes] = useState(null)
   const mapRef = useRef(null)
 
   useEffect(() => {
@@ -172,11 +174,14 @@ function App() {
     } else { alert('❌ Mot de passe incorrect !') }
   }
 
+  const handleAdminLogout = () => {
+    setIsAdmin(false)
+    localStorage.removeItem('dyno-admin')
+  }
+
   const ajouterMatch = async () => {
     if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('⚠️ Remplis tout !'); return }
     await addDoc(collection(db, 'matchs'), { ...nouveauMatch, termine: false, disponibles: [], createdAt: Date.now() })
-    
-    // 📢 Notification Discord
     const horaires = [nouveauMatch.horaire1]
     if (nouveauMatch.horaire2) horaires.push(nouveauMatch.horaire2)
     const discordMessage = {
@@ -195,7 +200,6 @@ function App() {
     try {
       await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(discordMessage) })
     } catch (error) { console.error('Discord error:', error) }
-    
     setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
     alert('✅ Match ajouté + Discord notifié !')
   }
@@ -205,6 +209,13 @@ function App() {
     await addDoc(collection(db, 'replays'), { ...nouveauReplay, createdAt: Date.now() })
     setNouveauReplay({ titre: '', lien: '' })
     alert('✅ Replay ajouté !')
+  }
+
+  const ajouterNote = async () => {
+    if (!user) { alert('⚠️ Connecte-toi !'); return }
+    const note = { matchId: selectedMatchForNotes?.id, joueur: pseudo, joueurId: user.uid, ...nouvelleNote, createdAt: Date.now() }
+    await addDoc(collection(db, 'notes'), note)
+    alert('✅ Note ajoutée !')
   }
 
   const supprimerMatch = async (id) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Supprimé !') }
