@@ -371,7 +371,7 @@ function App() {
               {EVA_MAPS.map(map => (
                 <div key={map.id} className="card-relief rounded-xl overflow-hidden cursor-pointer hover:scale-105 transition" onClick={() => setSelectedMap(map)}>
                   <div className="relative">
-                    <img src={map.image} alt={map.name} className="w-full h-32 object-cover" onError={(e) => { e.target.src = 'https://via.placeholder.com/300x200?text=' + map.name }} />
+                    <img src={map.image} alt={map.name} className="w-full h-32 object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                     <p className="absolute bottom-2 left-2 text-white font-bold text-sm">{map.name}</p>
                   </div>
@@ -387,9 +387,9 @@ function App() {
                     <h3 className="text-xl font-bold text-[#D4AF37]">{selectedMap.name}</h3>
                     <button onClick={() => setSelectedMap(null)} className="text-gray-400 text-2xl">✕</button>
                   </div>
-                  <img src={selectedMap.image} alt={selectedMap.name} className="w-full rounded-lg mb-4" onError={(e) => { e.target.src = 'https://via.placeholder.com/600x400?text=' + selectedMap.name }} />
+                  <img src={selectedMap.image} alt={selectedMap.name} className="w-full rounded-lg mb-4" />
                   <div className="flex gap-2">
-                    <a href={selectedMap.evaUrl} target="_blank" className="btn-gold flex-1 py-3 rounded-lg text-center">️ Ouvrir sur EVA</a>
+                    <a href={selectedMap.evaUrl} target="_blank" className="btn-gold flex-1 py-3 rounded-lg text-center">🔗 Ouvrir sur EVA</a>
                     <button onClick={() => setSelectedMap(null)} className="border border-gray-600 flex-1 py-3 rounded-lg text-gray-400">Fermer</button>
                   </div>
                 </div>
