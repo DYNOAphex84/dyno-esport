@@ -22,7 +22,7 @@ const auth = getAuth(app)
 
 setPersistence(auth, browserLocalPersistence)
 
-const LOGO_URL = 'https://i.imgur.com/DyK0dtX.png'
+const LOGO_URL = 'https://imgur.com/a/nptIY9c'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
