@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth'
@@ -24,18 +24,19 @@ const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
+// 🗺️ Maps EVA avec images
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', image: '🏛️', color: '#5D4E37' },
-  { id: 'atlantis', name: 'Atlantis', image: '🌊', color: '#1a3a52' },
-  { id: 'ceres', name: 'Ceres', image: '🛰️', color: '#3a3a3a' },
-  { id: 'engine', name: 'Engine', image: '⚙️', color: '#4a3a2a' },
-  { id: 'helios', name: 'Helios', image: '🚀', color: '#524a1a' },
-  { id: 'horizon', name: 'Horizon', image: '🌴', color: '#2a4a3a' },
-  { id: 'lunar', name: 'Lunar', image: '🌙', color: '#2a2a3a' },
-  { id: 'outlaw', name: 'Outlaw', image: '🤠', color: '#4a3a2a' },
-  { id: 'polaris', name: 'Polaris', image: '❄️', color: '#2a3a4a' },
-  { id: 'silva', name: 'Silva', image: '🌳', color: '#2a4a2a' },
-  { id: 'cliff', name: 'Cliff', image: '🏔️', color: '#4a3a2a' }
+  { id: 'artefact', name: 'Artefact', image: 'https://evabattleplan.com/static/maps/artefact.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'atlantis', name: 'Atlantis', image: 'https://evabattleplan.com/static/maps/atlantis.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'ceres', name: 'Ceres', image: 'https://evabattleplan.com/static/maps/ceres.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'engine', name: 'Engine', image: 'https://evabattleplan.com/static/maps/engine.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'helios', name: 'Helios Station', image: 'https://evabattleplan.com/static/maps/helios.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'horizon', name: 'Horizon', image: 'https://evabattleplan.com/static/maps/horizon.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'lunar', name: 'Lunar Outpost', image: 'https://evabattleplan.com/static/maps/lunar.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'outlaw', name: 'Outlaw', image: 'https://evabattleplan.com/static/maps/outlaw.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'polaris', name: 'Polaris', image: 'https://evabattleplan.com/static/maps/polaris.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'silva', name: 'Silva', image: 'https://evabattleplan.com/static/maps/silva.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'cliff', name: 'The Cliff', image: 'https://evabattleplan.com/static/maps/cliff.jpg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
 
 function App() {
@@ -53,23 +54,12 @@ function App() {
   const [replays, setReplays] = useState([])
   const [joueurs, setJoueurs] = useState([])
   const [notes, setNotes] = useState([])
-  const [strats, setStrats] = useState([])
-  const [selectedMap, setSelectedMap] = useState('artefact')
-  const [showBattlePlan, setShowBattlePlan] = useState(false)
-  const [markers, setMarkers] = useState([])
-  const [stratTitle, setStratTitle] = useState('')
-  const [stratDescription, setStratDescription] = useState('')
-  const [currentStep, setCurrentStep] = useState(1)
-  const [showLines, setShowLines] = useState(true)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [selectedMap, setSelectedMap] = useState(null)
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
   const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState(null)
-  const mapRef = useRef(null)
-  const [notificationPermission, setNotificationPermission] = useState('default')
-  const [nextMatchReminder, setNextMatchReminder] = useState(null)
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
@@ -127,46 +117,9 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const q = query(collection(db, 'strats'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setStrats(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
-    })
-    return () => unsubscribe()
-  }, [])
-
-  useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2000)
     return () => clearTimeout(timer)
   }, [])
-
-  useEffect(() => {
-    if ('Notification' in window) {
-      setNotificationPermission(Notification.permission)
-    }
-  }, [])
-
-  useEffect(() => {
-    let interval
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentStep(prev => {
-          const maxStep = Math.max(...markers.map(m => m.step), 1)
-          return prev >= maxStep ? 1 : prev + 1
-        })
-      }, 2000)
-    }
-    return () => clearInterval(interval)
-  }, [isPlaying, markers])
-
-  const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission()
-      setNotificationPermission(permission)
-      if (permission === 'granted') {
-        alert('✅ Notifications activées !')
-      }
-    }
-  }
 
   const handleSignUp = async () => {
     if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }
@@ -253,7 +206,6 @@ function App() {
   const supprimerMatch = async (id) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Supprimé !') }
   const supprimerReplay = async (id) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Supprimé !') }
   const supprimerJoueur = async (id) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Supprimé !') }
-  const supprimerStrat = async (id) => { await deleteDoc(doc(db, 'strats', id)); alert('✅ Supprimé !') }
 
   const updateScore = async () => {
     await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
@@ -266,40 +218,6 @@ function App() {
     const match = matchs.find(m => m.id === matchId)
     const estDispo = match.disponibles.includes(pseudo)
     await updateDoc(doc(db, 'matchs', matchId), { disponibles: estDispo ? match.disponibles.filter(p => p !== pseudo) : [...match.disponibles, pseudo] })
-  }
-
-  const ouvrirBattlePlan = () => { setShowBattlePlan(true); setMarkers([]); setCurrentStep(1); setStratTitle(''); setStratDescription(''); setIsPlaying(false) }
-
-  const ajouterMarqueur = (e) => {
-    if (!mapRef.current) return
-    const rect = mapRef.current.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-    setMarkers([...markers, { id: markers.length + 1, x, y, team: markers.length % 2 === 0 ? 'attack' : 'defend', step: currentStep }])
-  }
-
-  const supprimerMarqueur = (id) => { setMarkers(markers.filter(m => m.id !== id)) }
-
-  const sauvegarderBattlePlan = async () => {
-    if (!stratTitle || markers.length === 0) { alert('⚠️ Titre + marqueurs requis !'); return }
-    if (!user) { alert('⚠️ Connecte-toi !'); return }
-    await addDoc(collection(db, 'strats'), { titre: stratTitle, description: stratDescription, map: selectedMap, auteur: pseudo, auteurId: user.uid, markers, totalSteps: currentStep, type: 'Battle Plan', likes: [], createdAt: Date.now() })
-    setShowBattlePlan(false)
-    setMarkers([])
-    setStratTitle('')
-    alert('✅ Battle Plan sauvegardé !')
-  }
-
-  const likerStrat = async (stratId) => {
-    if (!user) { alert('⚠️ Connecte-toi !'); return }
-    const strat = strats.find(s => s.id === stratId)
-    if (!strat) return
-    const hasLiked = strat.likes?.includes(user.uid)
-    await updateDoc(doc(db, 'strats', stratId), { likes: hasLiked ? strat.likes.filter(id => id !== user.uid) : [...(strat.likes || []), user.uid] })
-  }
-
-  const exporterStrat = async (strat) => {
-    alert('📤 Export en cours...\n\nPour sauvegarder ta strat :\n1. Fais une capture d\'écran\n2. Ou copie le lien de la strat')
   }
 
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
@@ -439,138 +357,40 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'strats' && (
+        {/* 🗺️ ONGLET MAPS - NOUVEAU ! */}
+        {activeTab === 'maps' && (
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🗺️ Stratégies</h2>
+              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🗺️ Maps EVA</h2>
+              <p className="text-gray-400 text-sm">Sélectionne une map pour voir les détails</p>
             </div>
-            <div className="card-relief rounded-xl p-4 mb-6">
-              <h3 className="text-lg font-bold text-[#D4AF37] mb-3">🗺️ Maps</h3>
-              <div className="grid grid-cols-4 gap-2">
-                {EVA_MAPS.map(map => (
-                  <button key={map.id} onClick={() => setSelectedMap(map.id)} className={`p-2 rounded-lg text-center ${selectedMap === map.id ? 'bg-[#D4AF37] text-black' : 'bg-[#0a0a0a] text-gray-400'}`}>
-                    <p className="text-xl">{map.image}</p>
-                    <p className="text-xs">{map.name}</p>
-                  </button>
-                ))}
-              </div>
-              <button onClick={ouvrirBattlePlan} className="btn-gold w-full py-3 rounded-lg mt-4">🎨 Créer Battle Plan</button>
-            </div>
-            <div className="space-y-4">
-              {strats.filter(s => s.map === selectedMap).length === 0 ? (<div className="text-center py-10 text-gray-500">📝 Aucune strat</div>) : (
-                strats.filter(s => s.map === selectedMap).map(strat => (
-                  <div key={strat.id} className="card-relief rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-[#D4AF37]">{strat.titre}</h3>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => likerStrat(strat.id)} className={`text-sm ${strat.likes?.includes(user?.uid) ? 'text-red-500' : 'text-gray-400'}`}>❤️ {strat.likes?.length || 0}</button>
-                        <button onClick={() => exporterStrat(strat)} className="text-gray-400 text-xs">📤</button>
-                        {(isAdmin || user?.uid === strat.auteurId) && <button onClick={() => supprimerStrat(strat.id)} className="text-red-400 text-xs">🗑️</button>}
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400 mb-2">par {strat.auteur}</p>
-                    {strat.description && <p className="text-gray-300 text-sm mb-2 italic">{strat.description}</p>}
-                    {strat.markers && strat.markers.length > 0 && (
-                      <div className="bg-[#0a0a0a] rounded-lg p-3">
-                        <p className="text-xs text-gray-400 mb-2">📍 {strat.markers.length} joueurs • {strat.totalSteps || 1} étapes</p>
-                        <div className="flex flex-wrap gap-2">
-                          {strat.markers.map((marker, i) => (
-                            <div key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${marker.team === 'attack' ? 'bg-orange-500' : 'bg-blue-500'}`}>{marker.id}</div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+            
+            {/* Grille des maps */}
+            <div className="grid grid-cols-2 gap-4">
+              {EVA_MAPS.map(map => (
+                <div key={map.id} className="card-relief rounded-xl overflow-hidden cursor-pointer hover:scale-105 transition" onClick={() => setSelectedMap(map)}>
+                  <div className="relative">
+                    <img src={map.image} alt={map.name} className="w-full h-32 object-cover" onError={(e) => { e.target.src = 'https://via.placeholder.com/300x200?text=' + map.name }} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    <p className="absolute bottom-2 left-2 text-white font-bold text-sm">{map.name}</p>
                   </div>
-                ))
-              )}
+                </div>
+              ))}
             </div>
 
-            {showBattlePlan && (
-              <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 overflow-hidden">
-                <div className="w-full h-full flex">
-                  <div className="w-20 bg-[#1a1a1a] border-r border-[#D4AF37]/30 flex flex-col items-center py-4 gap-4">
-                    <div className="text-[#D4AF37] font-bold text-xs">ÉQUIPES</div>
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-lg ${markers.length % 2 === 0 ? 'bg-orange-500' : 'bg-blue-500'}`}>{markers.length % 2 === 0 ? '🟠' : '🔵'}</div>
-                    <div className="text-center"><p className="text-[#D4AF37] font-bold text-lg">{markers.filter(m => m.team === 'attack').length}</p><p className="text-gray-400 text-xs">🟠</p></div>
-                    <div className="text-center"><p className="text-[#D4AF37] font-bold text-lg">{markers.filter(m => m.team === 'defend').length}</p><p className="text-gray-400 text-xs">🔵</p></div>
-                    <button onClick={() => setMarkers([])} className="w-12 h-12 rounded-lg bg-red-900/50 border border-red-500 flex items-center justify-center text-red-400 mt-auto">🗑️</button>
+            {/* Modal Map */}
+            {selectedMap && (
+              <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+                <div className="card-relief rounded-2xl p-4 w-full max-w-2xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-[#D4AF37]">{selectedMap.name}</h3>
+                    <button onClick={() => setSelectedMap(null)} className="text-gray-400 text-2xl">✕</button>
                   </div>
-                  <div className="flex-1 flex flex-col">
-                    <div className="h-16 bg-[#1a1a1a] border-b border-[#D4AF37]/30 flex items-center justify-between px-4">
-                      <div className="flex items-center gap-4">
-                        <button onClick={() => { setCurrentStep(Math.max(1, currentStep - 1)); setIsPlaying(false); }} className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏮️</button>
-                        <button onClick={() => setIsPlaying(!isPlaying)} className={`px-4 py-2 rounded-lg font-bold ${isPlaying ? 'bg-green-500 text-black' : 'bg-[#D4AF37] text-black'}`}>{isPlaying ? '⏸️' : '▶️'}</button>
-                        <span className="text-[#D4AF37] font-bold text-lg">Étape {currentStep}</span>
-                        <button onClick={() => { setCurrentStep(currentStep + 1); setIsPlaying(false); }} className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏭️</button>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" id="showLines" checked={showLines} onChange={(e) => setShowLines(e.target.checked)} className="w-4 h-4 accent-[#D4AF37]" />
-                          <label htmlFor="showLines" className="text-sm text-gray-400">Trajectoires</label>
-                        </div>
-                        <button onClick={() => setShowBattlePlan(false)} className="text-gray-400 text-2xl">✕</button>
-                      </div>
-                    </div>
-                    <div className="flex-1 relative overflow-hidden bg-black">
-                      <div ref={mapRef} onClick={ajouterMarqueur} className="absolute inset-0 cursor-crosshair flex items-center justify-center" style={{ backgroundColor: EVA_MAPS.find(m => m.id === selectedMap)?.color || '#333' }}>
-                        <div className="relative w-full h-full max-w-4xl max-h-[600px]">
-                          <div className="absolute left-0 top-1/4 w-[12%] h-1/2 bg-orange-500/30 border-r-2 border-orange-500">
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 py-4">
-                              {markers.filter(m => m.team === 'attack').map((marker, i) => (
-                                <div key={marker.id} className="w-10 h-10 rounded-full bg-orange-500 border-2 border-orange-300 flex items-center justify-center text-white font-bold text-sm shadow-lg">{i + 1}</div>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="absolute right-0 top-1/4 w-[12%] h-1/2 bg-blue-500/30 border-l-2 border-blue-500">
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 py-4">
-                              {markers.filter(m => m.team === 'defend').map((marker, i) => (
-                                <div key={marker.id} className="w-10 h-10 rounded-full bg-blue-500 border-2 border-blue-300 flex items-center justify-center text-white font-bold text-sm shadow-lg">{i + 1}</div>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="absolute left-[12%] right-[12%] top-0 bottom-0">
-                            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-                            <div className="absolute top-[15%] left-1/2 transform -translate-x-1/2 w-24 h-24 bg-gray-600/50 border-2 border-gray-400 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-3xl">A</span></div>
-                            <div className="absolute bottom-[20%] left-[20%] w-20 h-20 bg-gray-600/50 border-2 border-gray-400 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-2xl">B</span></div>
-                            <div className="absolute bottom-[20%] right-[20%] w-20 h-20 bg-gray-600/50 border-2 border-gray-400 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-2xl">C</span></div>
-                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-gray-600/30 border-2 border-gray-400 rotate-45" />
-                            {markers.filter(m => m.step === currentStep).map((marker, i, arr) => {
-                              const showArrow = showLines && i < arr.length - 1
-                              return (
-                                <div key={marker.id}>
-                                  {showArrow && (<div className="absolute w-8 h-8 text-green-400 text-2xl animate-pulse pointer-events-none" style={{ left: `${(marker.x + arr[i + 1].x) / 2}%`, top: `${(marker.y + arr[i + 1].y) / 2}%`, transform: 'translate(-50%, -50%)' }}>▶️</div>)}
-                                  <div onClick={(e) => { e.stopPropagation(); supprimerMarqueur(marker.id) }} className={`absolute w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition shadow-xl border-4 ${marker.team === 'attack' ? 'bg-orange-500 border-orange-300' : 'bg-blue-500 border-blue-300'}`} style={{ left: `${marker.x}%`, top: `${marker.y}%` }}>{marker.id}</div>
-                                </div>
-                              )
-                            })}
-                            {markers.filter(m => m.step === currentStep).length === 0 && (<div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="text-center text-white/50"><p className="text-4xl mb-4">📍</p><p className="text-xl">Clique pour placer des joueurs</p><p className="text-sm mt-2">(🟠 = Attaque, 🔵 = Défense)</p></div></div>)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="h-12 bg-[#1a1a1a] border-t border-[#D4AF37]/30 flex items-center justify-between px-4">
-                      <div className="text-gray-400 text-sm">📍 {markers.filter(m => m.step === currentStep).length} joueur(s)</div>
-                      <div className="flex gap-6 text-xs">
-                        <span className="flex items-center gap-2 text-orange-400"><div className="w-4 h-4 rounded-full bg-orange-500 border-2 border-orange-300" /> Attaque</span>
-                        <span className="flex items-center gap-2 text-blue-400"><div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-blue-300" /> Défense</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="w-72 bg-[#1a1a1a] border-l border-[#D4AF37]/30 flex flex-col p-4 gap-4">
-                    <h3 className="text-[#D4AF37] font-bold text-lg">📋 STRATÉGIE</h3>
-                    <div><label className="text-gray-400 text-xs">TITRE</label><input type="text" placeholder="Nom de la strat..." value={stratTitle} onChange={(e) => setStratTitle(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm mt-1" /></div>
-                    <div><label className="text-gray-400 text-xs">DESCRIPTION</label><textarea placeholder="Décris ta stratégie..." value={stratDescription} onChange={(e) => setStratDescription(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm h-40 resize-none mt-1" /></div>
-                    <div className="bg-[#0a0a0a] rounded-lg p-3">
-                      <p className="text-gray-400 text-xs mb-2">📊 RÉSUMÉ</p>
-                      <div className="flex justify-between text-sm"><span className="text-orange-400">🟠 {markers.filter(m => m.team === 'attack').length}</span><span className="text-blue-400">🔵 {markers.filter(m => m.team === 'defend').length}</span></div>
-                      <p className="text-gray-400 text-xs mt-2">📍 {markers.length} joueurs</p>
-                      <p className="text-gray-400 text-xs">📊 {currentStep} étapes</p>
-                    </div>
-                    <div className="mt-auto flex flex-col gap-2">
-                      <button onClick={() => { setShowBattlePlan(false); setMarkers([]); }} className="w-full border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
-                      <button onClick={sauvegarderBattlePlan} className="w-full btn-gold py-3 rounded-lg font-bold">✅ Sauvegarder</button>
-                    </div>
+                  <img src={selectedMap.image} alt={selectedMap.name} className="w-full rounded-lg mb-4" onError={(e) => { e.target.src = 'https://via.placeholder.com/600x400?text=' + selectedMap.name }} />
+                  <div className="flex gap-2">
+                    <a href={selectedMap.evaUrl} target="_blank" className="btn-gold flex-1 py-3 rounded-lg text-center">️ Ouvrir sur EVA</a>
+                    <button onClick={() => setSelectedMap(null)} className="border border-gray-600 flex-1 py-3 rounded-lg text-gray-400">Fermer</button>
                   </div>
                 </div>
               </div>
@@ -643,14 +463,6 @@ function App() {
                 <div className="w-full bg-gray-800 rounded-full h-2"><div className="bg-red-500 h-2 rounded-full" style={{ width: `${totalMatchs > 0 ? (defaites/totalMatchs)*100 : 0}%` }}></div></div>
               </div>
             </div>
-            <div className="card-relief rounded-xl p-6 mt-6">
-              <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🔔 Rappels</h3>
-              {notificationPermission === 'granted' ? (
-                <p className="text-green-400">✅ Notifications activées</p>
-              ) : (
-                <button onClick={requestNotificationPermission} className="btn-gold w-full py-3 rounded-lg">Activer les rappels</button>
-              )}
-            </div>
           </div>
         )}
 
@@ -705,7 +517,7 @@ function App() {
           <button onClick={() => setActiveTab('matchs')} className={`flex-1 py-4 text-center ${activeTab === 'matchs' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📅</button>
           <button onClick={() => setActiveTab('historique')} className={`flex-1 py-4 text-center ${activeTab === 'historique' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📜</button>
           <button onClick={() => setActiveTab('notes')} className={`flex-1 py-4 text-center ${activeTab === 'notes' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📊</button>
-          <button onClick={() => setActiveTab('strats')} className={`flex-1 py-4 text-center ${activeTab === 'strats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🗺️</button>
+          <button onClick={() => setActiveTab('maps')} className={`flex-1 py-4 text-center ${activeTab === 'maps' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🗺️</button>
           <button onClick={() => setActiveTab('rec')} className={`flex-1 py-4 text-center ${activeTab === 'rec' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🎬</button>
           <button onClick={() => setActiveTab('roster')} className={`flex-1 py-4 text-center ${activeTab === 'roster' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>👥</button>
           <button onClick={() => setActiveTab('stats')} className={`flex-1 py-4 text-center ${activeTab === 'stats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📈</button>
