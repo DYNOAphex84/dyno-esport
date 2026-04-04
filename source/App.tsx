@@ -41,19 +41,18 @@ const EVA_MAPS = [
   { id: 'cliff', name: 'The Cliff', image: '🏔️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
 
-// Map placeholder colors
 const MAP_COLORS: Record<string, string> = {
-  artefact: '#8B4513',
-  atlantis: '#1E90FF',
-  ceres: '#708090',
-  engine: '#FF8C00',
-  helios: '#FFD700',
-  horizon: '#FF69B4',
-  lunar: '#2F4F4F',
-  outlaw: '#DEB887',
-  polaris: '#87CEEB',
-  silva: '#228B22',
-  cliff: '#A0522D'
+  artefact: '#5D4E37',
+  atlantis: '#1a3a52',
+  ceres: '#3a3a3a',
+  engine: '#4a3a2a',
+  helios: '#524a1a',
+  horizon: '#2a4a3a',
+  lunar: '#2a2a3a',
+  outlaw: '#4a3a2a',
+  polaris: '#2a3a4a',
+  silva: '#2a4a2a',
+  cliff: '#4a3a2a'
 }
 
 function App() {
@@ -84,192 +83,15 @@ function App() {
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
-  
-  // 🗺️ États pour les Strats
   const [strats, setStrats] = useState<any[]>([])
   const [selectedMap, setSelectedMap] = useState<string>('artefact')
-  
-  {/* 🎨 Battle Plan Interactif Style EVA */}
-{showBattlePlan && (
-  <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 overflow-hidden">
-    <div className="w-full h-full flex">
-      
-      {/* Sidebar Gauche - Outils */}
-      <div className="w-20 bg-[#1a1a1a] border-r border-[#D4AF37]/30 flex flex-col items-center py-4 gap-4 overflow-y-auto">
-        <h3 className="text-[#D4AF37] font-bold text-xs writing-vertical">OUTILS</h3>
-        
-        {/* Sélecteur d'équipe */}
-        <div className="flex flex-col gap-2">
-          <button 
-            className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold ${markers.length % 2 === 0 ? 'bg-red-500' : 'bg-blue-500'}`}
-          >
-            {markers.length % 2 === 0 ? '🔴' : '🔵'}
-          </button>
-        </div>
-        
-        {/* Outils */}
-        <div className="w-10 h-10 rounded-lg bg-[#D4AF37]/20 border border-[#D4AF37] flex items-center justify-center text-[#D4AF37]">
-          📍
-        </div>
-        <div className="w-10 h-10 rounded-lg bg-[#0a0a0a] border border-gray-600 flex items-center justify-center text-gray-400">
-          ✏️
-        </div>
-        <div className="w-10 h-10 rounded-lg bg-[#0a0a0a] border border-gray-600 flex items-center justify-center text-gray-400">
-          ➡️
-        </div>
-        <div className="w-10 h-10 rounded-lg bg-[#0a0a0a] border border-gray-600 flex items-center justify-center text-gray-400">
-          ⬜
-        </div>
-        
-        {/* Poubelle */}
-        <button 
-          onClick={() => setMarkers([])}
-          className="w-10 h-10 rounded-lg bg-red-900/50 border border-red-500 flex items-center justify-center text-red-400 mt-auto"
-        >
-          🗑️
-        </button>
-      </div>
-      
-      {/* Zone Centrale - Map */}
-      <div className="flex-1 flex flex-col">
-        
-        {/* Barre supérieure - Étapes */}
-        <div className="h-16 bg-[#1a1a1a] border-b border-[#D4AF37]/30 flex items-center justify-between px-4">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
-              className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold"
-            >
-              ⏮️
-            </button>
-            <div className="text-[#D4AF37] font-bold">
-              Étape {currentStep}
-            </div>
-            <button 
-              onClick={() => setCurrentStep(currentStep + 1)}
-              className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold"
-            >
-              ⏭️
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              id="showLines"
-              checked={showLines}
-              onChange={(e) => setShowLines(e.target.checked)}
-              className="w-4 h-4 accent-[#D4AF37]"
-            />
-            <label htmlFor="showLines" className="text-sm text-gray-400">Lignes</label>
-          </div>
-          
-          <button onClick={() => setShowBattlePlan(false)} className="text-gray-400 text-2xl">✕</button>
-        </div>
-        
-        {/* Map Interactive */}
-        <div className="flex-1 relative overflow-hidden">
-          <div
-            ref={mapRef}
-            onClick={ajouterMarqueur}
-            className="absolute inset-0 cursor-crosshair"
-            style={{ backgroundColor: MAP_COLORS[selectedMap] || '#333' }}
-          >
-            {/* Grille */}
-            <div className="absolute inset-0 opacity-20" style={{
-              backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-              backgroundSize: '20px 20px'
-            }} />
-            
-            {/* Zones A/B/C */}
-            <div className="absolute top-[20%] left-[20%] w-24 h-24 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-3xl bg-black/20">A</div>
-            <div className="absolute top-[20%] right-[20%] w-24 h-24 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-3xl bg-black/20">B</div>
-            <div className="absolute bottom-[20%] left-1/2 transform -translate-x-1/2 w-24 h-24 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-3xl bg-black/20">C</div>
-            
-            {/* Lignes */}
-            {showLines && markers.filter(m => m.step === currentStep).length > 1 && (
-              <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                {markers.filter(m => m.step === currentStep).map((marker, i, arr) => {
-                  if (i === arr.length - 1) return null
-                  const nextMarker = arr[i + 1]
-                  return (
-                    <line
-                      key={i}
-                      x1={`${marker.x}%`}
-                      y1={`${marker.y}%`}
-                      x2={`${nextMarker.x}%`}
-                      y2={`${nextMarker.y}%`}
-                      stroke={marker.team === 'attack' ? '#EF4444' : '#3B82F6'}
-                      strokeWidth="3"
-                      strokeDasharray="5,5"
-                      opacity="0.6"
-                    />
-                  )
-                })}
-              </svg>
-            )}
-            
-            {/* Marqueurs */}
-            {markers.filter(m => m.step === currentStep).map((marker) => (
-              <div
-                key={marker.id}
-                onClick={(e) => { e.stopPropagation(); supprimerMarqueur(marker.id) }}
-                className={`absolute w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition shadow-lg ${marker.team === 'attack' ? 'bg-red-500 border-2 border-red-300' : 'bg-blue-500 border-2 border-blue-300'}`}
-                style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
-              >
-                {marker.id}
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* Barre inférieure - Infos */}
-        <div className="h-12 bg-[#1a1a1a] border-t border-[#D4AF37]/30 flex items-center justify-between px-4">
-          <div className="text-gray-400 text-sm">
-            📍 {markers.filter(m => m.step === currentStep).length} marqueur(s)
-          </div>
-          <div className="flex gap-4">
-            <span className="flex items-center gap-1 text-xs text-red-400">
-              <div className="w-3 h-3 rounded-full bg-red-500" /> Attaque
-            </span>
-            <span className="flex items-center gap-1 text-xs text-blue-400">
-              <div className="w-3 h-3 rounded-full bg-blue-500" /> Défense
-            </span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Sidebar Droite - Infos */}
-      <div className="w-64 bg-[#1a1a1a] border-l border-[#D4AF37]/30 flex flex-col p-4 gap-4 overflow-y-auto">
-        <h3 className="text-[#D4AF37] font-bold">STRATÉGIE</h3>
-        
-        <input
-          type="text"
-          placeholder="Titre..."
-          value={stratTitle}
-          onChange={(e) => setStratTitle(e.target.value)}
-          className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm"
-        />
-        
-        <textarea
-          placeholder="Description..."
-          value={stratDescription}
-          onChange={(e) => setStratDescription(e.target.value)}
-          className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm h-32 resize-none"
-        />
-        
-        <div className="mt-auto flex flex-col gap-2">
-          <button onClick={() => { setShowBattlePlan(false); setMarkers([]); }} className="w-full border border-gray-600 py-3 rounded-lg text-gray-400">
-            Annuler
-          </button>
-          <button onClick={sauvegarderBattlePlan} className="w-full btn-gold py-3 rounded-lg">
-            ✅ Sauvegarder
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+  const [showBattlePlan, setShowBattlePlan] = useState(false)
+  const [markers, setMarkers] = useState<{id: number, x: number, y: number, team: 'attack' | 'defend', step: number}[]>([])
+  const [stratTitle, setStratTitle] = useState('')
+  const [stratDescription, setStratDescription] = useState('')
+  const [currentStep, setCurrentStep] = useState(1)
+  const [showLines, setShowLines] = useState(true)
+  const mapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
@@ -471,26 +293,6 @@ function App() {
     const horaires = [nouveauMatch.horaire1]
     if (nouveauMatch.horaire2) horaires.push(nouveauMatch.horaire2)
     await addDoc(collection(db, 'matchs'), { adversaire: nouveauMatch.adversaire, date: nouveauMatch.date, horaires, arene: nouveauMatch.arene, type: nouveauMatch.type, termine: false, disponibles: [], createdAt: Date.now() })
-    
-    const discordMessage = {
-      embeds: [{
-        title: '🎮 NOUVEAU MATCH DYNO !',
-        color: 13934871,
-        fields: [
-          { name: '⚔️ Adversaire', value: nouveauMatch.adversaire, inline: true },
-          { name: '📅 Date', value: nouveauMatch.date, inline: true },
-          { name: '⏰ Horaire', value: horaires.join(' / '), inline: true },
-          { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true }
-        ],
-        footer: { text: 'DYNO Esport', icon_url: LOGO_URL }
-      }]
-    }
-    try {
-      await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(discordMessage) })
-    } catch (error) {
-      console.error('❌ Erreur Discord:', error)
-    }
-    
     setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
     alert('✅ Match ajouté !')
   }
@@ -530,7 +332,7 @@ function App() {
       setNouvelleNote({ matchId: '', matchNom: '', mental: '', communication: '', gameplay: '' })
       setShowNoteForm(false)
       setSelectedMatchForNotes(null)
-      alert('✅ Note ajoutée ! Elle apparaît maintenant pour tout le monde !')
+      alert('✅ Note ajoutée !')
       setTimeout(() => window.location.reload(), 500)
     } catch (error: any) {
       alert('❌ Erreur: ' + error.message)
@@ -582,7 +384,7 @@ function App() {
     if (!scoreEdit) return
     await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
     setScoreEdit(null)
-    alert('✅ Score mis à jour ! Les joueurs peuvent maintenant se noter.')
+    alert('✅ Score mis à jour !')
     setTimeout(() => window.location.reload(), 500)
   }
 
@@ -618,7 +420,6 @@ function App() {
     alert('✅ Stratégie supprimée !')
   }
 
-  // 🎨 Fonctions pour le Battle Plan interactif PHASE 2
   const ouvrirBattlePlan = () => {
     setShowBattlePlan(true)
     setMarkers([])
@@ -632,7 +433,6 @@ function App() {
     const rect = mapRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
-    
     const newMarker = {
       id: markers.length + 1,
       x,
@@ -645,10 +445,6 @@ function App() {
 
   const supprimerMarqueur = (markerId: number) => {
     setMarkers(markers.filter(m => m.id !== markerId))
-  }
-
-  const changerEtape = (newStep: number) => {
-    setCurrentStep(newStep)
   }
 
   const sauvegarderBattlePlan = async () => {
@@ -706,7 +502,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-24">
+    <div className="min-h-screen bg-[#0a0a0a] pb-20">
       <header className="bg-[#0a0a0a] border-b border-[#D4AF37]/30 sticky top-0 z-50">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -717,8 +513,6 @@ function App() {
             </div>
           </div>
           <div className="flex gap-2">
-            {showInstall && !isIOS && <button onClick={handleInstall} className="btn-gold px-3 py-1.5 rounded-lg text-sm">📲 Installer</button>}
-            {isIOS && <button onClick={() => alert('📱 iPhone : Partager → "Sur l\'écran d\'accueil"')} className="btn-gold px-3 py-1.5 rounded-lg text-sm">📱 Installer</button>}
             {user ? (
               <button onClick={handleSignOut} className="px-4 py-2 rounded-lg font-medium border border-red-500 text-red-500">👋 {pseudo}</button>
             ) : (
@@ -734,7 +528,6 @@ function App() {
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">Prochains Matchs</h2>
-              <p className="text-gray-400 text-sm">Restez prêts pour la victoire</p>
             </div>
             {loading ? (
               <div className="text-center py-10 text-[#D4AF37]">⏳ Chargement...</div>
@@ -762,9 +555,7 @@ function App() {
                     </div>
                     <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
                       <p className="text-xs text-gray-400">👥 Disponibles ({match.disponibles.length})</p>
-                      {match.disponibles.length === 0 ? (
-                        <p className="text-gray-500 text-sm">Aucun joueur</p>
-                      ) : (
+                      {match.disponibles.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                           {match.disponibles.map((p: string, i: number) => (
                             <span key={i} className="bg-[#D4AF37]/20 text-[#D4AF37] px-2 py-1 rounded text-xs font-bold">{p}</span>
@@ -797,23 +588,21 @@ function App() {
               <div className="text-center py-10 text-gray-500"><p>📜 Aucun match joué</p></div>
             ) : (
               <div className="space-y-4">
-                {historique.map(match => {
-                  const victoire = (match.scoreDyno || 0) > (match.scoreAdversaire || 0)
-                  const nul = (match.scoreDyno || 0) === (match.scoreAdversaire || 0)
-                  return (
-                    <div key={match.id} className="card-relief rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${victoire ? 'bg-[#D4AF37] text-black' : nul ? 'bg-gray-700 text-gray-300' : 'bg-red-900/50 text-red-400'}`}>{victoire ? '🏆 VICTOIRE' : nul ? '🤝 NUL' : '❌ DÉFAITE'}</span>
-                        <span className="text-gray-400 text-sm">{match.date}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="text-center"><p className="font-bold text-[#D4AF37]">DYNO</p><p className="text-3xl font-bold text-[#D4AF37]">{match.scoreDyno}</p></div>
-                        <span className="text-gray-600 text-xl">-</span>
-                        <div className="text-center"><p className="font-bold text-gray-400">{match.adversaire}</p><p className="text-3xl font-bold text-gray-400">{match.scoreAdversaire}</p></div>
-                      </div>
+                {historique.map(match => (
+                  <div key={match.id} className="card-relief rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37] text-black' : (match.scoreDyno || 0) === (match.scoreAdversaire || 0) ? 'bg-gray-700 text-gray-300' : 'bg-red-900/50 text-red-400'}`}>
+                        {(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : (match.scoreDyno || 0) === (match.scoreAdversaire || 0) ? '🤝 NUL' : '❌ DÉFAITE'}
+                      </span>
+                      <span className="text-gray-400 text-sm">{match.date}</span>
                     </div>
-                  )
-                })}
+                    <div className="flex items-center justify-between">
+                      <div className="text-center"><p className="font-bold text-[#D4AF37]">DYNO</p><p className="text-3xl font-bold text-[#D4AF37]">{match.scoreDyno}</p></div>
+                      <span className="text-gray-600 text-xl">-</span>
+                      <div className="text-center"><p className="font-bold text-gray-400">{match.adversaire}</p><p className="text-3xl font-bold text-gray-400">{match.scoreAdversaire}</p></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -823,199 +612,80 @@ function App() {
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">📊 Notes & Performances</h2>
-              <p className="text-gray-400 text-sm">Note-toi après chaque match !</p>
+              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">📊 Notes</h2>
             </div>
-
             {historique.length === 0 ? (
-              <div className="text-center py-10 text-gray-500">
-                <p>📊 Aucun match terminé</p>
-                <p className="text-sm mt-2">Les notes seront disponibles après les matchs !</p>
-              </div>
+              <div className="text-center py-10 text-gray-500"><p>📊 Aucun match terminé</p></div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {historique.map(match => {
                   const matchNotes = notes.filter((n: any) => n.matchId === match.id)
-                  const maNote = matchNotes.find((n: any) => n.joueurId === user?.uid)
-                  
                   return (
                     <div key={match.id} className="card-relief rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="font-bold text-[#D4AF37]">{match.adversaire}</p>
-                        <span className="text-xs text-gray-400">{match.date}</span>
-                      </div>
-                      <div className="flex items-center justify-between mb-3 bg-[#0a0a0a] rounded-lg p-3">
-                        <span className="text-lg font-bold text-[#D4AF37]">DYNO {match.scoreDyno}</span>
-                        <span className="text-gray-500">-</span>
-                        <span className="text-lg font-bold text-gray-400">{match.scoreAdversaire} {match.adversaire}</span>
-                      </div>
-
-                      {maNote ? (
-                        <div className="bg-[#D4AF37]/20 rounded-lg p-3 mb-3 border border-[#D4AF37]/30">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm text-[#D4AF37] font-bold">✅ Ta note pour ce match :</p>
-                            <button 
-                              onClick={() => supprimerNote(maNote.id, maNote.joueurId)}
-                              className="text-red-400 text-xs hover:text-red-300"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="text-center">
-                              <p className="text-xs text-gray-400">🧠 Mental</p>
-                              <p className="text-lg font-bold text-[#D4AF37]">{maNote.mental}/10</p>
+                      <p className="font-bold text-[#D4AF37] mb-2">{match.adversaire} - {match.date}</p>
+                      {matchNotes.length > 0 ? (
+                        <div className="space-y-2">
+                          {matchNotes.map((note: any) => (
+                            <div key={note.id} className="bg-[#0a0a0a] rounded p-3">
+                              <p className="text-[#D4AF37] text-sm">{note.joueur}</p>
+                              <div className="flex gap-4 text-xs text-gray-400">
+                                <span>🧠 {note.mental}/10</span>
+                                <span>💬 {note.communication}/10</span>
+                                <span>🎯 {note.gameplay}/10</span>
+                              </div>
                             </div>
-                            <div className="text-center">
-                              <p className="text-xs text-gray-400">💬 Comm</p>
-                              <p className="text-lg font-bold text-[#D4AF37]">{maNote.communication}/10</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-gray-400">🎯 Gameplay</p>
-                              <p className="text-lg font-bold text-[#D4AF37]">{maNote.gameplay}/10</p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-400 mt-2 text-center">Moyenne: {maNote.moyenne}/10</p>
+                          ))}
                         </div>
                       ) : (
-                        <button onClick={() => ouvrirFormulaireNotes(match)} className="btn-gold w-full py-3 rounded-lg mb-3">
-                          📝 Me noter pour ce match
-                        </button>
-                      )}
-
-                      {matchNotes.length > 0 && (
-                        <div className="bg-[#0a0a0a] rounded-lg p-3">
-                          <p className="text-xs text-gray-400 mb-2">📊 Notes de l'équipe ({matchNotes.length} joueurs)</p>
-                          <div className="space-y-2">
-                            {matchNotes.map((note: any) => (
-                              <div key={note.id} className="flex items-center justify-between bg-[#1a1a1a] rounded p-2">
-                                <span className="text-[#D4AF37] text-sm">{note.joueur}</span>
-                                <div className="flex gap-2 text-xs">
-                                  <span className="text-gray-400">🧠{note.mental}</span>
-                                  <span className="text-gray-400">💬{note.communication}</span>
-                                  <span className="text-gray-400">🎯{note.gameplay}</span>
-                                  <span className="text-[#D4AF37] font-bold">Moy: {note.moyenne}/10</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                        <p className="text-gray-500 text-sm">Aucune note</p>
                       )}
                     </div>
                   )
                 })}
               </div>
             )}
-
-            {showNoteForm && selectedMatchForNotes && (
-              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
-                  <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">📝 Ta Performance</h3>
-                  <p className="text-xs text-gray-400 mb-4 text-center">Match vs {selectedMatchForNotes.adversaire}</p>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-gray-400">🧠 Mental (0-10)</label>
-                      <input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.mental} onChange={(e) => setNouvelleNote({...nouvelleNote, mental: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mt-1" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-400">💬 Communication (0-10)</label>
-                      <input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.communication} onChange={(e) => setNouvelleNote({...nouvelleNote, communication: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mt-1" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-400">🎯 Gameplay (0-10)</label>
-                      <input type="number" min="0" max="10" placeholder="0-10" value={nouvelleNote.gameplay} onChange={(e) => setNouvelleNote({...nouvelleNote, gameplay: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mt-1" />
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <button onClick={() => { setShowNoteForm(false); setSelectedMatchForNotes(null); }} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
-                      <button onClick={ajouterNote} className="flex-1 btn-gold py-3 rounded-lg">✅ Valider</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
-        {/* 🗺️ ONGLET STRATS - BATTLE PLAN INTERACTIF PHASE 2 */}
         {activeTab === 'strats' && (
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🗺️ Stratégies</h2>
-              <p className="text-gray-400 text-sm">Créez et partagez vos strats !</p>
             </div>
-
-            {/* Sélecteur de Map */}
             <div className="card-relief rounded-xl p-4 mb-6">
-              <h3 className="text-lg font-bold text-[#D4AF37] mb-3">🗺️ Choisir une Map</h3>
+              <h3 className="text-lg font-bold text-[#D4AF37] mb-3">🗺️ Maps</h3>
               <div className="grid grid-cols-4 gap-2">
                 {EVA_MAPS.map(map => (
-                  <button
-                    key={map.id}
-                    onClick={() => setSelectedMap(map.id)}
-                    className={`p-2 rounded-lg text-center transition ${selectedMap === map.id ? 'bg-[#D4AF37] text-black' : 'bg-[#0a0a0a] text-gray-400'}`}
-                  >
+                  <button key={map.id} onClick={() => setSelectedMap(map.id)} className={`p-2 rounded-lg text-center ${selectedMap === map.id ? 'bg-[#D4AF37] text-black' : 'bg-[#0a0a0a] text-gray-400'}`}>
                     <p className="text-xl">{map.image}</p>
                     <p className="text-xs">{map.name}</p>
                   </button>
                 ))}
               </div>
-              
-              {/* Boutons d'action */}
               <div className="flex gap-2 mt-4">
-                <button onClick={ouvrirBattlePlan} className="btn-gold flex-1 py-3 rounded-lg">
-                  🎨 Créer Battle Plan
-                </button>
-                <a
-                  href={EVA_MAPS.find(m => m.id === selectedMap)?.evaUrl || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-gold flex-1 py-3 rounded-lg text-center"
-                >
-                  🔗 Eva Battleplan
-                </a>
+                <button onClick={ouvrirBattlePlan} className="btn-gold flex-1 py-3 rounded-lg">🎨 Créer</button>
+                <a href={EVA_MAPS.find(m => m.id === selectedMap)?.evaUrl} target="_blank" className="btn-gold flex-1 py-3 rounded-lg text-center">🔗 EVA</a>
               </div>
             </div>
-
-            {/* Liste des Strats */}
             <div className="space-y-4">
               {strats.filter((s: any) => s.map === selectedMap).length === 0 ? (
-                <div className="text-center py-10 text-gray-500">
-                  <p>📝 Aucune stratégie pour cette map</p>
-                  <p className="text-sm mt-2">Crée ton premier Battle Plan !</p>
-                </div>
+                <div className="text-center py-10 text-gray-500"><p>📝 Aucune strat</p></div>
               ) : (
                 strats.filter((s: any) => s.map === selectedMap).map((strat: any) => (
                   <div key={strat.id} className="card-relief rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-bold text-[#D4AF37]">{strat.titre}</h3>
-                      {(isAdmin || user?.uid === strat.auteurId) && (
-                        <button onClick={() => supprimerStrat(strat.id, strat.auteurId)} className="text-red-400 text-xs">🗑️</button>
-                      )}
+                      {(isAdmin || user?.uid === strat.auteurId) && <button onClick={() => supprimerStrat(strat.id, strat.auteurId)} className="text-red-400 text-xs">🗑️</button>}
                     </div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs text-gray-400">par {strat.auteur}</span>
-                      {strat.type === 'Battle Plan' && (
-                        <span className="px-2 py-1 rounded text-xs font-bold bg-purple-900/50 text-purple-400">
-                          🎨 Battle Plan
-                        </span>
-                      )}
-                    </div>
-                    {strat.description && (
-                      <p className="text-gray-300 text-sm mb-2 italic">{strat.description}</p>
-                    )}
+                    <p className="text-xs text-gray-400 mb-2">par {strat.auteur}</p>
+                    {strat.description && <p className="text-gray-300 text-sm mb-2 italic">{strat.description}</p>}
                     {strat.markers && strat.markers.length > 0 && (
-                      <div className="bg-[#0a0a0a] rounded-lg p-3 mb-2">
-                        <p className="text-xs text-gray-400 mb-2">📍 Marqueurs ({strat.markers.length}) - {strat.totalSteps || 1} étape(s)</p>
+                      <div className="bg-[#0a0a0a] rounded-lg p-3">
+                        <p className="text-xs text-gray-400 mb-2">📍 {strat.markers.length} marqueurs</p>
                         <div className="flex flex-wrap gap-2">
                           {strat.markers.map((marker: any, i: number) => (
-                            <div
-                              key={i}
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}
-                              title={`Étape ${marker.step}`}
-                            >
-                              {marker.id}
-                            </div>
+                            <div key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}>{marker.id}</div>
                           ))}
                         </div>
                       </div>
@@ -1025,141 +695,63 @@ function App() {
               )}
             </div>
 
-            {/* 🎨 Battle Plan Interactif Modal PHASE 2 */}
             {showBattlePlan && (
-              <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                <div className="card-relief rounded-2xl p-4 w-full max-w-2xl my-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-[#D4AF37]">🎨 Battle Plan - {EVA_MAPS.find(m => m.id === selectedMap)?.name}</h3>
-                    <button onClick={() => setShowBattlePlan(false)} className="text-gray-400 text-2xl">✕</button>
+              <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 overflow-hidden">
+                <div className="w-full h-full flex">
+                  <div className="w-16 bg-[#1a1a1a] border-r border-[#D4AF37]/30 flex flex-col items-center py-4 gap-4">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs ${markers.length % 2 === 0 ? 'bg-red-500' : 'bg-blue-500'}`}>
+                      {markers.length % 2 === 0 ? '🔴' : '🔵'}
+                    </div>
+                    <button onClick={() => setMarkers([])} className="w-10 h-10 rounded-lg bg-red-900/50 border border-red-500 flex items-center justify-center text-red-400 mt-auto">🗑️</button>
                   </div>
-                  
-                  {/* Titre et description */}
-                  <input
-                    type="text"
-                    placeholder="Titre de la stratégie..."
-                    value={stratTitle}
-                    onChange={(e) => setStratTitle(e.target.value)}
-                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mb-2"
-                  />
-                  <textarea
-                    placeholder="Description de la stratégie (optionnel)..."
-                    value={stratDescription}
-                    onChange={(e) => setStratDescription(e.target.value)}
-                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mb-4 h-20"
-                  />
-                  
-                  {/* Contrôles des étapes */}
-                  <div className="flex items-center justify-between mb-4 bg-[#0a0a0a] rounded-lg p-3">
-                    <button 
-                      onClick={() => changerEtape(Math.max(1, currentStep - 1))}
-                      className="px-3 py-2 rounded-lg bg-[#D4AF37] text-black font-bold"
-                    >
-                      ⏮️ Étape {currentStep - 1}
-                    </button>
-                    <span className="text-[#D4AF37] font-bold">Étape {currentStep} / {Math.max(1, currentStep)}</span>
-                    <button 
-                      onClick={() => changerEtape(currentStep + 1)}
-                      className="px-3 py-2 rounded-lg bg-[#D4AF37] text-black font-bold"
-                    >
-                      Étape {currentStep + 1} ⏭️
-                    </button>
-                  </div>
-                  
-                  {/* Toggle lignes */}
-                  <div className="flex items-center gap-2 mb-4">
-                    <input 
-                      type="checkbox" 
-                      id="showLines"
-                      checked={showLines}
-                      onChange={(e) => setShowLines(e.target.checked)}
-                      className="w-4 h-4 accent-[#D4AF37]"
-                    />
-                    <label htmlFor="showLines" className="text-sm text-gray-400">Afficher les lignes de trajectoire</label>
-                  </div>
-                  
-                  {/* Map interactive */}
-                  <div
-                    ref={mapRef}
-                    onClick={ajouterMarqueur}
-                    className="relative w-full aspect-video rounded-lg mb-4 cursor-crosshair overflow-hidden"
-                    style={{ backgroundColor: MAP_COLORS[selectedMap] || '#333' }}
-                  >
-                    {/* Grille de fond */}
-                    <div className="absolute inset-0 opacity-20" style={{
-                      backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-                      backgroundSize: '20px 20px'
-                    }} />
-                    
-                    {/* Zones A/B/C */}
-                    <div className="absolute top-1/4 left-1/4 w-16 h-16 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-xl">A</div>
-                    <div className="absolute top-1/4 right-1/4 w-16 h-16 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-xl">B</div>
-                    <div className="absolute bottom-1/4 left-1/2 transform -translate-x-1/2 w-16 h-16 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-xl">C</div>
-                    
-                    {/* Lignes entre marqueurs de la même étape */}
-                    {showLines && markers.filter(m => m.step === currentStep).length > 1 && (
-                      <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                        {markers.filter(m => m.step === currentStep).map((marker, i, arr) => {
-                          if (i === arr.length - 1) return null
-                          const nextMarker = arr[i + 1]
-                          return (
-                            <line
-                              key={i}
-                              x1={`${marker.x}%`}
-                              y1={`${marker.y}%`}
-                              x2={`${nextMarker.x}%`}
-                              y2={`${nextMarker.y}%`}
-                              stroke={marker.team === 'attack' ? '#EF4444' : '#3B82F6'}
-                              strokeWidth="2"
-                              strokeDasharray="5,5"
-                              opacity="0.6"
-                            />
-                          )
-                        })}
-                      </svg>
-                    )}
-                    
-                    {/* Marqueurs de l'étape actuelle */}
-                    {markers.filter(m => m.step === currentStep).map((marker) => (
-                      <div
-                        key={marker.id}
-                        onClick={(e) => { e.stopPropagation(); supprimerMarqueur(marker.id) }}
-                        className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-110 transition ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}
-                        style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
-                        title={`Étape ${marker.step}`}
-                      >
-                        {marker.id}
+                  <div className="flex-1 flex flex-col">
+                    <div className="h-14 bg-[#1a1a1a] border-b border-[#D4AF37]/30 flex items-center justify-between px-4">
+                      <div className="flex items-center gap-4">
+                        <button onClick={() => setCurrentStep(Math.max(1, currentStep - 1))} className="px-3 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏮️</button>
+                        <span className="text-[#D4AF37] font-bold">Étape {currentStep}</span>
+                        <button onClick={() => setCurrentStep(currentStep + 1)} className="px-3 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏭️</button>
                       </div>
-                    ))}
-                    
-                    {/* Instructions */}
-                    {markers.filter(m => m.step === currentStep).length === 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <p className="text-white/50 text-center">
-                          📍 Tape sur la carte pour placer des marqueurs<br/>
-                          <span className="text-xs">(Rouge = Attaque, Bleu = Défense)</span>
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id="showLines" checked={showLines} onChange={(e) => setShowLines(e.target.checked)} className="w-4 h-4 accent-[#D4AF37]" />
+                        <label htmlFor="showLines" className="text-sm text-gray-400">Lignes</label>
                       </div>
-                    )}
-                  </div>
-                  
-                  {/* Infos marqueurs */}
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm text-gray-400">📍 {markers.filter(m => m.step === currentStep).length} marqueur(s) à l'étape {currentStep}</p>
-                    <div className="flex gap-2">
-                      <span className="flex items-center gap-1 text-xs text-red-400">
-                        <div className="w-3 h-3 rounded-full bg-red-500" /> Attaque
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-blue-400">
-                        <div className="w-3 h-3 rounded-full bg-blue-500" /> Défense
-                      </span>
+                      <button onClick={() => setShowBattlePlan(false)} className="text-gray-400 text-2xl">✕</button>
+                    </div>
+                    <div className="flex-1 relative">
+                      <div ref={mapRef} onClick={ajouterMarqueur} className="absolute inset-0 cursor-crosshair" style={{ backgroundColor: MAP_COLORS[selectedMap] || '#333' }}>
+                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                        <div className="absolute top-[20%] left-[20%] w-20 h-20 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-2xl">A</div>
+                        <div className="absolute top-[20%] right-[20%] w-20 h-20 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-2xl">B</div>
+                        <div className="absolute bottom-[20%] left-1/2 transform -translate-x-1/2 w-20 h-20 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-2xl">C</div>
+                        {showLines && markers.filter(m => m.step === currentStep).length > 1 && (
+                          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                            {markers.filter(m => m.step === currentStep).map((marker, i, arr) => {
+                              if (i === arr.length - 1) return null
+                              return (<line key={i} x1={`${marker.x}%`} y1={`${marker.y}%`} x2={`${arr[i + 1].x}%`} y2={`${arr[i + 1].y}%`} stroke={marker.team === 'attack' ? '#EF4444' : '#3B82F6'} strokeWidth="2" strokeDasharray="5,5" opacity="0.6" />)
+                            })}
+                          </svg>
+                        )}
+                        {markers.filter(m => m.step === currentStep).map((marker) => (
+                          <div key={marker.id} onClick={(e) => { e.stopPropagation(); supprimerMarqueur(marker.id) }} className={`absolute w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ left: `${marker.x}%`, top: `${marker.y}%` }}>{marker.id}</div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="h-10 bg-[#1a1a1a] border-t border-[#D4AF37]/30 flex items-center justify-between px-4">
+                      <span className="text-gray-400 text-sm">📍 {markers.filter(m => m.step === currentStep).length} marqueur(s)</span>
+                      <div className="flex gap-4 text-xs">
+                        <span className="text-red-400">🔴 Attaque</span>
+                        <span className="text-blue-400">🔵 Défense</span>
+                      </div>
                     </div>
                   </div>
-                  
-                  {/* Boutons */}
-                  <div className="flex gap-2">
-                    <button onClick={() => { setShowBattlePlan(false); setMarkers([]); setStratTitle(''); setStratDescription(''); }} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
-                    <button onClick={sauvegarderBattlePlan} className="flex-1 btn-gold py-3 rounded-lg">✅ Sauvegarder</button>
+                  <div className="w-64 bg-[#1a1a1a] border-l border-[#D4AF37]/30 flex flex-col p-4 gap-4">
+                    <h3 className="text-[#D4AF37] font-bold">STRATÉGIE</h3>
+                    <input type="text" placeholder="Titre..." value={stratTitle} onChange={(e) => setStratTitle(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm" />
+                    <textarea placeholder="Description..." value={stratDescription} onChange={(e) => setStratDescription(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm h-32 resize-none" />
+                    <div className="mt-auto flex flex-col gap-2">
+                      <button onClick={() => { setShowBattlePlan(false); setMarkers([]); }} className="w-full border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
+                      <button onClick={sauvegarderBattlePlan} className="w-full btn-gold py-3 rounded-lg">✅ Sauvegarder</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1171,32 +763,24 @@ function App() {
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🎬 Nos Replays</h2>
-              <p className="text-gray-400 text-sm mb-4">Retrouvez tous nos matchs en vidéo</p>
-              <a href={YOUTUBE_CHANNEL} target="_blank" rel="noopener noreferrer" className="btn-gold inline-block px-6 py-3 rounded-lg font-bold">🔴 S'abonner à la chaîne</a>
+              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🎬 Replays</h2>
             </div>
             {replays.length === 0 ? (
-              <div className="text-center py-10 text-gray-500"><p>📹 Aucun replay pour le moment</p></div>
+              <div className="text-center py-10 text-gray-500"><p>📹 Aucun replay</p></div>
             ) : (
               <div className="space-y-4">
-                {replays.map(replay => {
-                  const videoId = getYouTubeId(replay.lien)
-                  return (
-                    <div key={replay.id} className="card-relief rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-[#D4AF37] text-lg">{replay.titre}</h3>
-                        {isAdmin && <button onClick={() => supprimerReplay(replay.id)} className="bg-red-900/50 border border-red-500 text-red-400 px-3 py-1 rounded-lg text-sm">🗑️</button>}
+                {replays.map(replay => (
+                  <div key={replay.id} className="card-relief rounded-xl p-4">
+                    <h3 className="font-bold text-[#D4AF37] mb-2">{replay.titre}</h3>
+                    {getYouTubeId(replay.lien) ? (
+                      <div className="relative w-full pb-[56.25%] rounded-lg overflow-hidden bg-gray-900">
+                        <iframe src={`https://www.youtube.com/embed/${getYouTubeId(replay.lien)}`} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen />
                       </div>
-                      {videoId ? (
-                        <div className="relative w-full pb-[56.25%] rounded-lg overflow-hidden bg-gray-900">
-                          <iframe src={`https://www.youtube.com/embed/${videoId}`} title={replay.titre} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                        </div>
-                      ) : (
-                        <a href={replay.lien} target="_blank" rel="noopener noreferrer" className="btn-gold block text-center py-3 rounded-lg">▶️ Voir la vidéo</a>
-                      )}
-                    </div>
-                  )
-                })}
+                    ) : (
+                      <a href={replay.lien} target="_blank" className="btn-gold block text-center py-3 rounded-lg">▶️ Voir</a>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -1206,8 +790,7 @@ function App() {
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">Roster DYNO</h2>
-              <p className="text-gray-400 text-sm">Nos joueurs</p>
+              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">👥 Roster</h2>
             </div>
             <div className="space-y-4">
               {joueurs.filter(j => j.actif !== false).map(joueur => (
@@ -1216,14 +799,13 @@ function App() {
                     <div className="w-12 h-12 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-bold text-xl">{joueur.pseudo[0]?.toUpperCase()}</div>
                     <div className="flex-1">
                       <p className="font-bold text-[#D4AF37]">{joueur.pseudo}</p>
-                      <p className="text-sm text-gray-400">🎮 {joueur.role} {joueur.rang && `• ${joueur.rang}`}</p>
+                      <p className="text-sm text-gray-400">🎮 {joueur.role}</p>
                     </div>
-                    {isAdmin && <button onClick={() => supprimerJoueur(joueur.id, joueur.pseudo)} className="bg-red-900/50 border border-red-500 text-red-400 px-3 py-2 rounded-lg text-sm">🗑️</button>}
+                    {isAdmin && <button onClick={() => supprimerJoueur(joueur.id, joueur.pseudo)} className="text-red-400 text-xs">🗑️</button>}
                   </div>
                 </div>
               ))}
             </div>
-            {isAdmin && (<div className="mt-6 card-relief rounded-xl p-4 text-center"><p className="text-gray-400 text-sm">👆 Clique sur ️ pour supprimer un joueur</p></div>)}
           </div>
         )}
 
@@ -1231,31 +813,20 @@ function App() {
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">Statistiques</h2>
-              <p className="text-gray-400 text-sm">Performance de l'équipe</p>
+              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">📈 Stats</h2>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="card-relief rounded-xl p-4 text-center"><p className="text-4xl font-bold text-[#D4AF37]">{winRate}%</p><p className="text-sm text-gray-400">Win Rate</p></div>
-              <div className="card-relief rounded-xl p-4 text-center"><p className="text-4xl font-bold text-[#D4AF37]">{totalMatchs}</p><p className="text-sm text-gray-400">Matchs Totaux</p></div>
+              <div className="card-relief rounded-xl p-4 text-center"><p className="text-4xl font-bold text-[#D4AF37]">{totalMatchs}</p><p className="text-sm text-gray-400">Matchs</p></div>
             </div>
-            <div className="card-relief rounded-xl p-6 mb-6">
+            <div className="card-relief rounded-xl p-6">
               <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Répartition</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between"><span className="text-gray-400">🏆 Victoires</span><span className="text-[#D4AF37] font-bold">{victoires}</span></div>
                 <div className="w-full bg-gray-800 rounded-full h-2"><div className="bg-[#D4AF37] h-2 rounded-full" style={{ width: `${totalMatchs > 0 ? (victoires/totalMatchs)*100 : 0}%` }}></div></div>
-                <div className="flex items-center justify-between mt-4"><span className="text-gray-400">🤝 Nuls</span><span className="text-[#D4AF37] font-bold">{nuls}</span></div>
-                <div className="w-full bg-gray-800 rounded-full h-2"><div className="bg-gray-500 h-2 rounded-full" style={{ width: `${totalMatchs > 0 ? (nuls/totalMatchs)*100 : 0}%` }}></div></div>
                 <div className="flex items-center justify-between mt-4"><span className="text-gray-400">❌ Défaites</span><span className="text-red-500 font-bold">{defaites}</span></div>
                 <div className="w-full bg-gray-800 rounded-full h-2"><div className="bg-red-500 h-2 rounded-full" style={{ width: `${totalMatchs > 0 ? (defaites/totalMatchs)*100 : 0}%` }}></div></div>
               </div>
-            </div>
-            <div className="card-relief rounded-xl p-6">
-              <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🔔 Notifications</h3>
-              {notificationPermission === 'granted' ? (
-                <div className="text-center"><p className="text-green-400 mb-4">✅ Notifications activées !</p><p className="text-gray-400 text-sm">Tu recevras des rappels avant les matchs.</p></div>
-              ) : (
-                <><p className="text-gray-400 text-sm mb-4">Reçois des rappels avant les matchs</p><button onClick={requestNotificationPermission} className="btn-gold w-full py-3 rounded-lg font-bold">{isIOS ? '📱 iPhone : Voir instructions' : '🔔 Activer les notifications'}</button>{isIOS && (<p className="text-gray-500 text-xs mt-3 text-center">iOS nécessite iOS 16.4+</p>)}</>
-              )}
             </div>
           </div>
         )}
@@ -1264,105 +835,36 @@ function App() {
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-28 h-28 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">Espace Admin</h2>
-              {!isAdmin ? (<p className="text-gray-400">Connecte-toi pour gérer</p>) : (<p className="text-green-400">👑 Connecté en tant qu'admin</p>)}
+              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">⚙️ Admin</h2>
+              {!isAdmin ? (<p className="text-gray-400">Connecte-toi</p>) : (<p className="text-green-400">👑 Connecté</p>)}
             </div>
             {!isAdmin ? (
               <div className="card-relief rounded-xl p-6">
-                <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🔐 Admin</h3>
                 <input type="password" placeholder="Mot de passe" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white" />
                 <button onClick={handleAdminLogin} className="btn-gold w-full py-3 rounded-lg">Se connecter</button>
               </div>
             ) : (
               <div className="space-y-6">
                 <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">➕ Ajouter un Match</h3>
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">➕ Match</h3>
                   <input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={(e) => setNouveauMatch({...nouveauMatch, adversaire: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
                   <input type="date" value={nouveauMatch.date} onChange={(e) => setNouveauMatch({...nouveauMatch, date: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
                   <div className="grid grid-cols-2 gap-3 mb-3">
-                    <input type="time" placeholder="Horaire 1" value={nouveauMatch.horaire1} onChange={(e) => setNouveauMatch({...nouveauMatch, horaire1: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
-                    <input type="time" placeholder="Horaire 2" value={nouveauMatch.horaire2} onChange={(e) => setNouveauMatch({...nouveauMatch, horaire2: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <select value={nouveauMatch.arene} onChange={(e) => setNouveauMatch({...nouveauMatch, arene: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white">
-                      <option value="Arène 1">Arène 1</option>
-                      <option value="Arène 2">Arène 2</option>
-                    </select>
-                    <select value={nouveauMatch.type} onChange={(e) => setNouveauMatch({...nouveauMatch, type: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white">
-                      <option value="Ligue">Ligue</option>
-                      <option value="Scrim">Scrim</option>
-                      <option value="Tournoi">Tournoi</option>
-                    </select>
+                    <input type="time" placeholder="H1" value={nouveauMatch.horaire1} onChange={(e) => setNouveauMatch({...nouveauMatch, horaire1: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
+                    <input type="time" placeholder="H2" value={nouveauMatch.horaire2} onChange={(e) => setNouveauMatch({...nouveauMatch, horaire2: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
                   </div>
                   <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
                 </div>
-
                 <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">✏️ Mettre à jour un Score</h3>
-                  {prochainsMatchs.length === 0 ? (
-                    <p className="text-gray-500 text-center">Aucun match en cours</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {prochainsMatchs.map(match => (
-                        <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
-                          <p className="font-bold text-[#D4AF37] mb-2">{match.adversaire}</p>
-                          {scoreEdit?.id === match.id ? (
-                            <div>
-                              <div className="grid grid-cols-2 gap-2 mb-2">
-                                <input type="number" placeholder="DYNO" value={scoreEdit.scoreDyno} onChange={(e) => setScoreEdit({...scoreEdit, scoreDyno: e.target.value})} className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-3 py-2 text-white text-center" />
-                                <input type="number" placeholder="Adv" value={scoreEdit.scoreAdv} onChange={(e) => setScoreEdit({...scoreEdit, scoreAdv: e.target.value})} className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-3 py-2 text-white text-center" />
-                              </div>
-                              <div className="flex gap-2">
-                                <button onClick={updateScore} className="btn-gold flex-1 py-2 rounded text-sm">Valider</button>
-                                <button onClick={() => setScoreEdit(null)} className="border border-gray-600 flex-1 py-2 rounded text-sm text-gray-400">Annuler</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button onClick={() => setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})} className="btn-gold w-full py-2 rounded text-sm">📝 Mettre le score</button>
-                          )}
-                        </div>
-                      ))}
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">✏️ Scores</h3>
+                  {prochainsMatchs.map(match => (
+                    <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-3 mb-3">
+                      <p className="font-bold text-[#D4AF37] mb-2">{match.adversaire}</p>
+                      <button onClick={() => setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})} className="btn-gold w-full py-2 rounded text-sm">📝 Score</button>
                     </div>
-                  )}
+                  ))}
                 </div>
-
-                <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Ajouter un Replay</h3>
-                  <input type="text" placeholder="Titre de la vidéo" value={nouveauReplay.titre} onChange={(e) => setNouveauReplay({...nouveauReplay, titre: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
-                  <input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={(e) => setNouveauReplay({...nouveauReplay, lien: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
-                  <button onClick={ajouterReplay} className="btn-gold w-full py-3 rounded-lg">Ajouter le replay</button>
-                </div>
-                <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🗑️ Supprimer un Match</h3>
-                  {matchs.length === 0 ? (<p className="text-gray-500 text-center">Aucun match</p>) : (
-                    <div className="space-y-3">
-                      {matchs.map(match => (
-                        <div key={match.id} className="bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="font-bold text-[#D4AF37]">{match.adversaire}</p>
-                            <span className="text-xs text-gray-400">{match.date}</span>
-                          </div>
-                          <button onClick={() => supprimerMatch(match.id)} className="w-full bg-red-900/50 border border-red-500 text-red-400 py-2 rounded-lg text-sm">🗑️ Supprimer ce match</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">👥 Ajouter un Joueur</h3>
-                  <input type="text" placeholder="Pseudo" value={nouveauJoueur.pseudo} onChange={(e) => setNouveauJoueur({...nouveauJoueur, pseudo: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <select value={nouveauJoueur.role} onChange={(e) => setNouveauJoueur({...nouveauJoueur, role: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white">
-                      <option value="Joueur">Joueur</option>
-                      <option value="Capitaine">Capitaine</option>
-                      <option value="Coach">Coach</option>
-                      <option value="Manager">Manager</option>
-                    </select>
-                    <input type="text" placeholder="Rang" value={nouveauJoueur.rang} onChange={(e) => setNouveauJoueur({...nouveauJoueur, rang: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
-                  </div>
-                  <button onClick={ajouterJoueur} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
-                </div>
-                <button onClick={handleAdminLogout} className="w-full border border-red-500 text-red-500 py-3 rounded-lg">🚪 Déconnexion Admin</button>
+                <button onClick={handleAdminLogout} className="w-full border border-red-500 text-red-500 py-3 rounded-lg">🚪 Déconnexion</button>
               </div>
             )}
           </div>
@@ -1371,36 +873,32 @@ function App() {
 
       <nav className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[#D4AF37]/30">
         <div className="max-w-lg mx-auto flex">
-          <button onClick={() => setActiveTab('matchs')} className={`flex-1 py-4 text-center ${activeTab === 'matchs' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📅 Matchs</button>
-          <button onClick={() => setActiveTab('historique')} className={`flex-1 py-4 text-center ${activeTab === 'historique' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📜 Historique</button>
-          <button onClick={() => setActiveTab('notes')} className={`flex-1 py-4 text-center ${activeTab === 'notes' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📊 Notes</button>
-          <button onClick={() => setActiveTab('strats')} className={`flex-1 py-4 text-center ${activeTab === 'strats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🗺️ Strats</button>
-          <button onClick={() => setActiveTab('rec')} className={`flex-1 py-4 text-center ${activeTab === 'rec' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🎬 Rec</button>
-          <button onClick={() => setActiveTab('roster')} className={`flex-1 py-4 text-center ${activeTab === 'roster' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>👥 Roster</button>
-          <button onClick={() => setActiveTab('stats')} className={`flex-1 py-4 text-center ${activeTab === 'stats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📊 Stats</button>
-          <button onClick={() => setActiveTab('admin')} className={`flex-1 py-4 text-center ${activeTab === 'admin' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>⚙️ Admin</button>
+          <button onClick={() => setActiveTab('matchs')} className={`flex-1 py-4 text-center ${activeTab === 'matchs' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📅</button>
+          <button onClick={() => setActiveTab('historique')} className={`flex-1 py-4 text-center ${activeTab === 'historique' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📜</button>
+          <button onClick={() => setActiveTab('notes')} className={`flex-1 py-4 text-center ${activeTab === 'notes' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📊</button>
+          <button onClick={() => setActiveTab('strats')} className={`flex-1 py-4 text-center ${activeTab === 'strats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🗺️</button>
+          <button onClick={() => setActiveTab('rec')} className={`flex-1 py-4 text-center ${activeTab === 'rec' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🎬</button>
+          <button onClick={() => setActiveTab('roster')} className={`flex-1 py-4 text-center ${activeTab === 'roster' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>👥</button>
+          <button onClick={() => setActiveTab('stats')} className={`flex-1 py-4 text-center ${activeTab === 'stats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📈</button>
+          <button onClick={() => setActiveTab('admin')} className={`flex-1 py-4 text-center ${activeTab === 'admin' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>⚙️</button>
         </div>
       </nav>
 
       {!user && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
-            <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">{isSignUp ? '📝 Créer un compte' : '👤 Connexion'}</h3>
+            <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">{isSignUp ? '📝 Créer' : '👤 Connexion'}</h3>
             {isSignUp && (<input type="text" placeholder="Pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />)}
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
-            <input type="password" placeholder="Mot de passe" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
-            <div className="flex items-center gap-2 mb-4">
-              <input type="checkbox" id="rememberMe" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="w-4 h-4 accent-[#D4AF37]" />
-              <label htmlFor="rememberMe" className="text-sm text-gray-400">📝 Se souvenir de moi</label>
-            </div>
-            {authLoading ? (<button disabled className="w-full bg-gray-600 text-gray-400 py-3 rounded-lg font-bold">⏳...</button>) : isSignUp ? (
+            <input type="password" placeholder="Mot de passe" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white" />
+            {isSignUp ? (
               <button onClick={handleSignUp} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">✅ Créer</button>
             ) : (
               <button onClick={handleSignIn} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">🔐 Connexion</button>
             )}
             <div className="border-t border-gray-700 pt-3">
-              {isSignUp ? (<button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm">Déjà un compte ? Se connecter</button>) : (
-                <button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm">Pas de compte ? S'inscrire</button>
+              {isSignUp ? (<button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm">Déjà un compte ?</button>) : (
+                <button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm">Pas de compte ?</button>
               )}
             </div>
           </div>
