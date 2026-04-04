@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
@@ -54,7 +53,6 @@ function App() {
   const [showNoteForm, setShowNoteForm] = useState(false)
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
-  const [scoreEdit, setScoreEdit] = useState<any>(null)
   const [showMatchScored, setShowMatchScored] = useState<any>(null)
 
   useEffect(() => {
@@ -339,13 +337,6 @@ function App() {
     if (!confirm(`⚠️ Supprimer "${playerPseudo}" ?`)) return
     await deleteDoc(doc(db, 'players', playerId))
     alert('✅ Joueur supprimé !')
-  }
-
-  const updateScore = async (matchId: string, scoreDyno: number, scoreAdv: number) => {
-    await updateDoc(doc(db, 'matchs', matchId), { scoreDyno, scoreAdversaire: scoreAdv, termine: true })
-    setScoreEdit(null)
-    setShowMatchScored({ id: matchId, adversaire: prochainsMatchs.find((m: any) => m.id === matchId)?.adversaire || 'Inconnu' })
-    alert('✅ Score mis à jour ! Les joueurs peuvent maintenant noter leurs teammates.')
   }
 
   const toggleDisponibilite = async (matchId: string) => {
@@ -691,7 +682,7 @@ function App() {
                 </div>
 
                 <div className="card-relief rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Scores & Notes d'équipe</h3>
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Notes d'équipe</h3>
                   {historique.length === 0 ? (
                     <p className="text-gray-500 text-center">Aucun match terminé</p>
                   ) : (
@@ -707,7 +698,7 @@ function App() {
                             <span className="text-gray-500">-</span>
                             <span className="text-lg font-bold text-gray-400">{match.scoreAdversaire} {match.adversaire}</span>
                           </div>
-                          <button onClick={() => ouvrirFormulaireNotes(match)} className="btn-gold w-full py-2 rounded-lg text-sm mb-2">
+                          <button onClick={() => ouvrirFormulaireNotes(match)} className="btn-gold w-full py-2 rounded-lg text-sm">
                             📊 Noter les joueurs de ce match
                           </button>
                           {showMatchScored?.id === match.id && (
