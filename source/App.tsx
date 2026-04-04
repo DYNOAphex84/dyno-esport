@@ -26,18 +26,19 @@ const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
-// 🗺️ Maps Valorant + Liens Eva Battleplan
-const VALORANT_MAPS = [
-  { id: 'ascent', name: 'Ascent', image: '🏰', evaUrl: 'https://evabattleplan.com/fr/valorant/ascent' },
-  { id: 'bind', name: 'Bind', image: '🏜️', evaUrl: 'https://evabattleplan.com/fr/valorant/bind' },
-  { id: 'haven', name: 'Haven', image: '🏯', evaUrl: 'https://evabattleplan.com/fr/valorant/haven' },
-  { id: 'split', name: 'Split', image: '🏙️', evaUrl: 'https://evabattleplan.com/fr/valorant/split' },
-  { id: 'icebox', name: 'Icebox', image: '❄️', evaUrl: 'https://evabattleplan.com/fr/valorant/icebox' },
-  { id: 'breeze', name: 'Breeze', image: '🏝️', evaUrl: 'https://evabattleplan.com/fr/valorant/breeze' },
-  { id: 'fracture', name: 'Fracture', image: '🔮', evaUrl: 'https://evabattleplan.com/fr/valorant/fracture' },
-  { id: 'pearl', name: 'Pearl', image: '', evaUrl: 'https://evabattleplan.com/fr/valorant/pearl' },
-  { id: 'lotus', name: 'Lotus', image: '🪷', evaUrl: 'https://evabattleplan.com/fr/valorant/lotus' },
-  { id: 'sunset', name: 'Sunset', image: '🌅', evaUrl: 'https://evabattleplan.com/fr/valorant/sunset' }
+// 🗺️ Maps EVA Esport Arena + Liens Eva Battleplan
+const EVA_MAPS = [
+  { id: 'artefact', name: 'Artefact', image: '🏛️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=artefact' },
+  { id: 'atlantis', name: 'Atlantis', image: '', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=atlantis' },
+  { id: 'ceres', name: 'Ceres', image: '🛰️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=ceres' },
+  { id: 'engine', name: 'Engine', image: '⚙️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=engine' },
+  { id: 'helios', name: 'Helios Station', image: '🚀', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=helios-station' },
+  { id: 'horizon', name: 'Horizon', image: '🌴', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=horizon' },
+  { id: 'lunar', name: 'Lunar Outpost', image: '🌙', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=lunar-outpost' },
+  { id: 'outlaw', name: 'Outlaw', image: '🤠', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=outlaw' },
+  { id: 'polaris', name: 'Polaris', image: '❄️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=polaris' },
+  { id: 'silva', name: 'Silva', image: '🌳', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=silva' },
+  { id: 'cliff', name: 'The Cliff', image: '🏔️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan?map=the-cliff' }
 ]
 
 function App() {
