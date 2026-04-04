@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth'
-import { getMessaging, getToken } from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: "AIzaSyDXwItLM0OZ0VmHj-DLZcH8OBy7wXiHBsM",
@@ -13,85 +12,59 @@ const firebaseConfig = {
   appId: "1:808658404731:web:f3cf29142d3038816f29de"
 }
 
-const VAPID_KEY = 'BIhsEPrWBagYPmnPjpiR3tlKZB0ehBMqkgMnoZUFv1jkNXb6DrkiFT7UOyBETE83ba_tGueF1uV0KNIz0mMXepk'
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
-
-const app = initializeApp(firebaseConfig)
-const db = getFirestore(app)
-const auth = getAuth(app)
-
-setPersistence(auth, browserLocalPersistence)
-
-const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
+const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
-// 🗺️ Maps EVA Esport Arena
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', image: '🏛️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'atlantis', name: 'Atlantis', image: '🌊', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'ceres', name: 'Ceres', image: '🛰️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'engine', name: 'Engine', image: '⚙️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'helios', name: 'Helios Station', image: '🚀', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'horizon', name: 'Horizon', image: '🌴', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'lunar', name: 'Lunar Outpost', image: '🌙', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'outlaw', name: 'Outlaw', image: '🤠', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'polaris', name: 'Polaris', image: '❄️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'silva', name: 'Silva', image: '🌳', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'cliff', name: 'The Cliff', image: '🏔️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
+  { id: 'artefact', name: 'Artefact', image: '🏛️' },
+  { id: 'atlantis', name: 'Atlantis', image: '🌊' },
+  { id: 'ceres', name: 'Ceres', image: '🛰️' },
+  { id: 'engine', name: 'Engine', image: '⚙️' },
+  { id: 'helios', name: 'Helios', image: '🚀' },
+  { id: 'horizon', name: 'Horizon', image: '🌴' },
+  { id: 'lunar', name: 'Lunar', image: '🌙' },
+  { id: 'outlaw', name: 'Outlaw', image: '🤠' },
+  { id: 'polaris', name: 'Polaris', image: '❄️' },
+  { id: 'silva', name: 'Silva', image: '🌳' },
+  { id: 'cliff', name: 'Cliff', image: '🏔️' }
 ]
 
-const MAP_COLORS: Record<string, string> = {
-  artefact: '#5D4E37',
-  atlantis: '#1a3a52',
-  ceres: '#3a3a3a',
-  engine: '#4a3a2a',
-  helios: '#524a1a',
-  horizon: '#2a4a3a',
-  lunar: '#2a2a3a',
-  outlaw: '#4a3a2a',
-  polaris: '#2a3a4a',
-  silva: '#2a4a2a',
-  cliff: '#4a3a2a'
+const MAP_COLORS = {
+  artefact: '#5D4E37', atlantis: '#1a3a52', ceres: '#3a3a3a',
+  engine: '#4a3a2a', helios: '#524a1a', horizon: '#2a4a3a',
+  lunar: '#2a2a3a', outlaw: '#4a3a2a', polaris: '#2a3a4a',
+  silva: '#2a4a2a', cliff: '#4a3a2a'
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'notes' | 'strats' | 'rec' | 'roster' | 'stats' | 'admin'>('matchs')
+  const [activeTab, setActiveTab] = useState('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
   const [showSplash, setShowSplash] = useState(true)
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-  const [showInstall, setShowInstall] = useState(false)
-  const [isIOS, setIsIOS] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState(null)
   const [pseudo, setPseudo] = useState('')
   const [email, setEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
-  const [authLoading, setAuthLoading] = useState(false)
-  const [rememberMe, setRememberMe] = useState(true)
-  const [notificationPermission, setNotificationPermission] = useState('default')
-  const [matchs, setMatchs] = useState<any[]>([])
-  const [replays, setReplays] = useState<any[]>([])
-  const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
-  const [joueurs, setJoueurs] = useState<any[]>([])
-  const [nouveauJoueur, setNouveauJoueur] = useState({ pseudo: '', role: 'Joueur', rang: '' })
-  const [notes, setNotes] = useState<any[]>([])
-  const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', matchNom: '', mental: '', communication: '', gameplay: '' })
-  const [showNoteForm, setShowNoteForm] = useState(false)
-  const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
-  const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
-  const [scoreEdit, setScoreEdit] = useState<any>(null)
-  const [strats, setStrats] = useState<any[]>([])
-  const [selectedMap, setSelectedMap] = useState<string>('artefact')
+  const [matchs, setMatchs] = useState([])
+  const [replays, setReplays] = useState([])
+  const [joueurs, setJoueurs] = useState([])
+  const [notes, setNotes] = useState([])
+  const [strats, setStrats] = useState([])
+  const [selectedMap, setSelectedMap] = useState('artefact')
   const [showBattlePlan, setShowBattlePlan] = useState(false)
-  const [markers, setMarkers] = useState<{id: number, x: number, y: number, team: 'attack' | 'defend', step: number}[]>([])
+  const [markers, setMarkers] = useState([])
   const [stratTitle, setStratTitle] = useState('')
   const [stratDescription, setStratDescription] = useState('')
   const [currentStep, setCurrentStep] = useState(1)
   const [showLines, setShowLines] = useState(true)
-  const mapRef = useRef<HTMLDivElement>(null)
+  const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
+  const [scoreEdit, setScoreEdit] = useState(null)
+  const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
+  const mapRef = useRef(null)
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
@@ -104,9 +77,8 @@ function App() {
       if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid))
         if (userDoc.exists()) {
-          const data = userDoc.data()
-          setPseudo(data.pseudo)
-          if (user.email === ADMIN_EMAIL || data.isAdmin === true) {
+          setPseudo(userDoc.data().pseudo)
+          if (userDoc.data().isAdmin) {
             setIsAdmin(true)
             localStorage.setItem('dyno-admin', 'true')
           }
@@ -120,9 +92,7 @@ function App() {
   useEffect(() => {
     const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const matchsData: any[] = []
-      snapshot.forEach((doc) => matchsData.push({ id: doc.id, ...doc.data() }))
-      setMatchs(matchsData)
+      setMatchs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
     })
     return () => unsubscribe()
   }, [])
@@ -130,9 +100,7 @@ function App() {
   useEffect(() => {
     const q = query(collection(db, 'replays'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const replaysData: any[] = []
-      snapshot.forEach((doc) => replaysData.push({ id: doc.id, ...doc.data() }))
-      setReplays(replaysData)
+      setReplays(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
     })
     return () => unsubscribe()
   }, [])
@@ -140,9 +108,7 @@ function App() {
   useEffect(() => {
     const q = query(collection(db, 'players'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const joueursData: any[] = []
-      snapshot.forEach((doc) => joueursData.push({ id: doc.id, ...doc.data() }))
-      setJoueurs(joueursData)
+      setJoueurs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
     })
     return () => unsubscribe()
   }, [])
@@ -150,9 +116,7 @@ function App() {
   useEffect(() => {
     const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notesData: any[] = []
-      snapshot.forEach((doc) => notesData.push({ id: doc.id, ...doc.data() }))
-      setNotes(notesData)
+      setNotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
     })
     return () => unsubscribe()
   }, [])
@@ -160,15 +124,9 @@ function App() {
   useEffect(() => {
     const q = query(collection(db, 'strats'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const stratsData: any[] = []
-      snapshot.forEach((doc) => stratsData.push({ id: doc.id, ...doc.data() }))
-      setStrats(stratsData)
+      setStrats(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
     })
     return () => unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent))
   }, [])
 
   useEffect(() => {
@@ -176,88 +134,27 @@ function App() {
     return () => clearTimeout(timer)
   }, [])
 
-  useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e: any) => {
-      e.preventDefault()
-      setDeferredPrompt(e)
-      setShowInstall(true)
-    })
-  }, [])
-
-  useEffect(() => {
-    if ('Notification' in window) setNotificationPermission(Notification.permission)
-  }, [])
-
-  const requestNotificationPermission = async () => {
-    if (!('Notification' in window)) {
-      alert('❌ Notifications non supportées')
-      return
-    }
-    if (isIOS) {
-      alert('📱 iPhone : Ajoute l\'app à l\'écran d\'accueil')
-      return
-    }
-    const permission = await Notification.requestPermission()
-    setNotificationPermission(permission)
-    if (permission === 'granted' && user) {
-      try {
-        if ('serviceWorker' in navigator) await navigator.serviceWorker.register('/firebase-messaging-sw.js')
-        const messaging = getMessaging(app)
-        const token = await getToken(messaging, { vapidKey: VAPID_KEY })
-        if (token) {
-          await updateDoc(doc(db, 'users', user.uid), { fcmToken: token })
-          alert('✅ Notifications activées !')
-        }
-      } catch (error: any) {
-        alert('⚠️ Erreur: ' + error.message)
-      }
-    }
-  }
-
-  const handleInstall = () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt()
-      setDeferredPrompt(null)
-      setShowInstall(false)
-    }
-  }
-
   const handleSignUp = async () => {
-    if (!email || !authPassword || !pseudo) {
-      alert('⚠️ Remplis tous les champs !')
-      return
-    }
-    setAuthLoading(true)
+    if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }
     try {
       const result = await createUserWithEmailAndPassword(auth, email, authPassword)
-      await setDoc(doc(db, 'users', result.user.uid), { pseudo, email, createdAt: Date.now(), fcmToken: '', isAdmin: email === ADMIN_EMAIL })
+      await setDoc(doc(db, 'users', result.user.uid), { pseudo, email, createdAt: Date.now(), isAdmin: email === ADMIN_EMAIL })
       await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', rang: 'Nouveau', userId: result.user.uid, createdAt: Date.now() })
       alert('✅ Compte créé !')
       setIsSignUp(false)
       setEmail('')
       setAuthPassword('')
-      setPseudo('')
-    } catch (error: any) {
-      alert('❌ ' + error.message)
-    }
-    setAuthLoading(false)
+    } catch (error) { alert('❌ ' + error.message) }
   }
 
   const handleSignIn = async () => {
-    if (!email || !authPassword) {
-      alert('⚠️ Remplis tous les champs !')
-      return
-    }
-    setAuthLoading(true)
+    if (!email || !authPassword) { alert('⚠️ Remplis tout !'); return }
     try {
       await signInWithEmailAndPassword(auth, email, authPassword)
       alert('✅ Connecté !')
       setEmail('')
       setAuthPassword('')
-    } catch (error: any) {
-      alert('❌ ' + error.message)
-    }
-    setAuthLoading(false)
+    } catch (error) { alert('❌ ' + error.message) }
   }
 
   const handleSignOut = async () => {
@@ -265,7 +162,6 @@ function App() {
     setPseudo('')
     setIsAdmin(false)
     localStorage.removeItem('dyno-admin')
-    alert('✅ Déconnecté !')
   }
 
   const handleAdminLogin = () => {
@@ -273,218 +169,92 @@ function App() {
       setIsAdmin(true)
       localStorage.setItem('dyno-admin', 'true')
       setAdminPassword('')
-      alert('✅ Admin connecté !')
-    } else {
-      alert('❌ Mot de passe incorrect !')
-    }
-  }
-
-  const handleAdminLogout = () => {
-    setIsAdmin(false)
-    localStorage.removeItem('dyno-admin')
-    alert('✅ Admin déconnecté !')
+    } else { alert('❌ Mot de passe incorrect !') }
   }
 
   const ajouterMatch = async () => {
-    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) {
-      alert('⚠️ Remplis tous les champs !')
-      return
-    }
+    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('⚠️ Remplis tout !'); return }
+    await addDoc(collection(db, 'matchs'), { ...nouveauMatch, termine: false, disponibles: [], createdAt: Date.now() })
+    
+    // 📢 Notification Discord
     const horaires = [nouveauMatch.horaire1]
     if (nouveauMatch.horaire2) horaires.push(nouveauMatch.horaire2)
-    await addDoc(collection(db, 'matchs'), { adversaire: nouveauMatch.adversaire, date: nouveauMatch.date, horaires, arene: nouveauMatch.arene, type: nouveauMatch.type, termine: false, disponibles: [], createdAt: Date.now() })
+    const discordMessage = {
+      embeds: [{
+        title: '🎮 NOUVEAU MATCH DYNO !',
+        color: 13934871,
+        fields: [
+          { name: '⚔️ Adversaire', value: nouveauMatch.adversaire, inline: true },
+          { name: '📅 Date', value: nouveauMatch.date, inline: true },
+          { name: '⏰ Horaire', value: horaires.join(' / '), inline: true },
+          { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true }
+        ],
+        footer: { text: 'DYNO Esport', icon_url: LOGO_URL }
+      }]
+    }
+    try {
+      await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(discordMessage) })
+    } catch (error) { console.error('Discord error:', error) }
+    
     setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
-    alert('✅ Match ajouté !')
+    alert('✅ Match ajouté + Discord notifié !')
   }
 
   const ajouterReplay = async () => {
-    if (!nouveauReplay.titre || !nouveauReplay.lien) {
-      alert('⚠️ Remplis le titre et le lien !')
-      return
-    }
-    await addDoc(collection(db, 'replays'), { titre: nouveauReplay.titre, lien: nouveauReplay.lien, createdAt: Date.now() })
+    if (!nouveauReplay.titre || !nouveauReplay.lien) { alert('⚠️ Remplis tout !'); return }
+    await addDoc(collection(db, 'replays'), { ...nouveauReplay, createdAt: Date.now() })
     setNouveauReplay({ titre: '', lien: '' })
     alert('✅ Replay ajouté !')
   }
 
-  const ajouterNote = async () => {
-    if (!nouvelleNote.mental || !nouvelleNote.communication || !nouvelleNote.gameplay) {
-      alert('⚠️ Remplis les 3 notes !')
-      return
-    }
-    if (!user) {
-      alert('⚠️ Tu dois être connecté !')
-      return
-    }
-    const note = { 
-      matchId: nouvelleNote.matchId,
-      matchNom: nouvelleNote.matchNom,
-      joueur: pseudo,
-      joueurId: user.uid,
-      mental: parseInt(nouvelleNote.mental),
-      communication: parseInt(nouvelleNote.communication),
-      gameplay: parseInt(nouvelleNote.gameplay),
-      moyenne: Math.round((parseInt(nouvelleNote.mental) + parseInt(nouvelleNote.communication) + parseInt(nouvelleNote.gameplay)) / 3),
-      createdAt: Date.now()
-    }
-    try {
-      await addDoc(collection(db, 'notes'), note)
-      setNouvelleNote({ matchId: '', matchNom: '', mental: '', communication: '', gameplay: '' })
-      setShowNoteForm(false)
-      setSelectedMatchForNotes(null)
-      alert('✅ Note ajoutée !')
-      setTimeout(() => window.location.reload(), 500)
-    } catch (error: any) {
-      alert('❌ Erreur: ' + error.message)
-    }
-  }
-
-  const ouvrirFormulaireNotes = (match: any) => {
-    setSelectedMatchForNotes(match)
-    setNouvelleNote({ 
-      matchId: match.id, 
-      matchNom: `${match.adversaire} (${match.date})`,
-      mental: '', 
-      communication: '', 
-      gameplay: '' 
-    })
-    setShowNoteForm(true)
-  }
-
-  const supprimerMatch = async (matchId: string) => {
-    if (!confirm('⚠️ Supprimer ce match ?')) return
-    await deleteDoc(doc(db, 'matchs', matchId))
-    alert('✅ Match supprimé !')
-  }
-
-  const supprimerReplay = async (replayId: string) => {
-    if (!confirm('⚠️ Supprimer ce replay ?')) return
-    await deleteDoc(doc(db, 'replays', replayId))
-    alert('✅ Replay supprimé !')
-  }
-
-  const supprimerNote = async (noteId: string, noteJoueurId: string) => {
-    if (!confirm('⚠️ Supprimer cette note ?')) return
-    if (!isAdmin && user?.uid !== noteJoueurId) {
-      alert('❌ Tu ne peux supprimer que tes notes !')
-      return
-    }
-    await deleteDoc(doc(db, 'notes', noteId))
-    alert('✅ Note supprimée !')
-    setTimeout(() => window.location.reload(), 500)
-  }
-
-  const supprimerJoueur = async (playerId: string, playerPseudo: string) => {
-    if (!confirm(`⚠️ Supprimer "${playerPseudo}" ?`)) return
-    await deleteDoc(doc(db, 'players', playerId))
-    alert('✅ Joueur supprimé !')
-  }
+  const supprimerMatch = async (id) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Supprimé !') }
+  const supprimerReplay = async (id) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Supprimé !') }
+  const supprimerJoueur = async (id) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Supprimé !') }
+  const supprimerStrat = async (id) => { await deleteDoc(doc(db, 'strats', id)); alert('✅ Supprimé !') }
 
   const updateScore = async () => {
-    if (!scoreEdit) return
     await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
     setScoreEdit(null)
     alert('✅ Score mis à jour !')
-    setTimeout(() => window.location.reload(), 500)
   }
 
-  const toggleDisponibilite = async (matchId: string) => {
-    if (!user) {
-      alert('⚠️ Connecte-toi !')
-      return
-    }
+  const toggleDisponibilite = async (matchId) => {
+    if (!user) return
     const match = matchs.find(m => m.id === matchId)
-    if (!match) return
     const estDispo = match.disponibles.includes(pseudo)
-    const nouveauxDisponibles = estDispo ? match.disponibles.filter((p: string) => p !== pseudo) : [...match.disponibles, pseudo]
-    await updateDoc(doc(db, 'matchs', matchId), { disponibles: nouveauxDisponibles })
+    await updateDoc(doc(db, 'matchs', matchId), { disponibles: estDispo ? match.disponibles.filter(p => p !== pseudo) : [...match.disponibles, pseudo] })
   }
 
-  const ajouterJoueur = async () => {
-    if (!nouveauJoueur.pseudo) {
-      alert('⚠️ Entre un pseudo !')
-      return
-    }
-    await addDoc(collection(db, 'players'), { pseudo: nouveauJoueur.pseudo, role: nouveauJoueur.role, rang: nouveauJoueur.rang, createdAt: Date.now() })
-    setNouveauJoueur({ pseudo: '', role: 'Joueur', rang: '' })
-    alert('✅ Joueur ajouté !')
-  }
+  const ouvrirBattlePlan = () => { setShowBattlePlan(true); setMarkers([]); setCurrentStep(1); setStratTitle(''); setStratDescription('') }
 
-  const supprimerStrat = async (stratId: string, stratAuteurId: string) => {
-    if (!confirm('⚠️ Supprimer cette stratégie ?')) return
-    if (!isAdmin && user?.uid !== stratAuteurId) {
-      alert('❌ Tu ne peux supprimer que tes stratégies !')
-      return
-    }
-    await deleteDoc(doc(db, 'strats', stratId))
-    alert('✅ Stratégie supprimée !')
-  }
-
-  const ouvrirBattlePlan = () => {
-    setShowBattlePlan(true)
-    setMarkers([])
-    setCurrentStep(1)
-    setStratTitle('')
-    setStratDescription('')
-  }
-
-  const ajouterMarqueur = (e: React.MouseEvent<HTMLDivElement>) => {
+  const ajouterMarqueur = (e) => {
     if (!mapRef.current) return
     const rect = mapRef.current.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
-    const newMarker = {
-      id: markers.length + 1,
-      x,
-      y,
-      team: markers.length % 2 === 0 ? 'attack' : 'defend' as 'attack' | 'defend',
-      step: currentStep
-    }
-    setMarkers([...markers, newMarker])
+    setMarkers([...markers, { id: markers.length + 1, x, y, team: markers.length % 2 === 0 ? 'attack' : 'defend', step: currentStep }])
   }
 
-  const supprimerMarqueur = (markerId: number) => {
-    setMarkers(markers.filter(m => m.id !== markerId))
-  }
+  const supprimerMarqueur = (id) => { setMarkers(markers.filter(m => m.id !== id)) }
 
   const sauvegarderBattlePlan = async () => {
-    if (!stratTitle || markers.length === 0) {
-      alert('⚠️ Ajoute un titre et au moins un marqueur !')
-      return
-    }
-    if (!user) {
-      alert('⚠️ Tu dois être connecté !')
-      return
-    }
-    const strat = {
-      titre: stratTitle,
-      description: stratDescription,
-      map: selectedMap,
-      mapName: EVA_MAPS.find(m => m.id === selectedMap)?.name,
-      auteur: pseudo,
-      auteurId: user.uid,
-      markers: markers,
-      totalSteps: currentStep,
-      type: 'Battle Plan',
-      createdAt: Date.now()
-    }
-    await addDoc(collection(db, 'strats'), strat)
+    if (!stratTitle || markers.length === 0) { alert('⚠️ Titre + marqueurs requis !'); return }
+    if (!user) { alert('⚠️ Connecte-toi !'); return }
+    await addDoc(collection(db, 'strats'), { titre: stratTitle, description: stratDescription, map: selectedMap, auteur: pseudo, auteurId: user.uid, markers, totalSteps: currentStep, type: 'Battle Plan', createdAt: Date.now() })
     setShowBattlePlan(false)
     setMarkers([])
     setStratTitle('')
-    setStratDescription('')
     alert('✅ Battle Plan sauvegardé !')
   }
 
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter(m => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
-  const nuls = matchs.filter(m => m.termine && (m.scoreDyno || 0) === (m.scoreAdversaire || 0)).length
-  const totalMatchs = victoires + defaites + nuls
+  const totalMatchs = victoires + defaites
   const winRate = totalMatchs > 0 ? Math.round((victoires / totalMatchs) * 100) : 0
   const prochainsMatchs = matchs.filter(m => !m.termine)
   const historique = matchs.filter(m => m.termine)
 
-  const getYouTubeId = (url: string) => {
+  const getYouTubeId = (url) => {
     const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
     return match ? match[1] : null
   }
@@ -493,8 +263,8 @@ function App() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-center">
-          <img src={LOGO_URL} alt="DYNO" className="w-56 h-56 mx-auto animate-pulse-gold" />
-          <h1 className="text-4xl font-bold text-[#D4AF37] mt-6 animate-glow">DYNO</h1>
+          <img src={LOGO_URL} alt="DYNO" className="w-56 h-56 mx-auto animate-pulse" />
+          <h1 className="text-4xl font-bold text-[#D4AF37] mt-6">DYNO</h1>
           <p className="text-gray-400 mt-2">Esport Team</p>
         </div>
       </div>
@@ -507,18 +277,9 @@ function App() {
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={LOGO_URL} alt="DYNO" className="w-12 h-12" />
-            <div>
-              <h1 className="text-xl font-bold text-[#D4AF37]">DYNO</h1>
-              <p className="text-xs text-gray-400">Esport Team</p>
-            </div>
+            <div><h1 className="text-xl font-bold text-[#D4AF37]">DYNO</h1><p className="text-xs text-gray-400">Esport Team</p></div>
           </div>
-          <div className="flex gap-2">
-            {user ? (
-              <button onClick={handleSignOut} className="px-4 py-2 rounded-lg font-medium border border-red-500 text-red-500">👋 {pseudo}</button>
-            ) : (
-              <button onClick={() => setIsSignUp(false)} className="px-4 py-2 rounded-lg font-medium btn-gold">👤 Compte</button>
-            )}
-          </div>
+          {user ? (<button onClick={handleSignOut} className="px-4 py-2 rounded-lg font-medium border border-red-500 text-red-500">👋 {pseudo}</button>) : (<button onClick={() => setIsSignUp(false)} className="px-4 py-2 rounded-lg font-medium btn-gold">👤 Compte</button>)}
         </div>
       </header>
 
@@ -529,43 +290,28 @@ function App() {
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">Prochains Matchs</h2>
             </div>
-            {loading ? (
-              <div className="text-center py-10 text-[#D4AF37]">⏳ Chargement...</div>
-            ) : prochainsMatchs.length === 0 ? (
-              <div className="text-center py-10 text-gray-500"><p>📭 Aucun match prévu</p></div>
-            ) : (
+            {loading ? (<div className="text-center py-10 text-[#D4AF37]">⏳...</div>) : prochainsMatchs.length === 0 ? (<div className="text-center py-10 text-gray-500">📭 Aucun match</div>) : (
               <div className="space-y-4">
                 {prochainsMatchs.map(match => (
                   <div key={match.id} className="card-relief rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${match.type === 'Ligue' ? 'bg-blue-900/50 text-blue-400' : match.type === 'Scrim' ? 'bg-green-900/50 text-green-400' : 'bg-purple-900/50 text-purple-400'}`}>{match.type}</span>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${match.type === 'Ligue' ? 'bg-blue-900/50 text-blue-400' : 'bg-green-900/50 text-green-400'}`}>{match.type}</span>
                       <span className="text-[#D4AF37] font-bold">{match.date}</span>
                     </div>
                     <div className="flex items-center gap-4 mb-3">
                       <img src={LOGO_URL} alt="DYNO" className="w-12 h-12" />
                       <span className="text-gray-500">VS</span>
-                      <div className="flex-1 text-right">
-                        <p className="font-bold">{match.adversaire}</p>
-                        <p className="text-sm text-[#D4AF37]">🏟️ {match.arene}</p>
-                      </div>
+                      <div className="flex-1 text-right"><p className="font-bold">{match.adversaire}</p><p className="text-sm text-[#D4AF37]">🏟️ {match.arene}</p></div>
                     </div>
                     <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
                       <p className="text-xs text-gray-400">⏰ Horaires</p>
-                      <p className="text-[#D4AF37] font-bold">{match.horaires.join(' / ')}</p>
+                      <p className="text-[#D4AF37] font-bold">{[match.horaire1, match.horaire2].filter(Boolean).join(' / ')}</p>
                     </div>
                     <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
                       <p className="text-xs text-gray-400">👥 Disponibles ({match.disponibles.length})</p>
-                      {match.disponibles.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {match.disponibles.map((p: string, i: number) => (
-                            <span key={i} className="bg-[#D4AF37]/20 text-[#D4AF37] px-2 py-1 rounded text-xs font-bold">{p}</span>
-                          ))}
-                        </div>
-                      )}
+                      {match.disponibles.length > 0 && (<div className="flex flex-wrap gap-2 mt-2">{match.disponibles.map((p, i) => (<span key={i} className="bg-[#D4AF37]/20 text-[#D4AF37] px-2 py-1 rounded text-xs font-bold">{p}</span>))}</div>)}
                     </div>
-                    <button onClick={() => toggleDisponibilite(match.id)} disabled={!user} className={`w-full py-3 rounded-lg font-bold ${!user ? 'bg-gray-700 text-gray-400' : match.disponibles.includes(pseudo) ? 'bg-[#D4AF37] text-black' : 'border border-[#D4AF37] text-[#D4AF37]'}`}>
-                      {!user ? '🔐 Connecte-toi' : match.disponibles.includes(pseudo) ? '✅ Je suis disponible' : '📅 Je me marque disponible'}
-                    </button>
+                    <button onClick={() => toggleDisponibilite(match.id)} disabled={!user} className={`w-full py-3 rounded-lg font-bold ${!user ? 'bg-gray-700 text-gray-400' : match.disponibles.includes(pseudo) ? 'bg-[#D4AF37] text-black' : 'border border-[#D4AF37] text-[#D4AF37]'}`}>{!user ? '🔐 Connecte-toi' : match.disponibles.includes(pseudo) ? '✅ Je suis disponible' : '📅 Je me marque'}</button>
                   </div>
                 ))}
               </div>
@@ -580,20 +326,15 @@ function App() {
               <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">Historique</h2>
               <div className="flex justify-center gap-6 mt-4">
                 <div className="text-center"><p className="text-3xl font-bold text-[#D4AF37]">{victoires}</p><p className="text-xs text-gray-400">Victoires</p></div>
-                <div className="text-center"><p className="text-3xl font-bold text-[#D4AF37]">{nuls}</p><p className="text-xs text-gray-400">Nuls</p></div>
                 <div className="text-center"><p className="text-3xl font-bold text-red-500">{defaites}</p><p className="text-xs text-gray-400">Défaites</p></div>
               </div>
             </div>
-            {historique.length === 0 ? (
-              <div className="text-center py-10 text-gray-500"><p>📜 Aucun match joué</p></div>
-            ) : (
+            {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📜 Aucun match</div>) : (
               <div className="space-y-4">
                 {historique.map(match => (
                   <div key={match.id} className="card-relief rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37] text-black' : (match.scoreDyno || 0) === (match.scoreAdversaire || 0) ? 'bg-gray-700 text-gray-300' : 'bg-red-900/50 text-red-400'}`}>
-                        {(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : (match.scoreDyno || 0) === (match.scoreAdversaire || 0) ? '🤝 NUL' : '❌ DÉFAITE'}
-                      </span>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37] text-black' : 'bg-red-900/50 text-red-400'}`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
                       <span className="text-gray-400 text-sm">{match.date}</span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -614,18 +355,16 @@ function App() {
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">📊 Notes</h2>
             </div>
-            {historique.length === 0 ? (
-              <div className="text-center py-10 text-gray-500"><p>📊 Aucun match terminé</p></div>
-            ) : (
+            {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📊 Aucun match</div>) : (
               <div className="space-y-4">
                 {historique.map(match => {
-                  const matchNotes = notes.filter((n: any) => n.matchId === match.id)
+                  const matchNotes = notes.filter(n => n.matchId === match.id)
                   return (
                     <div key={match.id} className="card-relief rounded-xl p-4">
                       <p className="font-bold text-[#D4AF37] mb-2">{match.adversaire} - {match.date}</p>
                       {matchNotes.length > 0 ? (
                         <div className="space-y-2">
-                          {matchNotes.map((note: any) => (
+                          {matchNotes.map(note => (
                             <div key={note.id} className="bg-[#0a0a0a] rounded p-3">
                               <p className="text-[#D4AF37] text-sm">{note.joueur}</p>
                               <div className="flex gap-4 text-xs text-gray-400">
@@ -636,9 +375,7 @@ function App() {
                             </div>
                           ))}
                         </div>
-                      ) : (
-                        <p className="text-gray-500 text-sm">Aucune note</p>
-                      )}
+                      ) : (<p className="text-gray-500 text-sm">Aucune note</p>)}
                     </div>
                   )
                 })}
@@ -663,29 +400,24 @@ function App() {
                   </button>
                 ))}
               </div>
-              <div className="flex gap-2 mt-4">
-                <button onClick={ouvrirBattlePlan} className="btn-gold flex-1 py-3 rounded-lg">🎨 Créer</button>
-                <a href={EVA_MAPS.find(m => m.id === selectedMap)?.evaUrl} target="_blank" className="btn-gold flex-1 py-3 rounded-lg text-center">🔗 EVA</a>
-              </div>
+              <button onClick={ouvrirBattlePlan} className="btn-gold w-full py-3 rounded-lg mt-4">🎨 Créer Battle Plan</button>
             </div>
             <div className="space-y-4">
-              {strats.filter((s: any) => s.map === selectedMap).length === 0 ? (
-                <div className="text-center py-10 text-gray-500"><p>📝 Aucune strat</p></div>
-              ) : (
-                strats.filter((s: any) => s.map === selectedMap).map((strat: any) => (
+              {strats.filter(s => s.map === selectedMap).length === 0 ? (<div className="text-center py-10 text-gray-500">📝 Aucune strat</div>) : (
+                strats.filter(s => s.map === selectedMap).map(strat => (
                   <div key={strat.id} className="card-relief rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-bold text-[#D4AF37]">{strat.titre}</h3>
-                      {(isAdmin || user?.uid === strat.auteurId) && <button onClick={() => supprimerStrat(strat.id, strat.auteurId)} className="text-red-400 text-xs">🗑️</button>}
+                      {(isAdmin || user?.uid === strat.auteurId) && <button onClick={() => supprimerStrat(strat.id)} className="text-red-400 text-xs">🗑️</button>}
                     </div>
                     <p className="text-xs text-gray-400 mb-2">par {strat.auteur}</p>
                     {strat.description && <p className="text-gray-300 text-sm mb-2 italic">{strat.description}</p>}
                     {strat.markers && strat.markers.length > 0 && (
                       <div className="bg-[#0a0a0a] rounded-lg p-3">
-                        <p className="text-xs text-gray-400 mb-2">📍 {strat.markers.length} marqueurs</p>
+                        <p className="text-xs text-gray-400 mb-2">📍 {strat.markers.length} joueurs</p>
                         <div className="flex flex-wrap gap-2">
-                          {strat.markers.map((marker: any, i: number) => (
-                            <div key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}>{marker.id}</div>
+                          {strat.markers.map((marker, i) => (
+                            <div key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${marker.team === 'attack' ? 'bg-orange-500' : 'bg-blue-500'}`}>{marker.id}</div>
                           ))}
                         </div>
                       </div>
@@ -698,59 +430,86 @@ function App() {
             {showBattlePlan && (
               <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 overflow-hidden">
                 <div className="w-full h-full flex">
-                  <div className="w-16 bg-[#1a1a1a] border-r border-[#D4AF37]/30 flex flex-col items-center py-4 gap-4">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs ${markers.length % 2 === 0 ? 'bg-red-500' : 'bg-blue-500'}`}>
-                      {markers.length % 2 === 0 ? '🔴' : '🔵'}
-                    </div>
-                    <button onClick={() => setMarkers([])} className="w-10 h-10 rounded-lg bg-red-900/50 border border-red-500 flex items-center justify-center text-red-400 mt-auto">🗑️</button>
+                  <div className="w-20 bg-[#1a1a1a] border-r border-[#D4AF37]/30 flex flex-col items-center py-4 gap-4">
+                    <div className="text-[#D4AF37] font-bold text-xs">ÉQUIPES</div>
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-lg ${markers.length % 2 === 0 ? 'bg-orange-500' : 'bg-blue-500'}`}>{markers.length % 2 === 0 ? '🟠' : '🔵'}</div>
+                    <div className="text-center"><p className="text-[#D4AF37] font-bold text-lg">{markers.filter(m => m.team === 'attack').length}</p><p className="text-gray-400 text-xs">🟠</p></div>
+                    <div className="text-center"><p className="text-[#D4AF37] font-bold text-lg">{markers.filter(m => m.team === 'defend').length}</p><p className="text-gray-400 text-xs">🔵</p></div>
+                    <button onClick={() => setMarkers([])} className="w-12 h-12 rounded-lg bg-red-900/50 border border-red-500 flex items-center justify-center text-red-400 mt-auto">🗑️</button>
                   </div>
                   <div className="flex-1 flex flex-col">
-                    <div className="h-14 bg-[#1a1a1a] border-b border-[#D4AF37]/30 flex items-center justify-between px-4">
+                    <div className="h-16 bg-[#1a1a1a] border-b border-[#D4AF37]/30 flex items-center justify-between px-4">
                       <div className="flex items-center gap-4">
-                        <button onClick={() => setCurrentStep(Math.max(1, currentStep - 1))} className="px-3 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏮️</button>
-                        <span className="text-[#D4AF37] font-bold">Étape {currentStep}</span>
-                        <button onClick={() => setCurrentStep(currentStep + 1)} className="px-3 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏭️</button>
+                        <button onClick={() => setCurrentStep(Math.max(1, currentStep - 1))} className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏮️</button>
+                        <span className="text-[#D4AF37] font-bold text-lg">Étape {currentStep}</span>
+                        <button onClick={() => setCurrentStep(currentStep + 1)} className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold">⏭️</button>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <input type="checkbox" id="showLines" checked={showLines} onChange={(e) => setShowLines(e.target.checked)} className="w-4 h-4 accent-[#D4AF37]" />
-                        <label htmlFor="showLines" className="text-sm text-gray-400">Lignes</label>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" id="showLines" checked={showLines} onChange={(e) => setShowLines(e.target.checked)} className="w-4 h-4 accent-[#D4AF37]" />
+                          <label htmlFor="showLines" className="text-sm text-gray-400">Trajectoires</label>
+                        </div>
+                        <button onClick={() => setShowBattlePlan(false)} className="text-gray-400 text-2xl">✕</button>
                       </div>
-                      <button onClick={() => setShowBattlePlan(false)} className="text-gray-400 text-2xl">✕</button>
                     </div>
-                    <div className="flex-1 relative">
-                      <div ref={mapRef} onClick={ajouterMarqueur} className="absolute inset-0 cursor-crosshair" style={{ backgroundColor: MAP_COLORS[selectedMap] || '#333' }}>
-                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-                        <div className="absolute top-[20%] left-[20%] w-20 h-20 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-2xl">A</div>
-                        <div className="absolute top-[20%] right-[20%] w-20 h-20 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-2xl">B</div>
-                        <div className="absolute bottom-[20%] left-1/2 transform -translate-x-1/2 w-20 h-20 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-2xl">C</div>
-                        {showLines && markers.filter(m => m.step === currentStep).length > 1 && (
-                          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                    <div className="flex-1 relative overflow-hidden bg-black">
+                      <div ref={mapRef} onClick={ajouterMarqueur} className="absolute inset-0 cursor-crosshair flex items-center justify-center">
+                        <div className="relative w-full h-full max-w-4xl max-h-[600px]">
+                          <div className="absolute left-0 top-1/4 w-[12%] h-1/2 bg-orange-500/30 border-r-2 border-orange-500">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 py-4">
+                              {markers.filter(m => m.team === 'attack').map((marker, i) => (
+                                <div key={marker.id} className="w-10 h-10 rounded-full bg-orange-500 border-2 border-orange-300 flex items-center justify-center text-white font-bold text-sm shadow-lg">{i + 1}</div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="absolute right-0 top-1/4 w-[12%] h-1/2 bg-blue-500/30 border-l-2 border-blue-500">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 py-4">
+                              {markers.filter(m => m.team === 'defend').map((marker, i) => (
+                                <div key={marker.id} className="w-10 h-10 rounded-full bg-blue-500 border-2 border-blue-300 flex items-center justify-center text-white font-bold text-sm shadow-lg">{i + 1}</div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="absolute left-[12%] right-[12%] top-0 bottom-0 bg-[#2a2a2a]">
+                            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+                            <div className="absolute top-[15%] left-1/2 transform -translate-x-1/2 w-24 h-24 bg-gray-600/50 border-2 border-gray-400 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-3xl">A</span></div>
+                            <div className="absolute bottom-[20%] left-[20%] w-20 h-20 bg-gray-600/50 border-2 border-gray-400 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-2xl">B</span></div>
+                            <div className="absolute bottom-[20%] right-[20%] w-20 h-20 bg-gray-600/50 border-2 border-gray-400 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-2xl">C</span></div>
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-gray-600/30 border-2 border-gray-400 rotate-45" />
                             {markers.filter(m => m.step === currentStep).map((marker, i, arr) => {
-                              if (i === arr.length - 1) return null
-                              return (<line key={i} x1={`${marker.x}%`} y1={`${marker.y}%`} x2={`${arr[i + 1].x}%`} y2={`${arr[i + 1].y}%`} stroke={marker.team === 'attack' ? '#EF4444' : '#3B82F6'} strokeWidth="2" strokeDasharray="5,5" opacity="0.6" />)
+                              const showArrow = showLines && i < arr.length - 1
+                              return (
+                                <div key={marker.id}>
+                                  {showArrow && (<div className="absolute w-8 h-8 text-green-400 text-2xl animate-pulse pointer-events-none" style={{ left: `${(marker.x + arr[i + 1].x) / 2}%`, top: `${(marker.y + arr[i + 1].y) / 2}%`, transform: 'translate(-50%, -50%)' }}>▶️</div>)}
+                                  <div onClick={(e) => { e.stopPropagation(); supprimerMarqueur(marker.id) }} className={`absolute w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition shadow-xl border-4 ${marker.team === 'attack' ? 'bg-orange-500 border-orange-300' : 'bg-blue-500 border-blue-300'}`} style={{ left: `${marker.x}%`, top: `${marker.y}%` }}>{marker.id}</div>
+                                </div>
+                              )
                             })}
-                          </svg>
-                        )}
-                        {markers.filter(m => m.step === currentStep).map((marker) => (
-                          <div key={marker.id} onClick={(e) => { e.stopPropagation(); supprimerMarqueur(marker.id) }} className={`absolute w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ left: `${marker.x}%`, top: `${marker.y}%` }}>{marker.id}</div>
-                        ))}
+                            {markers.filter(m => m.step === currentStep).length === 0 && (<div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="text-center text-white/50"><p className="text-4xl mb-4">📍</p><p className="text-xl">Clique pour placer des joueurs</p><p className="text-sm mt-2">(🟠 = Attaque, 🔵 = Défense)</p></div></div>)}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="h-10 bg-[#1a1a1a] border-t border-[#D4AF37]/30 flex items-center justify-between px-4">
-                      <span className="text-gray-400 text-sm">📍 {markers.filter(m => m.step === currentStep).length} marqueur(s)</span>
-                      <div className="flex gap-4 text-xs">
-                        <span className="text-red-400">🔴 Attaque</span>
-                        <span className="text-blue-400">🔵 Défense</span>
+                    <div className="h-12 bg-[#1a1a1a] border-t border-[#D4AF37]/30 flex items-center justify-between px-4">
+                      <div className="text-gray-400 text-sm">📍 {markers.filter(m => m.step === currentStep).length} joueur(s)</div>
+                      <div className="flex gap-6 text-xs">
+                        <span className="flex items-center gap-2 text-orange-400"><div className="w-4 h-4 rounded-full bg-orange-500 border-2 border-orange-300" /> Attaque</span>
+                        <span className="flex items-center gap-2 text-blue-400"><div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-blue-300" /> Défense</span>
                       </div>
                     </div>
                   </div>
-                  <div className="w-64 bg-[#1a1a1a] border-l border-[#D4AF37]/30 flex flex-col p-4 gap-4">
-                    <h3 className="text-[#D4AF37] font-bold">STRATÉGIE</h3>
-                    <input type="text" placeholder="Titre..." value={stratTitle} onChange={(e) => setStratTitle(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm" />
-                    <textarea placeholder="Description..." value={stratDescription} onChange={(e) => setStratDescription(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm h-32 resize-none" />
+                  <div className="w-72 bg-[#1a1a1a] border-l border-[#D4AF37]/30 flex flex-col p-4 gap-4">
+                    <h3 className="text-[#D4AF37] font-bold text-lg">📋 STRATÉGIE</h3>
+                    <div><label className="text-gray-400 text-xs">TITRE</label><input type="text" placeholder="Nom de la strat..." value={stratTitle} onChange={(e) => setStratTitle(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm mt-1" /></div>
+                    <div><label className="text-gray-400 text-xs">DESCRIPTION</label><textarea placeholder="Décris ta stratégie..." value={stratDescription} onChange={(e) => setStratDescription(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm h-40 resize-none mt-1" /></div>
+                    <div className="bg-[#0a0a0a] rounded-lg p-3">
+                      <p className="text-gray-400 text-xs mb-2">📊 RÉSUMÉ</p>
+                      <div className="flex justify-between text-sm"><span className="text-orange-400">🟠 {markers.filter(m => m.team === 'attack').length}</span><span className="text-blue-400">🔵 {markers.filter(m => m.team === 'defend').length}</span></div>
+                      <p className="text-gray-400 text-xs mt-2">📍 {markers.length} joueurs</p>
+                      <p className="text-gray-400 text-xs">📊 {currentStep} étapes</p>
+                    </div>
                     <div className="mt-auto flex flex-col gap-2">
                       <button onClick={() => { setShowBattlePlan(false); setMarkers([]); }} className="w-full border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
-                      <button onClick={sauvegarderBattlePlan} className="w-full btn-gold py-3 rounded-lg">✅ Sauvegarder</button>
+                      <button onClick={sauvegarderBattlePlan} className="w-full btn-gold py-3 rounded-lg font-bold">✅ Sauvegarder</button>
                     </div>
                   </div>
                 </div>
@@ -764,10 +523,9 @@ function App() {
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🎬 Replays</h2>
+              <a href={YOUTUBE_CHANNEL} target="_blank" className="btn-gold inline-block px-6 py-3 rounded-lg font-bold">🔴 S'abonner YouTube</a>
             </div>
-            {replays.length === 0 ? (
-              <div className="text-center py-10 text-gray-500"><p>📹 Aucun replay</p></div>
-            ) : (
+            {replays.length === 0 ? (<div className="text-center py-10 text-gray-500">📹 Aucun replay</div>) : (
               <div className="space-y-4">
                 {replays.map(replay => (
                   <div key={replay.id} className="card-relief rounded-xl p-4">
@@ -797,11 +555,8 @@ function App() {
                 <div key={joueur.id} className="card-relief rounded-xl p-4">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-bold text-xl">{joueur.pseudo[0]?.toUpperCase()}</div>
-                    <div className="flex-1">
-                      <p className="font-bold text-[#D4AF37]">{joueur.pseudo}</p>
-                      <p className="text-sm text-gray-400">🎮 {joueur.role}</p>
-                    </div>
-                    {isAdmin && <button onClick={() => supprimerJoueur(joueur.id, joueur.pseudo)} className="text-red-400 text-xs">🗑️</button>}
+                    <div className="flex-1"><p className="font-bold text-[#D4AF37]">{joueur.pseudo}</p><p className="text-sm text-gray-400">🎮 {joueur.role}</p></div>
+                    {isAdmin && <button onClick={() => supprimerJoueur(joueur.id)} className="text-red-400 text-xs">🗑️</button>}
                   </div>
                 </div>
               ))}
@@ -853,7 +608,13 @@ function App() {
                     <input type="time" placeholder="H1" value={nouveauMatch.horaire1} onChange={(e) => setNouveauMatch({...nouveauMatch, horaire1: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
                     <input type="time" placeholder="H2" value={nouveauMatch.horaire2} onChange={(e) => setNouveauMatch({...nouveauMatch, horaire2: e.target.value})} className="bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white" />
                   </div>
-                  <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
+                  <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">Ajouter + Discord</button>
+                </div>
+                <div className="card-relief rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Replay</h3>
+                  <input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={(e) => setNouveauReplay({...nouveauReplay, titre: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                  <input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={(e) => setNouveauReplay({...nouveauReplay, lien: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
+                  <button onClick={ajouterReplay} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
                 </div>
                 <div className="card-relief rounded-xl p-6">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">✏️ Scores</h3>
@@ -891,15 +652,9 @@ function App() {
             {isSignUp && (<input type="text" placeholder="Pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />)}
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-3 text-white" />
             <input type="password" placeholder="Mot de passe" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 mb-4 text-white" />
-            {isSignUp ? (
-              <button onClick={handleSignUp} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">✅ Créer</button>
-            ) : (
-              <button onClick={handleSignIn} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">🔐 Connexion</button>
-            )}
+            {isSignUp ? (<button onClick={handleSignUp} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">✅ Créer</button>) : (<button onClick={handleSignIn} className="btn-gold w-full py-3 rounded-lg font-bold mb-3">🔐 Connexion</button>)}
             <div className="border-t border-gray-700 pt-3">
-              {isSignUp ? (<button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm">Déjà un compte ?</button>) : (
-                <button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm">Pas de compte ?</button>
-              )}
+              {isSignUp ? (<button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm">Déjà un compte ?</button>) : (<button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm">Pas de compte ?</button>)}
             </div>
           </div>
         </div>
