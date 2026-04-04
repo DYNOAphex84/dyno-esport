@@ -299,11 +299,16 @@ function App() {
       moyenne: Math.round((parseInt(nouvelleNote.mental) + parseInt(nouvelleNote.communication) + parseInt(nouvelleNote.gameplay)) / 3),
       createdAt: Date.now()
     }
-    await addDoc(collection(db, 'notes'), note)
-    setNouvelleNote({ matchId: '', matchNom: '', mental: '', communication: '', gameplay: '' })
-    setShowNoteForm(false)
-    setSelectedMatchForNotes(null)
-    alert('✅ Note ajoutée !')
+    try {
+      await addDoc(collection(db, 'notes'), note)
+      setNouvelleNote({ matchId: '', matchNom: '', mental: '', communication: '', gameplay: '' })
+      setShowNoteForm(false)
+      setSelectedMatchForNotes(null)
+      alert('✅ Note ajoutée ! Elle apparaît maintenant pour tout le monde !')
+      setTimeout(() => window.location.reload(), 500)
+    } catch (error: any) {
+      alert('❌ Erreur: ' + error.message)
+    }
   }
 
   const ouvrirFormulaireNotes = (match: any) => {
@@ -331,6 +336,7 @@ function App() {
     }
     await deleteDoc(doc(db, 'notes', noteId))
     alert('✅ Note supprimée !')
+    setTimeout(() => window.location.reload(), 500)
   }
 
   const supprimerJoueur = async (playerId: string, playerPseudo: string) => {
@@ -344,6 +350,7 @@ function App() {
     await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
     setScoreEdit(null)
     alert('✅ Score mis à jour ! Les joueurs peuvent maintenant se noter.')
+    setTimeout(() => window.location.reload(), 500)
   }
 
   const toggleDisponibilite = async (matchId: string) => {
