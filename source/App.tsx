@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth'
@@ -26,7 +26,7 @@ const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
-// 🗺️ Maps EVA Esport Arena + Liens Eva Battleplan
+// 🗺️ Maps EVA Esport Arena
 const EVA_MAPS = [
   { id: 'artefact', name: 'Artefact', image: '🏛️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'atlantis', name: 'Atlantis', image: '🌊', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
@@ -40,6 +40,21 @@ const EVA_MAPS = [
   { id: 'silva', name: 'Silva', image: '🌳', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'cliff', name: 'The Cliff', image: '🏔️', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
+
+// Map placeholder colors (en attendant les vraies images)
+const MAP_COLORS: Record<string, string> = {
+  artefact: '#8B4513',
+  atlantis: '#1E90FF',
+  ceres: '#708090',
+  engine: '#FF8C00',
+  helios: '#FFD700',
+  horizon: '#FF69B4',
+  lunar: '#2F4F4F',
+  outlaw: '#DEB887',
+  polaris: '#87CEEB',
+  silva: '#228B22',
+  cliff: '#A0522D'
+}
 
 function App() {
   const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'notes' | 'strats' | 'rec' | 'roster' | 'stats' | 'admin'>('matchs')
@@ -75,6 +90,13 @@ function App() {
   const [selectedMap, setSelectedMap] = useState<string>('artefact')
   const [nouvelleStrat, setNouvelleStrat] = useState({ titre: '', description: '', map: 'artefact', type: 'Attaque' })
   const [showStratForm, setShowStratForm] = useState(false)
+  
+  // 🎨 États pour le Battle Plan interactif
+  const [showBattlePlan, setShowBattlePlan] = useState(false)
+  const [markers, setMarkers] = useState<{id: number, x: number, y: number, team: 'attack' | 'defend'}[]>([])
+  const [currentStep, setCurrentStep] = useState(1)
+  const [stratTitle, setStratTitle] = useState('')
+  const mapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
@@ -446,6 +468,59 @@ function App() {
     alert('✅ Stratégie supprimée !')
   }
 
+  // 🎨 Fonctions pour le Battle Plan interactif
+  const ouvrirBattlePlan = () => {
+    setShowBattlePlan(true)
+    setMarkers([])
+    setCurrentStep(1)
+    setStratTitle('')
+  }
+
+  const ajouterMarqueur = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!mapRef.current) return
+    const rect = mapRef.current.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    
+    const newMarker = {
+      id: markers.length + 1,
+      x,
+      y,
+      team: markers.length % 2 === 0 ? 'attack' : 'defend' as 'attack' | 'defend'
+    }
+    setMarkers([...markers, newMarker])
+  }
+
+  const supprimerMarqueur = (markerId: number) => {
+    setMarkers(markers.filter(m => m.id !== markerId))
+  }
+
+  const sauvegarderBattlePlan = async () => {
+    if (!stratTitle || markers.length === 0) {
+      alert('⚠️ Ajoute un titre et au moins un marqueur !')
+      return
+    }
+    if (!user) {
+      alert('⚠️ Tu dois être connecté !')
+      return
+    }
+    const strat = {
+      titre: stratTitle,
+      map: selectedMap,
+      mapName: EVA_MAPS.find(m => m.id === selectedMap)?.name,
+      auteur: pseudo,
+      auteurId: user.uid,
+      markers: markers,
+      type: 'Battle Plan',
+      createdAt: Date.now()
+    }
+    await addDoc(collection(db, 'strats'), strat)
+    setShowBattlePlan(false)
+    setMarkers([])
+    setStratTitle('')
+    alert('✅ Battle Plan sauvegardé !')
+  }
+
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter(m => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const nuls = matchs.filter(m => m.termine && (m.scoreDyno || 0) === (m.scoreAdversaire || 0)).length
@@ -702,13 +777,13 @@ function App() {
           </div>
         )}
 
-        {/* 🗺️ ONGLET STRATS - EVA ESPORT ARENA */}
+        {/* 🗺️ ONGLET STRATS - BATTLE PLAN INTERACTIF */}
         {activeTab === 'strats' && (
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🗺️ Stratégies</h2>
-              <p className="text-gray-400 text-sm">Partagez vos strats avec l'équipe !</p>
+              <p className="text-gray-400 text-sm">Créez et partagez vos strats !</p>
             </div>
 
             {/* Sélecteur de Map */}
@@ -727,30 +802,28 @@ function App() {
                 ))}
               </div>
               
-              {/* Bouton Eva Battleplan */}
-              <a
-                href={EVA_MAPS.find(m => m.id === selectedMap)?.evaUrl || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-gold w-full py-3 rounded-lg mt-4 block text-center"
-              >
-                🔗 Ouvrir {EVA_MAPS.find(m => m.id === selectedMap)?.name} sur Eva Battleplan
-              </a>
+              {/* Boutons d'action */}
+              <div className="flex gap-2 mt-4">
+                <button onClick={ouvrirBattlePlan} className="btn-gold flex-1 py-3 rounded-lg">
+                  🎨 Créer Battle Plan
+                </button>
+                <a
+                  href={EVA_MAPS.find(m => m.id === selectedMap)?.evaUrl || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-gold flex-1 py-3 rounded-lg text-center"
+                >
+                  🔗 Eva Battleplan
+                </a>
+              </div>
             </div>
-
-            {/* Bouton Ajouter Strat */}
-            {user && (
-              <button onClick={() => setShowStratForm(true)} className="btn-gold w-full py-3 rounded-lg mb-4">
-                ➕ Ajouter une stratégie
-              </button>
-            )}
 
             {/* Liste des Strats */}
             <div className="space-y-4">
               {strats.filter((s: any) => s.map === selectedMap).length === 0 ? (
                 <div className="text-center py-10 text-gray-500">
                   <p>📝 Aucune stratégie pour cette map</p>
-                  <p className="text-sm mt-2">Sois le premier à partager une strat !</p>
+                  <p className="text-sm mt-2">Crée ton premier Battle Plan !</p>
                 </div>
               ) : (
                 strats.filter((s: any) => s.map === selectedMap).map((strat: any) => (
@@ -762,43 +835,107 @@ function App() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${strat.type === 'Attaque' ? 'bg-red-900/50 text-red-400' : 'bg-blue-900/50 text-blue-400'}`}>
-                        {strat.type}
-                      </span>
                       <span className="text-xs text-gray-400">par {strat.auteur}</span>
+                      {strat.type === 'Battle Plan' && (
+                        <span className="px-2 py-1 rounded text-xs font-bold bg-purple-900/50 text-purple-400">
+                          🎨 Battle Plan
+                        </span>
+                      )}
                     </div>
-                    <p className="text-gray-300 text-sm whitespace-pre-line">{strat.description}</p>
+                    {strat.markers && strat.markers.length > 0 && (
+                      <div className="bg-[#0a0a0a] rounded-lg p-3 mb-2">
+                        <p className="text-xs text-gray-400 mb-2">📍 Marqueurs ({strat.markers.length})</p>
+                        <div className="flex flex-wrap gap-2">
+                          {strat.markers.map((marker: any, i: number) => (
+                            <div
+                              key={i}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}
+                            >
+                              {marker.id}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {strat.description && (
+                      <p className="text-gray-300 text-sm whitespace-pre-line">{strat.description}</p>
+                    )}
                   </div>
                 ))
               )}
             </div>
 
-            {/* Formulaire Ajouter Strat */}
-            {showStratForm && (
-              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
-                  <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">➕ Nouvelle Stratégie</h3>
-                  <p className="text-xs text-gray-400 mb-4 text-center">Map: {EVA_MAPS.find(m => m.id === selectedMap)?.name}</p>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-gray-400">Titre</label>
-                      <input type="text" placeholder="Ex: Rush B Mid" value={nouvelleStrat.titre} onChange={(e) => setNouvelleStrat({...nouvelleStrat, titre: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mt-1" />
+            {/* 🎨 Battle Plan Interactif Modal */}
+            {showBattlePlan && (
+              <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                <div className="card-relief rounded-2xl p-4 w-full max-w-2xl my-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-[#D4AF37]">🎨 Battle Plan - {EVA_MAPS.find(m => m.id === selectedMap)?.name}</h3>
+                    <button onClick={() => setShowBattlePlan(false)} className="text-gray-400 text-2xl">✕</button>
+                  </div>
+                  
+                  {/* Titre de la strat */}
+                  <input
+                    type="text"
+                    placeholder="Titre de la stratégie..."
+                    value={stratTitle}
+                    onChange={(e) => setStratTitle(e.target.value)}
+                    className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mb-4"
+                  />
+                  
+                  {/* Map interactive */}
+                  <div
+                    ref={mapRef}
+                    onClick={ajouterMarqueur}
+                    className="relative w-full aspect-video rounded-lg mb-4 cursor-crosshair overflow-hidden"
+                    style={{ backgroundColor: MAP_COLORS[selectedMap] || '#333' }}
+                  >
+                    {/* Grille de fond */}
+                    <div className="absolute inset-0 opacity-20" style={{
+                      backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
+                      backgroundSize: '20px 20px'
+                    }} />
+                    
+                    {/* Marqueurs */}
+                    {markers.map((marker) => (
+                      <div
+                        key={marker.id}
+                        onClick={(e) => { e.stopPropagation(); supprimerMarqueur(marker.id) }}
+                        className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-110 transition ${marker.team === 'attack' ? 'bg-red-500' : 'bg-blue-500'}`}
+                        style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+                      >
+                        {marker.id}
+                      </div>
+                    ))}
+                    
+                    {/* Instructions */}
+                    {markers.length === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <p className="text-white/50 text-center">
+                          📍 Tape sur la carte pour placer des marqueurs<br/>
+                          <span className="text-xs">(Rouge = Attaque, Bleu = Défense)</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Infos marqueurs */}
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-gray-400">📍 {markers.length} marqueur(s)</p>
+                    <div className="flex gap-2">
+                      <span className="flex items-center gap-1 text-xs text-red-400">
+                        <div className="w-3 h-3 rounded-full bg-red-500" /> Attaque
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-blue-400">
+                        <div className="w-3 h-3 rounded-full bg-blue-500" /> Défense
+                      </span>
                     </div>
-                    <div>
-                      <label className="text-xs text-gray-400">Type</label>
-                      <select value={nouvelleStrat.type} onChange={(e) => setNouvelleStrat({...nouvelleStrat, type: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mt-1">
-                        <option value="Attaque">Attaque</option>
-                        <option value="Défense">Défense</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-400">Description</label>
-                      <textarea placeholder="Décris ta stratégie..." value={nouvelleStrat.description} onChange={(e) => setNouvelleStrat({...nouvelleStrat, description: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mt-1 h-32" />
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <button onClick={() => { setShowStratForm(false); setNouvelleStrat({ titre: '', description: '', map: selectedMap, type: 'Attaque' }) }} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
-                      <button onClick={ajouterStrat} className="flex-1 btn-gold py-3 rounded-lg">✅ Valider</button>
-                    </div>
+                  </div>
+                  
+                  {/* Boutons */}
+                  <div className="flex gap-2">
+                    <button onClick={() => { setShowBattlePlan(false); setMarkers([]); }} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
+                    <button onClick={sauvegarderBattlePlan} className="flex-1 btn-gold py-3 rounded-lg">✅ Sauvegarder</button>
                   </div>
                 </div>
               </div>
