@@ -89,14 +89,187 @@ function App() {
   const [strats, setStrats] = useState<any[]>([])
   const [selectedMap, setSelectedMap] = useState<string>('artefact')
   
-  // 🎨 États pour le Battle Plan interactif PHASE 2
-  const [showBattlePlan, setShowBattlePlan] = useState(false)
-  const [markers, setMarkers] = useState<{id: number, x: number, y: number, team: 'attack' | 'defend', step: number}[]>([])
-  const [stratTitle, setStratTitle] = useState('')
-  const [stratDescription, setStratDescription] = useState('')
-  const [currentStep, setCurrentStep] = useState(1)
-  const [showLines, setShowLines] = useState(true)
-  const mapRef = useRef<HTMLDivElement>(null)
+  {/* 🎨 Battle Plan Interactif Style EVA */}
+{showBattlePlan && (
+  <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 overflow-hidden">
+    <div className="w-full h-full flex">
+      
+      {/* Sidebar Gauche - Outils */}
+      <div className="w-20 bg-[#1a1a1a] border-r border-[#D4AF37]/30 flex flex-col items-center py-4 gap-4 overflow-y-auto">
+        <h3 className="text-[#D4AF37] font-bold text-xs writing-vertical">OUTILS</h3>
+        
+        {/* Sélecteur d'équipe */}
+        <div className="flex flex-col gap-2">
+          <button 
+            className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold ${markers.length % 2 === 0 ? 'bg-red-500' : 'bg-blue-500'}`}
+          >
+            {markers.length % 2 === 0 ? '🔴' : '🔵'}
+          </button>
+        </div>
+        
+        {/* Outils */}
+        <div className="w-10 h-10 rounded-lg bg-[#D4AF37]/20 border border-[#D4AF37] flex items-center justify-center text-[#D4AF37]">
+          📍
+        </div>
+        <div className="w-10 h-10 rounded-lg bg-[#0a0a0a] border border-gray-600 flex items-center justify-center text-gray-400">
+          ✏️
+        </div>
+        <div className="w-10 h-10 rounded-lg bg-[#0a0a0a] border border-gray-600 flex items-center justify-center text-gray-400">
+          ➡️
+        </div>
+        <div className="w-10 h-10 rounded-lg bg-[#0a0a0a] border border-gray-600 flex items-center justify-center text-gray-400">
+          ⬜
+        </div>
+        
+        {/* Poubelle */}
+        <button 
+          onClick={() => setMarkers([])}
+          className="w-10 h-10 rounded-lg bg-red-900/50 border border-red-500 flex items-center justify-center text-red-400 mt-auto"
+        >
+          🗑️
+        </button>
+      </div>
+      
+      {/* Zone Centrale - Map */}
+      <div className="flex-1 flex flex-col">
+        
+        {/* Barre supérieure - Étapes */}
+        <div className="h-16 bg-[#1a1a1a] border-b border-[#D4AF37]/30 flex items-center justify-between px-4">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
+              className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold"
+            >
+              ⏮️
+            </button>
+            <div className="text-[#D4AF37] font-bold">
+              Étape {currentStep}
+            </div>
+            <button 
+              onClick={() => setCurrentStep(currentStep + 1)}
+              className="px-4 py-2 rounded-lg bg-[#D4AF37] text-black font-bold"
+            >
+              ⏭️
+            </button>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              id="showLines"
+              checked={showLines}
+              onChange={(e) => setShowLines(e.target.checked)}
+              className="w-4 h-4 accent-[#D4AF37]"
+            />
+            <label htmlFor="showLines" className="text-sm text-gray-400">Lignes</label>
+          </div>
+          
+          <button onClick={() => setShowBattlePlan(false)} className="text-gray-400 text-2xl">✕</button>
+        </div>
+        
+        {/* Map Interactive */}
+        <div className="flex-1 relative overflow-hidden">
+          <div
+            ref={mapRef}
+            onClick={ajouterMarqueur}
+            className="absolute inset-0 cursor-crosshair"
+            style={{ backgroundColor: MAP_COLORS[selectedMap] || '#333' }}
+          >
+            {/* Grille */}
+            <div className="absolute inset-0 opacity-20" style={{
+              backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }} />
+            
+            {/* Zones A/B/C */}
+            <div className="absolute top-[20%] left-[20%] w-24 h-24 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-3xl bg-black/20">A</div>
+            <div className="absolute top-[20%] right-[20%] w-24 h-24 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-3xl bg-black/20">B</div>
+            <div className="absolute bottom-[20%] left-1/2 transform -translate-x-1/2 w-24 h-24 border-2 border-white/30 rounded-lg flex items-center justify-center text-white/30 font-bold text-3xl bg-black/20">C</div>
+            
+            {/* Lignes */}
+            {showLines && markers.filter(m => m.step === currentStep).length > 1 && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                {markers.filter(m => m.step === currentStep).map((marker, i, arr) => {
+                  if (i === arr.length - 1) return null
+                  const nextMarker = arr[i + 1]
+                  return (
+                    <line
+                      key={i}
+                      x1={`${marker.x}%`}
+                      y1={`${marker.y}%`}
+                      x2={`${nextMarker.x}%`}
+                      y2={`${nextMarker.y}%`}
+                      stroke={marker.team === 'attack' ? '#EF4444' : '#3B82F6'}
+                      strokeWidth="3"
+                      strokeDasharray="5,5"
+                      opacity="0.6"
+                    />
+                  )
+                })}
+              </svg>
+            )}
+            
+            {/* Marqueurs */}
+            {markers.filter(m => m.step === currentStep).map((marker) => (
+              <div
+                key={marker.id}
+                onClick={(e) => { e.stopPropagation(); supprimerMarqueur(marker.id) }}
+                className={`absolute w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition shadow-lg ${marker.team === 'attack' ? 'bg-red-500 border-2 border-red-300' : 'bg-blue-500 border-2 border-blue-300'}`}
+                style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+              >
+                {marker.id}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Barre inférieure - Infos */}
+        <div className="h-12 bg-[#1a1a1a] border-t border-[#D4AF37]/30 flex items-center justify-between px-4">
+          <div className="text-gray-400 text-sm">
+            📍 {markers.filter(m => m.step === currentStep).length} marqueur(s)
+          </div>
+          <div className="flex gap-4">
+            <span className="flex items-center gap-1 text-xs text-red-400">
+              <div className="w-3 h-3 rounded-full bg-red-500" /> Attaque
+            </span>
+            <span className="flex items-center gap-1 text-xs text-blue-400">
+              <div className="w-3 h-3 rounded-full bg-blue-500" /> Défense
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Sidebar Droite - Infos */}
+      <div className="w-64 bg-[#1a1a1a] border-l border-[#D4AF37]/30 flex flex-col p-4 gap-4 overflow-y-auto">
+        <h3 className="text-[#D4AF37] font-bold">STRATÉGIE</h3>
+        
+        <input
+          type="text"
+          placeholder="Titre..."
+          value={stratTitle}
+          onChange={(e) => setStratTitle(e.target.value)}
+          className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm"
+        />
+        
+        <textarea
+          placeholder="Description..."
+          value={stratDescription}
+          onChange={(e) => setStratDescription(e.target.value)}
+          className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-3 py-2 text-white text-sm h-32 resize-none"
+        />
+        
+        <div className="mt-auto flex flex-col gap-2">
+          <button onClick={() => { setShowBattlePlan(false); setMarkers([]); }} className="w-full border border-gray-600 py-3 rounded-lg text-gray-400">
+            Annuler
+          </button>
+          <button onClick={sauvegarderBattlePlan} className="w-full btn-gold py-3 rounded-lg">
+            ✅ Sauvegarder
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
