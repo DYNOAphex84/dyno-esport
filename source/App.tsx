@@ -278,7 +278,7 @@ function App() {
                     </div>
                     <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
                       <p className="text-xs text-gray-400">⏰ Horaires</p>
-                      <p className="text-[#D4AF37] font-bold">{[match.horaire1, match.horaire2].filter(Boolean).join(' / ')}</p>
+                      <p className="text-[#D4AF37] font-bold">{match.horaires?.join(' / ') || [match.horaire1, match.horaire2].filter(Boolean).join(' / ')}</p>
                     </div>
                     <div className="bg-[#0a0a0a] rounded-lg p-3 mb-3 border border-[#D4AF37]/20">
                       <p className="text-xs text-gray-400">👥 Disponibles ({match.disponibles.length})</p>
