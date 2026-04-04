@@ -24,19 +24,21 @@ const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
+// 🗺️ Maps EVA avec placeholders colorés
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', image: 'https://via.placeholder.com/300x200/5D4E37/FFFFFF?text=Artefact', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'atlantis', name: 'Atlantis', image: 'https://via.placeholder.com/300x200/1a3a52/FFFFFF?text=Atlantis', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'ceres', name: 'Ceres', image: 'https://via.placeholder.com/300x200/3a3a3a/FFFFFF?text=Ceres', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'engine', name: 'Engine', image: 'https://via.placeholder.com/300x200/4a3a2a/FFFFFF?text=Engine', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'helios', name: 'Helios Station', image: 'https://via.placeholder.com/300x200/524a1a/FFFFFF?text=Helios', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'horizon', name: 'Horizon', image: 'https://via.placeholder.com/300x200/2a4a3a/FFFFFF?text=Horizon', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'lunar', name: 'Lunar Outpost', image: 'https://via.placeholder.com/300x200/2a2a3a/FFFFFF?text=Lunar', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'outlaw', name: 'Outlaw', image: 'https://via.placeholder.com/300x200/4a3a2a/FFFFFF?text=Outlaw', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'polaris', name: 'Polaris', image: 'https://via.placeholder.com/300x200/2a3a4a/FFFFFF?text=Polaris', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'silva', name: 'Silva', image: 'https://via.placeholder.com/300x200/2a4a2a/FFFFFF?text=Silva', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'cliff', name: 'The Cliff', image: 'https://via.placeholder.com/300x200/4a3a2a/FFFFFF?text=Cliff', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
+  { id: 'artefact', name: 'Artefact', color: '#5D4E37', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'atlantis', name: 'Atlantis', color: '#1a3a52', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'ceres', name: 'Ceres', color: '#3a3a3a', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'engine', name: 'Engine', color: '#4a3a2a', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'helios', name: 'Helios', color: '#524a1a', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'horizon', name: 'Horizon', color: '#2a4a3a', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'lunar', name: 'Lunar', color: '#2a2a3a', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'outlaw', name: 'Outlaw', color: '#8B4513', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'polaris', name: 'Polaris', color: '#2a3a4a', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'silva', name: 'Silva', color: '#2a4a2a', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'cliff', name: 'Cliff', color: '#8B4513', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
+
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
@@ -355,44 +357,31 @@ function App() {
           </div>
         )}
 
-        {/* 🗺️ ONGLET MAPS - NOUVEAU ! */}
+        {/* 🗺️ ONGLET MAPS */}
         {activeTab === 'maps' && (
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
               <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🗺️ Maps EVA</h2>
-              <p className="text-gray-400 text-sm">Sélectionne une map pour voir les détails</p>
+              <p className="text-gray-400 text-sm">Clique sur une map pour ouvrir EVA Battle Plan</p>
             </div>
             
             {/* Grille des maps */}
             <div className="grid grid-cols-2 gap-4">
               {EVA_MAPS.map(map => (
-                <div key={map.id} className="card-relief rounded-xl overflow-hidden cursor-pointer hover:scale-105 transition" onClick={() => setSelectedMap(map)}>
+                <div 
+                  key={map.id} 
+                  className="card-relief rounded-xl overflow-hidden cursor-pointer hover:scale-105 transition"
+                  onClick={() => window.open(map.evaUrl, '_blank')}
+                >
                   <div className="relative">
-                    <img src={map.image} alt={map.name} className="w-full h-32 object-cover" />
+                    <div className="w-full h-32" style={{ backgroundColor: map.color }} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                     <p className="absolute bottom-2 left-2 text-white font-bold text-sm">{map.name}</p>
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Modal Map */}
-            {selectedMap && (
-              <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-                <div className="card-relief rounded-2xl p-4 w-full max-w-2xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-[#D4AF37]">{selectedMap.name}</h3>
-                    <button onClick={() => setSelectedMap(null)} className="text-gray-400 text-2xl">✕</button>
-                  </div>
-                  <img src={selectedMap.image} alt={selectedMap.name} className="w-full rounded-lg mb-4" />
-                  <div className="flex gap-2">
-                    <a href={selectedMap.evaUrl} target="_blank" className="btn-gold flex-1 py-3 rounded-lg text-center">🔗 Ouvrir sur EVA</a>
-                    <button onClick={() => setSelectedMap(null)} className="border border-gray-600 flex-1 py-3 rounded-lg text-gray-400">Fermer</button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
