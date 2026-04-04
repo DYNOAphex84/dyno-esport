@@ -26,8 +26,22 @@ const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
+// 🗺️ Maps Valorant + Liens Eva Battleplan
+const VALORANT_MAPS = [
+  { id: 'ascent', name: 'Ascent', image: '🏰', evaUrl: 'https://evabattleplan.com/fr/valorant/ascent' },
+  { id: 'bind', name: 'Bind', image: '🏜️', evaUrl: 'https://evabattleplan.com/fr/valorant/bind' },
+  { id: 'haven', name: 'Haven', image: '🏯', evaUrl: 'https://evabattleplan.com/fr/valorant/haven' },
+  { id: 'split', name: 'Split', image: '🏙️', evaUrl: 'https://evabattleplan.com/fr/valorant/split' },
+  { id: 'icebox', name: 'Icebox', image: '❄️', evaUrl: 'https://evabattleplan.com/fr/valorant/icebox' },
+  { id: 'breeze', name: 'Breeze', image: '🏝️', evaUrl: 'https://evabattleplan.com/fr/valorant/breeze' },
+  { id: 'fracture', name: 'Fracture', image: '🔮', evaUrl: 'https://evabattleplan.com/fr/valorant/fracture' },
+  { id: 'pearl', name: 'Pearl', image: '', evaUrl: 'https://evabattleplan.com/fr/valorant/pearl' },
+  { id: 'lotus', name: 'Lotus', image: '🪷', evaUrl: 'https://evabattleplan.com/fr/valorant/lotus' },
+  { id: 'sunset', name: 'Sunset', image: '🌅', evaUrl: 'https://evabattleplan.com/fr/valorant/sunset' }
+]
+
 function App() {
-  const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'notes' | 'rec' | 'roster' | 'stats' | 'admin'>('matchs')
+  const [activeTab, setActiveTab] = useState<'matchs' | 'historique' | 'notes' | 'strats' | 'rec' | 'roster' | 'stats' | 'admin'>('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
   const [showSplash, setShowSplash] = useState(true)
@@ -54,6 +68,12 @@ function App() {
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
+  
+  // 🗺️ États pour les Strats
+  const [strats, setStrats] = useState<any[]>([])
+  const [selectedMap, setSelectedMap] = useState<string>('ascent')
+  const [nouvelleStrat, setNouvelleStrat] = useState({ titre: '', description: '', map: 'ascent', type: 'Attaque' })
+  const [showStratForm, setShowStratForm] = useState(false)
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
@@ -115,6 +135,16 @@ function App() {
       const notesData: any[] = []
       snapshot.forEach((doc) => notesData.push({ id: doc.id, ...doc.data() }))
       setNotes(notesData)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const q = query(collection(db, 'strats'), orderBy('createdAt', 'desc'))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const stratsData: any[] = []
+      snapshot.forEach((doc) => stratsData.push({ id: doc.id, ...doc.data() }))
+      setStrats(stratsData)
     })
     return () => unsubscribe()
   }, [])
@@ -312,16 +342,16 @@ function App() {
   }
 
   const ouvrirFormulaireNotes = (match: any) => {
-  setSelectedMatchForNotes(match)
-  setNouvelleNote({ 
-    matchId: match.id, 
-    matchNom: `${match.adversaire} (${match.date})`,
-    mental: '', 
-    communication: '', 
-    gameplay: '' 
-  })
-  setShowNoteForm(true)
-}
+    setSelectedMatchForNotes(match)
+    setNouvelleNote({ 
+      matchId: match.id, 
+      matchNom: `${match.adversaire} (${match.date})`,
+      mental: '', 
+      communication: '', 
+      gameplay: '' 
+    })
+    setShowNoteForm(true)
+  }
 
   const supprimerMatch = async (matchId: string) => {
     if (!confirm('⚠️ Supprimer ce match ?')) return
@@ -380,6 +410,39 @@ function App() {
     await addDoc(collection(db, 'players'), { pseudo: nouveauJoueur.pseudo, role: nouveauJoueur.role, rang: nouveauJoueur.rang, createdAt: Date.now() })
     setNouveauJoueur({ pseudo: '', role: 'Joueur', rang: '' })
     alert('✅ Joueur ajouté !')
+  }
+
+  // 🗺️ Fonctions pour les Strats
+  const ajouterStrat = async () => {
+    if (!nouvelleStrat.titre || !nouvelleStrat.description) {
+      alert('⚠️ Remplis le titre et la description !')
+      return
+    }
+    if (!user) {
+      alert('⚠️ Tu dois être connecté !')
+      return
+    }
+    const strat = {
+      ...nouvelleStrat,
+      auteur: pseudo,
+      auteurId: user.uid,
+      createdAt: Date.now(),
+      likes: 0
+    }
+    await addDoc(collection(db, 'strats'), strat)
+    setNouvelleStrat({ titre: '', description: '', map: selectedMap, type: 'Attaque' })
+    setShowStratForm(false)
+    alert('✅ Stratégie ajoutée !')
+  }
+
+  const supprimerStrat = async (stratId: string, stratAuteurId: string) => {
+    if (!confirm('⚠️ Supprimer cette stratégie ?')) return
+    if (!isAdmin && user?.uid !== stratAuteurId) {
+      alert('❌ Tu ne peux supprimer que tes stratégies !')
+      return
+    }
+    await deleteDoc(doc(db, 'strats', stratId))
+    alert('✅ Stratégie supprimée !')
   }
 
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
@@ -638,6 +701,110 @@ function App() {
           </div>
         )}
 
+        {/* 🗺️ ONGLET STRATS */}
+        {activeTab === 'strats' && (
+          <div>
+            <div className="card-relief rounded-2xl p-6 mb-6 text-center">
+              <img src={LOGO_URL} alt="DYNO" className="w-20 h-20 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">🗺️ Stratégies</h2>
+              <p className="text-gray-400 text-sm">Partagez vos strats avec l'équipe !</p>
+            </div>
+
+            {/* Sélecteur de Map */}
+            <div className="card-relief rounded-xl p-4 mb-6">
+              <h3 className="text-lg font-bold text-[#D4AF37] mb-3">🗺️ Choisir une Map</h3>
+              <div className="grid grid-cols-5 gap-2">
+                {VALORANT_MAPS.map(map => (
+                  <button
+                    key={map.id}
+                    onClick={() => setSelectedMap(map.id)}
+                    className={`p-2 rounded-lg text-center transition ${selectedMap === map.id ? 'bg-[#D4AF37] text-black' : 'bg-[#0a0a0a] text-gray-400'}`}
+                  >
+                    <p className="text-xl">{map.image}</p>
+                    <p className="text-xs">{map.name}</p>
+                  </button>
+                ))}
+              </div>
+              
+              {/* Bouton Eva Battleplan */}
+              <a
+                href={VALORANT_MAPS.find(m => m.id === selectedMap)?.evaUrl || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-gold w-full py-3 rounded-lg mt-4 block text-center"
+              >
+                🔗 Ouvrir {VALORANT_MAPS.find(m => m.id === selectedMap)?.name} sur Eva Battleplan
+              </a>
+            </div>
+
+            {/* Bouton Ajouter Strat */}
+            {user && (
+              <button onClick={() => setShowStratForm(true)} className="btn-gold w-full py-3 rounded-lg mb-4">
+                ➕ Ajouter une stratégie
+              </button>
+            )}
+
+            {/* Liste des Strats */}
+            <div className="space-y-4">
+              {strats.filter((s: any) => s.map === selectedMap).length === 0 ? (
+                <div className="text-center py-10 text-gray-500">
+                  <p>📝 Aucune stratégie pour cette map</p>
+                  <p className="text-sm mt-2">Sois le premier à partager une strat !</p>
+                </div>
+              ) : (
+                strats.filter((s: any) => s.map === selectedMap).map((strat: any) => (
+                  <div key={strat.id} className="card-relief rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-bold text-[#D4AF37]">{strat.titre}</h3>
+                      {(isAdmin || user?.uid === strat.auteurId) && (
+                        <button onClick={() => supprimerStrat(strat.id, strat.auteurId)} className="text-red-400 text-xs">🗑️</button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${strat.type === 'Attaque' ? 'bg-red-900/50 text-red-400' : 'bg-blue-900/50 text-blue-400'}`}>
+                        {strat.type}
+                      </span>
+                      <span className="text-xs text-gray-400">par {strat.auteur}</span>
+                    </div>
+                    <p className="text-gray-300 text-sm whitespace-pre-line">{strat.description}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Formulaire Ajouter Strat */}
+            {showStratForm && (
+              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                <div className="card-relief rounded-2xl p-6 w-full max-w-sm">
+                  <h3 className="text-xl font-bold text-[#D4AF37] mb-4 text-center">➕ Nouvelle Stratégie</h3>
+                  <p className="text-xs text-gray-400 mb-4 text-center">Map: {VALORANT_MAPS.find(m => m.id === selectedMap)?.name}</p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-gray-400">Titre</label>
+                      <input type="text" placeholder="Ex: Rush B Mid" value={nouvelleStrat.titre} onChange={(e) => setNouvelleStrat({...nouvelleStrat, titre: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400">Type</label>
+                      <select value={nouvelleStrat.type} onChange={(e) => setNouvelleStrat({...nouvelleStrat, type: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mt-1">
+                        <option value="Attaque">Attaque</option>
+                        <option value="Défense">Défense</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400">Description</label>
+                      <textarea placeholder="Décris ta stratégie..." value={nouvelleStrat.description} onChange={(e) => setNouvelleStrat({...nouvelleStrat, description: e.target.value})} className="w-full bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-lg px-4 py-3 text-white mt-1 h-32" />
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <button onClick={() => { setShowStratForm(false); setNouvelleStrat({ titre: '', description: '', map: selectedMap, type: 'Attaque' }) }} className="flex-1 border border-gray-600 py-3 rounded-lg text-gray-400">Annuler</button>
+                      <button onClick={ajouterStrat} className="flex-1 btn-gold py-3 rounded-lg">✅ Valider</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'rec' && (
           <div>
             <div className="card-relief rounded-2xl p-6 mb-6 text-center">
@@ -845,6 +1012,7 @@ function App() {
           <button onClick={() => setActiveTab('matchs')} className={`flex-1 py-4 text-center ${activeTab === 'matchs' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📅 Matchs</button>
           <button onClick={() => setActiveTab('historique')} className={`flex-1 py-4 text-center ${activeTab === 'historique' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📜 Historique</button>
           <button onClick={() => setActiveTab('notes')} className={`flex-1 py-4 text-center ${activeTab === 'notes' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📊 Notes</button>
+          <button onClick={() => setActiveTab('strats')} className={`flex-1 py-4 text-center ${activeTab === 'strats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🗺️ Strats</button>
           <button onClick={() => setActiveTab('rec')} className={`flex-1 py-4 text-center ${activeTab === 'rec' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>🎬 Rec</button>
           <button onClick={() => setActiveTab('roster')} className={`flex-1 py-4 text-center ${activeTab === 'roster' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>👥 Roster</button>
           <button onClick={() => setActiveTab('stats')} className={`flex-1 py-4 text-center ${activeTab === 'stats' ? 'text-[#D4AF37]' : 'text-gray-500'}`}>📊 Stats</button>
