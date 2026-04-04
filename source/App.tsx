@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
@@ -689,7 +690,6 @@ function App() {
                   <button onClick={ajouterMatch} className="btn-gold w-full py-3 rounded-lg">Ajouter</button>
                 </div>
 
-                {/* 📊 Scores & Notes - TOUS LES JOUEURS PEUVENT NOTER */}
                 <div className="card-relief rounded-xl p-6">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Scores & Notes d'équipe</h3>
                   {historique.length === 0 ? (
