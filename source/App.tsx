@@ -18,8 +18,8 @@ const auth = getAuth(app)
 
 setPersistence(auth, browserLocalPersistence)
 
-const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
-const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=wQkLpwEqKA7Dpuc8'
+const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp
+const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
@@ -37,6 +37,8 @@ const EVA_MAPS = [
   { id: 'cliff', name: 'Cliff', color: 'from-[#8B4513] to-[#5B2503]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
 
+const AGENTS = ['Jett', 'Reyna', 'Phoenix', 'Raze', 'Yoru', 'Neon', 'Iso', 'Clove', 'Tejo', 'Omen', 'Brimstone', 'Viper', 'Astra', 'Harbor', 'Clove', 'Sova', 'Breach', 'Skye', 'KAY/O', 'Fade', 'Gekko', 'Deadlock', 'Tejo', 'Cypher', 'Killjoy', 'Chamber', 'Deadlock', 'Sage', 'Phoenix']
+
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
@@ -52,15 +54,15 @@ function App() {
   const [replays, setReplays] = useState([])
   const [joueurs, setJoueurs] = useState([])
   const [notes, setNotes] = useState([])
-  const [selectedMap, setSelectedMap] = useState(null)
-  const [showMapMatches, setShowMapMatches] = useState(false)
   const [mapMatches, setMapMatches] = useState([])
+  const [selectedMap, setSelectedMap] = useState(null)
+  const [showMapDetails, setShowMapDetails] = useState(false)
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
   const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState(null)
-  const [nouveauMapMatch, setNouveauMapMatch] = useState({ adversaire: '', picks: '', bans: '', notes: '' })
+  const [nouveauMapMatch, setNouveauMapMatch] = useState({ adversaire: '', picks: [], bans: [], notes: '' })
   const [showAddMapMatch, setShowAddMapMatch] = useState(false)
 
   useEffect(() => {
@@ -286,13 +288,31 @@ function App() {
       picks: nouveauMapMatch.picks,
       bans: nouveauMapMatch.bans,
       notes: nouveauMapMatch.notes,
+      auteur: pseudo,
+      auteurId: user?.uid,
       likes: [],
       dislikes: [],
       createdAt: Date.now()
     })
-    setNouveauMapMatch({ adversaire: '', picks: '', bans: '', notes: '' })
+    setNouveauMapMatch({ adversaire: '', picks: [], bans: [], notes: '' })
     setShowAddMapMatch(false)
     alert('✅ Stratégie ajoutée !')
+  }
+
+  const togglePick = (agent) => {
+    if (nouveauMapMatch.picks.includes(agent)) {
+      setNouveauMapMatch({...nouveauMapMatch, picks: nouveauMapMatch.picks.filter(a => a !== agent)})
+    } else if (nouveauMapMatch.picks.length < 5) {
+      setNouveauMapMatch({...nouveauMapMatch, picks: [...nouveauMapMatch.picks, agent]})
+    }
+  }
+
+  const toggleBan = (agent) => {
+    if (nouveauMapMatch.bans.includes(agent)) {
+      setNouveauMapMatch({...nouveauMapMatch, bans: nouveauMapMatch.bans.filter(a => a !== agent)})
+    } else if (nouveauMapMatch.bans.length < 3) {
+      setNouveauMapMatch({...nouveauMapMatch, bans: [...nouveauMapMatch.bans, agent]})
+    }
   }
 
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
@@ -514,17 +534,17 @@ function App() {
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
               <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
               <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🗺️ Maps & Stratégies</h2>
-              <p className="text-gray-400 text-sm">Stratégies par map avec picks/bans</p>
+              <p className="text-gray-400 text-sm">Picks, bans et stratégies par map</p>
             </div>
             
-            {showMapMatches ? (
+            {showMapDetails ? (
               <div>
-                <button onClick={() => setShowMapMatches(false)} className="mb-4 px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-lg">← Retour aux maps</button>
+                <button onClick={() => setShowMapDetails(false)} className="mb-4 px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-lg">← Retour aux maps</button>
                 
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-[#D4AF37]">📋 {selectedMap?.name} - Stratégies</h3>
-                  {isAdmin && (
-                    <button onClick={() => setShowAddMapMatch(true)} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Ajouter</button>
+                  <h3 className="text-xl font-bold text-[#D4AF37]">📋 {selectedMap?.name}</h3>
+                  {user && (
+                    <button onClick={() => setShowAddMapMatch(true)} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Ajouter Strat</button>
                   )}
                 </div>
                 
@@ -538,28 +558,35 @@ function App() {
                       return (
                         <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                           <div className="flex items-center justify-between mb-3">
-                            <p className="font-bold text-[#D4AF37] text-lg">VS {match.adversaire}</p>
-                            {isAdmin && <button onClick={() => supprimerMapMatch(match.id)} className="text-red-400 text-xl">🗑️</button>}
+                            <div>
+                              <p className="font-bold text-[#D4AF37] text-lg">VS {match.adversaire}</p>
+                              <p className="text-xs text-gray-400">par {match.auteur || 'Inconnu'}</p>
+                            </div>
+                            {(isAdmin || user?.uid === match.auteurId) && <button onClick={() => supprimerMapMatch(match.id)} className="text-red-400 text-xl">🗑️</button>}
                           </div>
                           
-                          {match.picks && (
-                            <div className="mb-3">
-                              <p className="text-xs text-green-400 mb-1">✅ Picks</p>
-                              <p className="text-sm text-white">{match.picks}</p>
+                          <div className="mb-3">
+                            <p className="text-xs text-green-400 mb-1">✅ Picks ({match.picks?.length || 0}/5)</p>
+                            <div className="flex flex-wrap gap-2">
+                              {match.picks?.map((pick, i) => (
+                                <span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{pick}</span>
+                              ))}
                             </div>
-                          )}
+                          </div>
                           
-                          {match.bans && (
-                            <div className="mb-3">
-                              <p className="text-xs text-red-400 mb-1">❌ Bans</p>
-                              <p className="text-sm text-white">{match.bans}</p>
+                          <div className="mb-3">
+                            <p className="text-xs text-red-400 mb-1">❌ Bans ({match.bans?.length || 0}/3)</p>
+                            <div className="flex flex-wrap gap-2">
+                              {match.bans?.map((ban, i) => (
+                                <span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{ban}</span>
+                              ))}
                             </div>
-                          )}
+                          </div>
                           
                           {match.notes && (
                             <div className="mb-3">
                               <p className="text-xs text-gray-400 mb-1">📝 Notes</p>
-                              <p className="text-sm text-white">{match.notes}</p>
+                              <p className="text-sm text-white bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">{match.notes}</p>
                             </div>
                           )}
                           
@@ -585,24 +612,30 @@ function App() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
-                {EVA_MAPS.map(map => (
-                  <div 
-                    key={map.id} 
-                    className="relative rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-xl hover:shadow-2xl group"
-                    onClick={() => { setSelectedMap(map); setShowMapMatches(true) }}
-                  >
-                    <div className={`w-full h-36 bg-gradient-to-br ${map.color}`} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-                    <p className="absolute bottom-3 left-3 text-white font-bold text-base drop-shadow-lg">{map.name}</p>
-                    <div className="absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/20 transition-all" />
-                  </div>
-                ))}
+                {EVA_MAPS.map(map => {
+                  const mapStrats = mapMatches.filter(m => m.mapId === map.id).length
+                  return (
+                    <div 
+                      key={map.id} 
+                      className="relative rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-xl hover:shadow-2xl group"
+                      onClick={() => { setSelectedMap(map); setShowMapDetails(true) }}
+                    >
+                      <div className={`w-full h-32 bg-gradient-to-br ${map.color}`} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                      <div className="absolute bottom-3 left-3 text-white">
+                        <p className="font-bold text-base drop-shadow-lg">{map.name}</p>
+                        <p className="text-xs text-gray-400">{mapStrats} strat{mapStrats > 1 ? 's' : ''}</p>
+                      </div>
+                      <div className="absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/20 transition-all" />
+                    </div>
+                  )
+                })}
               </div>
             )}
             
             {showAddMapMatch && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
+                <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-md border border-[#D4AF37]/30 shadow-2xl max-h-[90vh] overflow-y-auto">
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📋 Stratégie - {selectedMap?.name}</h3>
                   <div className="space-y-4 mb-6">
                     <div>
@@ -615,24 +648,47 @@ function App() {
                         className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" 
                       />
                     </div>
+                    
                     <div>
-                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (agents/persos)</label>
-                      <textarea 
-                        placeholder="Jett, Sova, etc..."
-                        value={nouveauMapMatch.picks} 
-                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, picks: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all h-20" 
-                      />
+                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (max 5)</label>
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        {AGENTS.map(agent => (
+                          <button
+                            key={agent}
+                            onClick={() => togglePick(agent)}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${nouveauMapMatch.picks.includes(agent) ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                          >
+                            {agent}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {nouveauMapMatch.picks.map((pick, i) => (
+                          <span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{pick}</span>
+                        ))}
+                      </div>
                     </div>
+                    
                     <div>
-                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans</label>
-                      <textarea 
-                        placeholder="Agents/persos à ban"
-                        value={nouveauMapMatch.bans} 
-                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, bans: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all h-20" 
-                      />
+                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans (max 3)</label>
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        {AGENTS.map(agent => (
+                          <button
+                            key={agent}
+                            onClick={() => toggleBan(agent)}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${nouveauMapMatch.bans.includes(agent) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                          >
+                            {agent}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {nouveauMapMatch.bans.map((ban, i) => (
+                          <span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{ban}</span>
+                        ))}
+                      </div>
                     </div>
+                    
                     <div>
                       <label className="text-gray-400 text-sm mb-2 block">📝 Notes stratégiques</label>
                       <textarea 
@@ -644,7 +700,7 @@ function App() {
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <button onClick={() => { setShowAddMapMatch(false); setNouveauMapMatch({ adversaire: '', picks: '', bans: '', notes: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
+                    <button onClick={() => { setShowAddMapMatch(false); setNouveauMapMatch({ adversaire: '', picks: [], bans: [], notes: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
                     <button onClick={ajouterMapMatch} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">✅ Valider</button>
                   </div>
                 </div>
