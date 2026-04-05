@@ -544,6 +544,41 @@ function App() {
                 <button onClick={handleAdminLogout} className="w-full border-2 border-red-500 text-red-500 py-4 rounded-xl font-bold hover:bg-red-500/10 transition-all">🚪 Déconnexion</button>
               </div>
             )}
+
+            {/* Modal pour éditer les scores */}
+            {scoreEdit && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📝 Score</h3>
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">DYNO</label>
+                      <input 
+                        type="number" 
+                        placeholder="0"
+                        value={scoreEdit.scoreDyno} 
+                        onChange={(e) => setScoreEdit({...scoreEdit, scoreDyno: e.target.value})} 
+                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">Adv</label>
+                      <input 
+                        type="number" 
+                        placeholder="0"
+                        value={scoreEdit.scoreAdv} 
+                        onChange={(e) => setScoreEdit({...scoreEdit, scoreAdv: e.target.value})} 
+                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setScoreEdit(null)} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
+                    <button onClick={updateScore} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">✅ Valider</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
