@@ -356,39 +356,137 @@ function App() {
                 {historique.map(match => {
                   const matchNotes = notes.filter(n => n.matchId === match.id)
                   return (
-                    <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                      <p className="font-bold text-[#D4AF37] mb-3 text-lg">{match.adversaire} - {match.date}</p>
-                      {matchNotes.length > 0 ? (
-                        <div className="space-y-3">
-                          {matchNotes.map(note => (
-                            <div key={note.id} className="backdrop-blur-xl bg-black/60 rounded-xl p-4 border border-[#D4AF37]/20">
-                              <p className="text-[#D4AF37] font-bold mb-3">{note.joueur}</p>
-                              <div className="grid grid-cols-3 gap-3">
-                                <div className="text-center backdrop-blur-xl bg-gradient-to-br from-purple-500/20 to-purple-500/10 rounded-xl p-3 border border-purple-500/30">
-                                  <p className="text-xs text-gray-400 mb-1">🧠 Mental</p>
-                                  <p className="text-2xl font-bold text-purple-400">{note.mental}/10</p>
-                                </div>
-                                <div className="text-center backdrop-blur-xl bg-gradient-to-br from-blue-500/20 to-blue-500/10 rounded-xl p-3 border border-blue-500/30">
-                                  <p className="text-xs text-gray-400 mb-1">💬 Comm</p>
-                                  <p className="text-2xl font-bold text-blue-400">{note.communication}/10</p>
-                                </div>
-                                <div className="text-center backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-green-500/10 rounded-xl p-3 border border-green-500/30">
-                                  <p className="text-xs text-gray-400 mb-1">🎯 Perf</p>
-                                  <p className="text-2xl font-bold text-green-400">{note.gameplay}/10</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (<p className="text-gray-500 text-sm">Aucune note</p>)}
-                    </div>
-                  )
-                })}
+{activeTab === 'historique' && (
+  <div>
+    <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
+      <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+      <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">Historique</h2>
+    </div>
+    <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="backdrop-blur-xl bg-gradient-to-br from-[#D4AF37]/20 to-[#D4AF37]/10 rounded-2xl p-5 border border-[#D4AF37]/30 shadow-xl">
+        <p className="text-4xl font-bold text-[#D4AF37]">{victoires}</p>
+        <p className="text-xs text-gray-400 mt-1">Victoires</p>
+      </div>
+      <div className="backdrop-blur-xl bg-gradient-to-br from-red-500/20 to-red-500/10 rounded-2xl p-5 border border-red-500/30 shadow-xl">
+        <p className="text-4xl font-bold text-red-500">{defaites}</p>
+        <p className="text-xs text-gray-400 mt-1">Défaites</p>
+      </div>
+    </div>
+    {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📜 Aucun match</div>) : (
+      <div className="space-y-4">
+        {historique.map(match => {
+          const matchNotes = notes.filter(n => n.matchId === match.id)
+          return (
+            <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <span className={`px-4 py-1.5 rounded-full text-xs font-bold ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'} shadow-lg`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
+                <span className="text-gray-400 text-sm">{match.date}</span>
               </div>
-            )}
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-center">
+                  <p className="font-bold text-[#D4AF37]">DYNO</p>
+                  <p className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{match.scoreDyno}</p>
+                </div>
+                <span className="text-gray-600 text-2xl">-</span>
+                <div className="text-center">
+                  <p className="font-bold text-gray-400">{match.adversaire}</p>
+                  <p className="text-4xl font-bold text-gray-400">{match.scoreAdversaire}</p>
+                </div>
+              </div>
+              
+              {/* Bouton pour ajouter des notes */}
+              <button 
+                onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }}
+                className="w-full mb-4 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg hover:shadow-purple-500/50 transition-all"
+              >
+                📝 Ajouter des notes
+              </button>
+              
+              {/* Affichage des notes existantes */}
+              {matchNotes.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-400 mb-2">{matchNotes.length} note(s)</p>
+                  {matchNotes.map(note => (
+                    <div key={note.id} className="backdrop-blur-xl bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
+                      <p className="text-[#D4AF37] font-bold text-sm mb-2">{note.joueur}</p>
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="bg-purple-500/20 rounded-lg p-2">
+                          <p className="text-gray-400">🧠</p>
+                          <p className="text-purple-400 font-bold">{note.mental}/10</p>
+                        </div>
+                        <div className="bg-blue-500/20 rounded-lg p-2">
+                          <p className="text-gray-400">💬</p>
+                          <p className="text-blue-400 font-bold">{note.communication}/10</p>
+                        </div>
+                        <div className="bg-green-500/20 rounded-lg p-2">
+                          <p className="text-gray-400">🎯</p>
+                          <p className="text-green-400 font-bold">{note.gameplay}/10</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm text-center">Aucune note pour ce match</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )}
+    
+    {/* Modal pour ajouter des notes */}
+    {selectedMatchForNotes && (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
+          <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📊 Notes - {selectedMatchForNotes.adversaire}</h3>
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="text-gray-400 text-sm mb-2 block">🧠 Mental (0-10)</label>
+              <input 
+                type="number" 
+                min="0"
+                max="10"
+                placeholder="0"
+                value={nouvelleNote.mental} 
+                onChange={(e) => setNouvelleNote({...nouvelleNote, mental: e.target.value})} 
+                className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
+              />
+            </div>
+            <div>
+              <label className="text-gray-400 text-sm mb-2 block">💬 Communication (0-10)</label>
+              <input 
+                type="number" 
+                min="0"
+                max="10"
+                placeholder="0"
+                value={nouvelleNote.communication} 
+                onChange={(e) => setNouvelleNote({...nouvelleNote, communication: e.target.value})} 
+                className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
+              />
+            </div>
+            <div>
+              <label className="text-gray-400 text-sm mb-2 block">🎯 Performance (0-10)</label>
+              <input 
+                type="number" 
+                min="0"
+                max="10"
+                placeholder="0"
+                value={nouvelleNote.gameplay} 
+                onChange={(e) => setNouvelleNote({...nouvelleNote, gameplay: e.target.value})} 
+                className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
+              />
+            </div>
           </div>
-        )}
-
+          <div className="flex gap-3">
+            <button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
+            <button onClick={ajouterNote} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">✅ Valider</button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+)}
         {activeTab === 'maps' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
