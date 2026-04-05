@@ -24,19 +24,18 @@ const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', color: 'from-[#5D4E37] to-[#3D2E17]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'atlantis', name: 'Atlantis', color: 'from-[#1a3a52] to-[#0a1a2a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'ceres', name: 'Ceres', color: 'from-[#3a3a3a] to-[#1a1a1a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'engine', name: 'Engine', color: 'from-[#4a3a2a] to-[#2a1a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'helios', name: 'Helios', color: 'from-[#524a1a] to-[#322a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'horizon', name: 'Horizon', color: 'from-[#2a4a3a] to-[#0a2a1a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'lunar', name: 'Lunar', color: 'from-[#2a2a3a] to-[#0a0a1a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'outlaw', name: 'Outlaw', color: 'from-[#8B4513] to-[#5B2503]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'polaris', name: 'Polaris', color: 'from-[#2a3a4a] to-[#0a1a2a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'silva', name: 'Silva', color: 'from-[#2a4a2a] to-[#0a2a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'cliff', name: 'Cliff', color: 'from-[#8B4513] to-[#5B2503]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
+  { id: 'artefact', name: 'Artefact', image: 'LIEN_IMAGE_ARTEFACT', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'atlantis', name: 'Atlantis', image: 'https://i.imgur.com/LlDk9YV.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'ceres', name: 'Ceres', image: 'https://i.imgur.com/XUFO9G9.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'engine', name: 'Engine', image: 'LIEN_IMAGE_ENGINE', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'helios', name: 'Helios', image: 'https://i.imgur.com/9ugERVr.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'horizon', name: 'Horizon', image: 'https://i.imgur.com/EYUOH25.png', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'lunar', name: 'Lunar', image: 'https://i.imgur.com/GixPw58.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'outlaw', name: 'Outlaw', image: 'LIEN_IMAGE_OUTLAW', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'polaris', name: 'Polaris', image: 'https://i.imgur.com/3ToudY9.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'silva', name: 'Silva', image: 'https://i.imgur.com/iV9LDNM.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'cliff', name: 'Cliff', image: 'https://i.imgur.com/Hwmic2E.png', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
-
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
