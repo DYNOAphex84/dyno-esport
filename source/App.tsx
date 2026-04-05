@@ -24,14 +24,14 @@ const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', image: 'LIEN_IMAGE_ARTEFACT', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'artefact', name: 'Artefact', image: 'https://i.imgur.com/delmO0L.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'atlantis', name: 'Atlantis', image: 'https://i.imgur.com/LlDk9YV.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'ceres', name: 'Ceres', image: 'https://i.imgur.com/XUFO9G9.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'engine', name: 'Engine', image: 'LIEN_IMAGE_ENGINE', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'engine', name: 'Engine', image: 'https://i.imgur.com/WJlnrOx.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'helios', name: 'Helios', image: 'https://i.imgur.com/9ugERVr.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'horizon', name: 'Horizon', image: 'https://i.imgur.com/EYUOH25.png', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'lunar', name: 'Lunar', image: 'https://i.imgur.com/GixPw58.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'outlaw', name: 'Outlaw', image: 'LIEN_IMAGE_OUTLAW', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'outlaw', name: 'Outlaw', image: 'https://i.imgur.com/n9xtiff.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'polaris', name: 'Polaris', image: 'https://i.imgur.com/3ToudY9.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'silva', name: 'Silva', image: 'https://i.imgur.com/iV9LDNM.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'cliff', name: 'Cliff', image: 'https://i.imgur.com/Hwmic2E.png', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
