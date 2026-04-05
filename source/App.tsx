@@ -24,18 +24,19 @@ const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', image: 'https://i.imgur.com/delmO0L.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'atlantis', name: 'Atlantis', image: 'https://i.imgur.com/LlDk9YV.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'ceres', name: 'Ceres', image: 'https://i.imgur.com/XUFO9G9.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'engine', name: 'Engine', image: 'https://i.imgur.com/WJlnrOx.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'helios', name: 'Helios', image: 'https://i.imgur.com/9ugERVr.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'horizon', name: 'Horizon', image: 'https://i.imgur.com/EYUOH25.png', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'lunar', name: 'Lunar', image: 'https://i.imgur.com/GixPw58.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'outlaw', name: 'Outlaw', image: 'https://i.imgur.com/n9xtiff.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'polaris', name: 'Polaris', image: 'https://i.imgur.com/3ToudY9.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'silva', name: 'Silva', image: 'https://i.imgur.com/iV9LDNM.jpeg', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'cliff', name: 'Cliff', image: 'https://i.imgur.com/Hwmic2E.png', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
+  { id: 'artefact', name: 'Artefact', color: 'from-[#5D4E37] to-[#3D2E17]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'atlantis', name: 'Atlantis', color: 'from-[#1a3a52] to-[#0a1a2a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'ceres', name: 'Ceres', color: 'from-[#3a3a3a] to-[#1a1a1a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'engine', name: 'Engine', color: 'from-[#4a3a2a] to-[#2a1a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'helios', name: 'Helios', color: 'from-[#524a1a] to-[#322a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'horizon', name: 'Horizon', color: 'from-[#2a4a3a] to-[#0a2a1a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'lunar', name: 'Lunar', color: 'from-[#2a2a3a] to-[#0a0a1a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'outlaw', name: 'Outlaw', color: 'from-[#8B4513] to-[#5B2503]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'polaris', name: 'Polaris', color: 'from-[#2a3a4a] to-[#0a1a2a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'silva', name: 'Silva', color: 'from-[#2a4a2a] to-[#0a2a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'cliff', name: 'Cliff', color: 'from-[#8B4513] to-[#5B2503]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
+
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
   const [isAdmin, setIsAdmin] = useState(false)
@@ -52,11 +53,15 @@ function App() {
   const [joueurs, setJoueurs] = useState([])
   const [notes, setNotes] = useState([])
   const [selectedMap, setSelectedMap] = useState(null)
+  const [showMapMatches, setShowMapMatches] = useState(false)
+  const [mapMatches, setMapMatches] = useState([])
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
   const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState(null)
+  const [nouveauMapMatch, setNouveauMapMatch] = useState({ adversaire: '', picks: '', bans: '', notes: '' })
+  const [showAddMapMatch, setShowAddMapMatch] = useState(false)
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
@@ -109,6 +114,14 @@ function App() {
     const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setNotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+    })
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const q = query(collection(db, 'mapMatches'), orderBy('createdAt', 'desc'))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setMapMatches(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
     })
     return () => unsubscribe()
   }, [])
@@ -205,6 +218,7 @@ function App() {
   const supprimerMatch = async (id) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Supprimé !') }
   const supprimerReplay = async (id) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Supprimé !') }
   const supprimerJoueur = async (id) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Supprimé !') }
+  const supprimerMapMatch = async (id) => { await deleteDoc(doc(db, 'mapMatches', id)); alert('✅ Supprimé !') }
 
   const updateScore = async () => {
     await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
@@ -217,6 +231,68 @@ function App() {
     const match = matchs.find(m => m.id === matchId)
     const estDispo = match.disponibles.includes(pseudo)
     await updateDoc(doc(db, 'matchs', matchId), { disponibles: estDispo ? match.disponibles.filter(p => p !== pseudo) : [...match.disponibles, pseudo] })
+  }
+
+  const toggleLike = async (matchId) => {
+    if (!user) { alert('⚠️ Connecte-toi !'); return }
+    const match = mapMatches.find(m => m.id === matchId)
+    if (!match) return
+    const hasLiked = match.likes?.includes(user.uid)
+    const hasDisliked = match.dislikes?.includes(user.uid)
+    
+    let newLikes = match.likes || []
+    let newDislikes = match.dislikes || []
+    
+    if (hasLiked) {
+      newLikes = newLikes.filter(id => id !== user.uid)
+    } else {
+      newLikes = [...newLikes, user.uid]
+      if (hasDisliked) {
+        newDislikes = newDislikes.filter(id => id !== user.uid)
+      }
+    }
+    
+    await updateDoc(doc(db, 'mapMatches', matchId), { likes: newLikes, dislikes: newDislikes })
+  }
+
+  const toggleDislike = async (matchId) => {
+    if (!user) { alert('⚠️ Connecte-toi !'); return }
+    const match = mapMatches.find(m => m.id === matchId)
+    if (!match) return
+    const hasLiked = match.likes?.includes(user.uid)
+    const hasDisliked = match.dislikes?.includes(user.uid)
+    
+    let newLikes = match.likes || []
+    let newDislikes = match.dislikes || []
+    
+    if (hasDisliked) {
+      newDislikes = newDislikes.filter(id => id !== user.uid)
+    } else {
+      newDislikes = [...newDislikes, user.uid]
+      if (hasLiked) {
+        newLikes = newLikes.filter(id => id !== user.uid)
+      }
+    }
+    
+    await updateDoc(doc(db, 'mapMatches', matchId), { likes: newLikes, dislikes: newDislikes })
+  }
+
+  const ajouterMapMatch = async () => {
+    if (!selectedMap || !nouveauMapMatch.adversaire) { alert('⚠️ Remplis tout !'); return }
+    await addDoc(collection(db, 'mapMatches'), {
+      mapId: selectedMap.id,
+      mapName: selectedMap.name,
+      adversaire: nouveauMapMatch.adversaire,
+      picks: nouveauMapMatch.picks,
+      bans: nouveauMapMatch.bans,
+      notes: nouveauMapMatch.notes,
+      likes: [],
+      dislikes: [],
+      createdAt: Date.now()
+    })
+    setNouveauMapMatch({ adversaire: '', picks: '', bans: '', notes: '' })
+    setShowAddMapMatch(false)
+    alert('✅ Stratégie ajoutée !')
   }
 
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
@@ -381,7 +457,6 @@ function App() {
               </div>
             )}
             
-            {/* Modal pour ajouter des notes */}
             {selectedMatchForNotes && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
@@ -434,6 +509,150 @@ function App() {
           </div>
         )}
 
+        {activeTab === 'maps' && (
+          <div>
+            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
+              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🗺️ Maps & Stratégies</h2>
+              <p className="text-gray-400 text-sm">Stratégies par map avec picks/bans</p>
+            </div>
+            
+            {showMapMatches ? (
+              <div>
+                <button onClick={() => setShowMapMatches(false)} className="mb-4 px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-lg">← Retour aux maps</button>
+                
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-[#D4AF37]">📋 {selectedMap?.name} - Stratégies</h3>
+                  {isAdmin && (
+                    <button onClick={() => setShowAddMapMatch(true)} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Ajouter</button>
+                  )}
+                </div>
+                
+                {mapMatches.filter(m => m.mapId === selectedMap?.id).length === 0 ? (
+                  <div className="text-center py-10 text-gray-500">📝 Aucune stratégie pour cette map</div>
+                ) : (
+                  <div className="space-y-4">
+                    {mapMatches.filter(m => m.mapId === selectedMap?.id).map(match => {
+                      const userLike = match.likes?.includes(user?.uid)
+                      const userDislike = match.dislikes?.includes(user?.uid)
+                      return (
+                        <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="font-bold text-[#D4AF37] text-lg">VS {match.adversaire}</p>
+                            {isAdmin && <button onClick={() => supprimerMapMatch(match.id)} className="text-red-400 text-xl">🗑️</button>}
+                          </div>
+                          
+                          {match.picks && (
+                            <div className="mb-3">
+                              <p className="text-xs text-green-400 mb-1">✅ Picks</p>
+                              <p className="text-sm text-white">{match.picks}</p>
+                            </div>
+                          )}
+                          
+                          {match.bans && (
+                            <div className="mb-3">
+                              <p className="text-xs text-red-400 mb-1">❌ Bans</p>
+                              <p className="text-sm text-white">{match.bans}</p>
+                            </div>
+                          )}
+                          
+                          {match.notes && (
+                            <div className="mb-3">
+                              <p className="text-xs text-gray-400 mb-1">📝 Notes</p>
+                              <p className="text-sm text-white">{match.notes}</p>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-[#D4AF37]/20">
+                            <button 
+                              onClick={() => toggleLike(match.id)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${userLike ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                            >
+                              👍 {match.likes?.length || 0}
+                            </button>
+                            <button 
+                              onClick={() => toggleDislike(match.id)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${userDislike ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                            >
+                              👎 {match.dislikes?.length || 0}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {EVA_MAPS.map(map => (
+                  <div 
+                    key={map.id} 
+                    className="relative rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-xl hover:shadow-2xl group"
+                    onClick={() => { setSelectedMap(map); setShowMapMatches(true) }}
+                  >
+                    <div className={`w-full h-36 bg-gradient-to-br ${map.color}`} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                    <p className="absolute bottom-3 left-3 text-white font-bold text-base drop-shadow-lg">{map.name}</p>
+                    <div className="absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/20 transition-all" />
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {showAddMapMatch && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📋 Stratégie - {selectedMap?.name}</h3>
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">⚔️ Adversaire</label>
+                      <input 
+                        type="text" 
+                        placeholder="Nom de l'équipe"
+                        value={nouveauMapMatch.adversaire} 
+                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, adversaire: e.target.value})} 
+                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (agents/persos)</label>
+                      <textarea 
+                        placeholder="Jett, Sova, etc..."
+                        value={nouveauMapMatch.picks} 
+                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, picks: e.target.value})} 
+                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all h-20" 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans</label>
+                      <textarea 
+                        placeholder="Agents/persos à ban"
+                        value={nouveauMapMatch.bans} 
+                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, bans: e.target.value})} 
+                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all h-20" 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">📝 Notes stratégiques</label>
+                      <textarea 
+                        placeholder="Stratégie, callouts, etc..."
+                        value={nouveauMapMatch.notes} 
+                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, notes: e.target.value})} 
+                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all h-20" 
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => { setShowAddMapMatch(false); setNouveauMapMatch({ adversaire: '', picks: '', bans: '', notes: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
+                    <button onClick={ajouterMapMatch} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">✅ Valider</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'notes' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -475,30 +694,6 @@ function App() {
                 })}
               </div>
             )}
-          </div>
-        )}
-
-        {activeTab === 'maps' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🗺️ Maps EVA</h2>
-              <p className="text-gray-400 text-sm">Clique pour ouvrir EVA Battle Plan</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {EVA_MAPS.map(map => (
-                <div 
-                  key={map.id} 
-                  className="relative rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-xl hover:shadow-2xl group"
-                  onClick={() => window.open(map.evaUrl, '_blank')}
-                >
-                  <img src={map.image} alt={map.name} className="w-full h-36 object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-                  <p className="absolute bottom-3 left-3 text-white font-bold text-base drop-shadow-lg">{map.name}</p>
-                  <div className="absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/20 transition-all" />
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -634,7 +829,6 @@ function App() {
               </div>
             )}
 
-            {/* Modal pour éditer les scores */}
             {scoreEdit && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
@@ -681,11 +875,11 @@ function App() {
           <button onClick={() => setActiveTab('historique')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'historique' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
             <span className="text-2xl">📜</span>
           </button>
-          <button onClick={() => setActiveTab('notes')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'notes' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
-            <span className="text-2xl">📊</span>
-          </button>
           <button onClick={() => setActiveTab('maps')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'maps' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
             <span className="text-2xl">🗺️</span>
+          </button>
+          <button onClick={() => setActiveTab('notes')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'notes' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
+            <span className="text-2xl">📊</span>
           </button>
           <button onClick={() => setActiveTab('rec')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'rec' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
             <span className="text-2xl">🎬</span>
