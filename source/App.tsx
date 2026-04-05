@@ -18,7 +18,7 @@ const auth = getAuth(app)
 
 setPersistence(auth, browserLocalPersistence)
 
-const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp
+const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
@@ -36,8 +36,6 @@ const EVA_MAPS = [
   { id: 'silva', name: 'Silva', color: 'from-[#2a4a2a] to-[#0a2a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
   { id: 'cliff', name: 'Cliff', color: 'from-[#8B4513] to-[#5B2503]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
-
-const AGENTS = ['Jett', 'Reyna', 'Phoenix', 'Raze', 'Yoru', 'Neon', 'Iso', 'Clove', 'Tejo', 'Omen', 'Brimstone', 'Viper', 'Astra', 'Harbor', 'Clove', 'Sova', 'Breach', 'Skye', 'KAY/O', 'Fade', 'Gekko', 'Deadlock', 'Tejo', 'Cypher', 'Killjoy', 'Chamber', 'Deadlock', 'Sage', 'Phoenix']
 
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
@@ -62,7 +60,7 @@ function App() {
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
   const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState(null)
-  const [nouveauMapMatch, setNouveauMapMatch] = useState({ adversaire: '', picks: [], bans: [], notes: '' })
+  const [nouveauMapMatch, setNouveauMapMatch] = useState({ adversaire: '', picksText: '', bansText: '', notes: '' })
   const [showAddMapMatch, setShowAddMapMatch] = useState(false)
 
   useEffect(() => {
@@ -285,8 +283,8 @@ function App() {
       mapId: selectedMap.id,
       mapName: selectedMap.name,
       adversaire: nouveauMapMatch.adversaire,
-      picks: nouveauMapMatch.picks,
-      bans: nouveauMapMatch.bans,
+      picks: nouveauMapMatch.picksText ? nouveauMapMatch.picksText.split(',').map(s => s.trim()).filter(s => s) : [],
+      bans: nouveauMapMatch.bansText ? nouveauMapMatch.bansText.split(',').map(s => s.trim()).filter(s => s) : [],
       notes: nouveauMapMatch.notes,
       auteur: pseudo,
       auteurId: user?.uid,
@@ -294,25 +292,9 @@ function App() {
       dislikes: [],
       createdAt: Date.now()
     })
-    setNouveauMapMatch({ adversaire: '', picks: [], bans: [], notes: '' })
+    setNouveauMapMatch({ adversaire: '', picksText: '', bansText: '', notes: '' })
     setShowAddMapMatch(false)
     alert('✅ Stratégie ajoutée !')
-  }
-
-  const togglePick = (agent) => {
-    if (nouveauMapMatch.picks.includes(agent)) {
-      setNouveauMapMatch({...nouveauMapMatch, picks: nouveauMapMatch.picks.filter(a => a !== agent)})
-    } else if (nouveauMapMatch.picks.length < 5) {
-      setNouveauMapMatch({...nouveauMapMatch, picks: [...nouveauMapMatch.picks, agent]})
-    }
-  }
-
-  const toggleBan = (agent) => {
-    if (nouveauMapMatch.bans.includes(agent)) {
-      setNouveauMapMatch({...nouveauMapMatch, bans: nouveauMapMatch.bans.filter(a => a !== agent)})
-    } else if (nouveauMapMatch.bans.length < 3) {
-      setNouveauMapMatch({...nouveauMapMatch, bans: [...nouveauMapMatch.bans, agent]})
-    }
   }
 
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
@@ -565,23 +547,27 @@ function App() {
                             {(isAdmin || user?.uid === match.auteurId) && <button onClick={() => supprimerMapMatch(match.id)} className="text-red-400 text-xl">🗑️</button>}
                           </div>
                           
-                          <div className="mb-3">
-                            <p className="text-xs text-green-400 mb-1">✅ Picks ({match.picks?.length || 0}/5)</p>
-                            <div className="flex flex-wrap gap-2">
-                              {match.picks?.map((pick, i) => (
-                                <span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{pick}</span>
-                              ))}
+                          {match.picks && match.picks.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs text-green-400 mb-1">✅ Picks</p>
+                              <div className="flex flex-wrap gap-2">
+                                {match.picks.map((pick, i) => (
+                                  <span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{pick}</span>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
-                          <div className="mb-3">
-                            <p className="text-xs text-red-400 mb-1">❌ Bans ({match.bans?.length || 0}/3)</p>
-                            <div className="flex flex-wrap gap-2">
-                              {match.bans?.map((ban, i) => (
-                                <span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{ban}</span>
-                              ))}
+                          {match.bans && match.bans.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs text-red-400 mb-1">❌ Bans</p>
+                              <div className="flex flex-wrap gap-2">
+                                {match.bans.map((ban, i) => (
+                                  <span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{ban}</span>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
                           {match.notes && (
                             <div className="mb-3">
@@ -650,43 +636,25 @@ function App() {
                     </div>
                     
                     <div>
-                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (max 5)</label>
-                      <div className="grid grid-cols-3 gap-2 mb-2">
-                        {AGENTS.map(agent => (
-                          <button
-                            key={agent}
-                            onClick={() => togglePick(agent)}
-                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${nouveauMapMatch.picks.includes(agent) ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
-                          >
-                            {agent}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {nouveauMapMatch.picks.map((pick, i) => (
-                          <span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{pick}</span>
-                        ))}
-                      </div>
+                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (séparés par des virgules)</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Jett, Sova, Omen..."
+                        value={nouveauMapMatch.picksText || ''} 
+                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, picksText: e.target.value})} 
+                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" 
+                      />
                     </div>
                     
                     <div>
-                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans (max 3)</label>
-                      <div className="grid grid-cols-3 gap-2 mb-2">
-                        {AGENTS.map(agent => (
-                          <button
-                            key={agent}
-                            onClick={() => toggleBan(agent)}
-                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${nouveauMapMatch.bans.includes(agent) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
-                          >
-                            {agent}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {nouveauMapMatch.bans.map((ban, i) => (
-                          <span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{ban}</span>
-                        ))}
-                      </div>
+                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans (séparés par des virgules)</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Reyna, Phoenix..."
+                        value={nouveauMapMatch.bansText || ''} 
+                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, bansText: e.target.value})} 
+                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" 
+                      />
                     </div>
                     
                     <div>
@@ -700,7 +668,7 @@ function App() {
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <button onClick={() => { setShowAddMapMatch(false); setNouveauMapMatch({ adversaire: '', picks: [], bans: [], notes: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
+                    <button onClick={() => { setShowAddMapMatch(false); setNouveauMapMatch({ adversaire: '', picksText: '', bansText: '', notes: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
                     <button onClick={ajouterMapMatch} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">✅ Valider</button>
                   </div>
                 </div>
