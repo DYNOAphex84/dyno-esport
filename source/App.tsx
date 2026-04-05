@@ -492,7 +492,7 @@ function App() {
                   className="relative rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-xl hover:shadow-2xl group"
                   onClick={() => window.open(map.evaUrl, '_blank')}
                 >
-                  <div className={`w-full h-36 bg-gradient-to-br ${map.color}`} />
+                  <img src={map.image} alt={map.name} className="w-full h-36 object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
                   <p className="absolute bottom-3 left-3 text-white font-bold text-base drop-shadow-lg">{map.name}</p>
                   <div className="absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/20 transition-all" />
