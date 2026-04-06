@@ -19,22 +19,22 @@ const auth = getAuth(app)
 setPersistence(auth, browserLocalPersistence)
 
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
-const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC
+const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
 const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', color: 'from-[#5D4E37] to-[#3D2E17]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'atlantis', name: 'Atlantis', color: 'from-[#1a3a52] to-[#0a1a2a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'ceres', name: 'Ceres', color: 'from-[#3a3a3a] to-[#1a1a1a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'engine', name: 'Engine', color: 'from-[#4a3a2a] to-[#2a1a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'helios', name: 'Helios', color: 'from-[#524a1a] to-[#322a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'horizon', name: 'Horizon', color: 'from-[#2a4a3a] to-[#0a2a1a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'lunar', name: 'Lunar', color: 'from-[#2a2a3a] to-[#0a0a1a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'outlaw', name: 'Outlaw', color: 'from-[#8B4513] to-[#5B2503]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'polaris', name: 'Polaris', color: 'from-[#2a3a4a] to-[#0a1a2a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'silva', name: 'Silva', color: 'from-[#2a4a2a] to-[#0a2a0a]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'cliff', name: 'Cliff', color: 'from-[#8B4513] to-[#5B2503]', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
+  { id: 'artefact', name: 'Artefact', color: 'bg-amber-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'atlantis', name: 'Atlantis', color: 'bg-blue-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'ceres', name: 'Ceres', color: 'bg-gray-800', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'engine', name: 'Engine', color: 'bg-orange-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'helios', name: 'Helios', color: 'bg-yellow-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'horizon', name: 'Horizon', color: 'bg-emerald-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'lunar', name: 'Lunar', color: 'bg-indigo-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'outlaw', name: 'Outlaw', color: 'bg-amber-800', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'polaris', name: 'Polaris', color: 'bg-cyan-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'silva', name: 'Silva', color: 'bg-green-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
+  { id: 'cliff', name: 'Cliff', color: 'bg-orange-800', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
 ]
 
 function App() {
@@ -187,7 +187,8 @@ function App() {
           { name: '⚔️ Adversaire', value: nouveauMatch.adversaire, inline: true },
           { name: '📅 Date', value: nouveauMatch.date, inline: true },
           { name: '⏰ Horaire', value: horaires.join(' / '), inline: true },
-          { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true }
+          { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true },
+          { name: '📊 Type', value: nouveauMatch.type, inline: true }
         ],
         footer: { text: 'DYNO Esport', icon_url: LOGO_URL }
       }]
@@ -215,10 +216,11 @@ function App() {
     alert('✅ Note ajoutée !')
   }
 
-  const supprimerMatch = async (id) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Supprimé !') }
-  const supprimerReplay = async (id) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Supprimé !') }
-  const supprimerJoueur = async (id) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Supprimé !') }
-  const supprimerMapMatch = async (id) => { await deleteDoc(doc(db, 'mapMatches', id)); alert('✅ Supprimé !') }
+  const supprimerMatch = async (id) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Match supprimé !') }
+  const supprimerReplay = async (id) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Replay supprimé !') }
+  const supprimerJoueur = async (id) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Joueur supprimé !') }
+  const supprimerMapMatch = async (id) => { await deleteDoc(doc(db, 'mapMatches', id)); alert('✅ Stratégie supprimée !') }
+  const supprimerNote = async (id) => { await deleteDoc(doc(db, 'notes', id)); alert('✅ Note supprimée !') }
 
   const updateScore = async () => {
     await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
@@ -297,11 +299,60 @@ function App() {
     alert('✅ Stratégie ajoutée !')
   }
 
+  // 📅 Générer fichier ICS pour calendrier
+  const addToCalendar = (match) => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    
+    if (isIOS) {
+      // Générer fichier ICS pour iOS
+      const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//DYNO Esport//FR
+BEGIN:VEVENT
+UID:${match.id}@dyno-esport
+DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+DTSTART:${match.date.replace(/-/g, '')}T${match.horaire1.replace(':', '')}00
+DTEND:${match.date.replace(/-/g, '')}T${(parseInt(match.horaire1.split(':')[0]) + 2).toString().padStart(2, '0')}${match.horaire1.split(':')[1]}00
+SUMMARY:🎮 DYNO vs ${match.adversaire}
+DESCRIPTION:Match DYNO Esport vs ${match.adversaire}\nArène: ${match.arene}\nType: ${match.type}
+LOCATION:${match.arene}
+END:VEVENT
+END:VCALENDAR`
+      
+      const blob = new Blob([icsContent], { type: 'text/calendar' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `DYNO_vs_${match.adversaire}.ics`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } else {
+      // Lien Google Calendar pour Android
+      const startDate = `${match.date.replace(/-/g, '')}T${match.horaire1.replace(':', '')}00`
+      const endDate = `${match.date.replace(/-/g, '')}T${(parseInt(match.horaire1.split(':')[0]) + 2).toString().padStart(2, '0')}${match.horaire1.split(':')[1]}00`
+      
+      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${startDate}/${endDate}&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\nArène: ${match.arene}\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
+      
+      window.open(googleCalendarUrl, '_blank')
+    }
+  }
+
   const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter(m => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const totalMatchs = victoires + defaites
   const winRate = totalMatchs > 0 ? Math.round((victoires / totalMatchs) * 100) : 0
-  const prochainsMatchs = matchs.filter(m => !m.termine)
+  
+  // 🔥 Tri des prochains matchs par date ASC (du plus proche au plus loin)
+  const prochainsMatchs = matchs
+    .filter(m => !m.termine)
+    .sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.horaire1}`)
+      const dateB = new Date(`${b.date}T${b.horaire1}`)
+      return dateA.getTime() - dateB.getTime()
+    })
+  
   const historique = matchs.filter(m => m.termine)
 
   const getYouTubeId = (url) => {
@@ -355,7 +406,12 @@ function App() {
                 {prochainsMatchs.map(match => (
                   <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl hover:shadow-[#D4AF37]/20 transition-all">
                     <div className="flex items-center justify-between mb-4">
-                      <span className={`px-4 py-1.5 rounded-full text-xs font-bold ${match.type === 'Ligue' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : match.type === 'Scrim' ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' : 'bg-gradient-to-r from-purple-600 to-purple-700 text-white'} shadow-lg`}>{match.type}</span>
+                      <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${
+                        match.type === 'Ligue' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : 
+                        match.type === 'Scrim' ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' : 
+                        match.type === 'Tournoi' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white' :
+                        'bg-gradient-to-r from-orange-600 to-orange-700 text-white'
+                      }`}>{match.type}</span>
                       <span className="text-[#D4AF37] font-bold">{match.date}</span>
                     </div>
                     <div className="flex items-center gap-4 mb-4">
@@ -374,6 +430,15 @@ function App() {
                       <p className="text-xs text-gray-400 mb-2">👥 Disponibles ({match.disponibles.length})</p>
                       {match.disponibles.length > 0 && (<div className="flex flex-wrap gap-2">{match.disponibles.map((p, i) => (<span key={i} className="backdrop-blur-xl bg-gradient-to-r from-[#D4AF37]/20 to-[#D4AF37]/10 text-[#D4AF37] px-3 py-1.5 rounded-xl text-xs font-bold border border-[#D4AF37]/30">{p}</span>))}</div>)}
                     </div>
+                    
+                    {/* 📅 Bouton Add to Calendar */}
+                    <button 
+                      onClick={() => addToCalendar(match)}
+                      className="w-full mb-4 py-3 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg hover:shadow-blue-500/50 transition-all flex items-center justify-center gap-2"
+                    >
+                      📅 Ajouter au calendrier
+                    </button>
+                    
                     <button onClick={() => toggleDisponibilite(match.id)} disabled={!user} className={`w-full py-4 rounded-xl font-bold transition-all shadow-lg ${!user ? 'bg-gray-700 text-gray-400' : match.disponibles.includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-[#D4AF37]/50' : 'border-2 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10'}`}>{!user ? '🔐 Connecte-toi' : match.disponibles.includes(pseudo) ? '✅ Je suis disponible' : '📅 Je me marque'}</button>
                   </div>
                 ))}
@@ -405,7 +470,9 @@ function App() {
                   return (
                     <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                       <div className="flex items-center justify-between mb-4">
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-bold ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'} shadow-lg`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
+                        <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${
+                          (match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'
+                        }`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
                         <span className="text-gray-400 text-sm">{match.date}</span>
                       </div>
                       <div className="flex items-center justify-between mb-4">
@@ -432,7 +499,10 @@ function App() {
                           <p className="text-xs text-gray-400 mb-2">{matchNotes.length} note(s)</p>
                           {matchNotes.map(note => (
                             <div key={note.id} className="backdrop-blur-xl bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
-                              <p className="text-[#D4AF37] font-bold text-sm mb-2">{note.joueur}</p>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-[#D4AF37] font-bold text-sm">{note.joueur}</p>
+                                {isAdmin && (<button onClick={() => supprimerNote(note.id)} className="text-red-400 text-xs">🗑️</button>)}
+                              </div>
                               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                                 <div className="bg-purple-500/20 rounded-lg p-2">
                                   <p className="text-gray-400">🧠</p>
@@ -606,7 +676,7 @@ function App() {
                       className="relative rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-xl hover:shadow-2xl group"
                       onClick={() => { setSelectedMap(map); setShowMapDetails(true) }}
                     >
-                      <div className={`w-full h-32 bg-gradient-to-br ${map.color}`} />
+                      <div className={`w-full h-32 ${map.color}`} />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
                       <div className="absolute bottom-3 left-3 text-white">
                         <p className="font-bold text-base drop-shadow-lg">{map.name}</p>
@@ -832,7 +902,37 @@ function App() {
                     <input type="time" placeholder="H1" value={nouveauMatch.horaire1} onChange={(e) => setNouveauMatch({...nouveauMatch, horaire1: e.target.value})} className="backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" />
                     <input type="time" placeholder="H2" value={nouveauMatch.horaire2} onChange={(e) => setNouveauMatch({...nouveauMatch, horaire2: e.target.value})} className="backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" />
                   </div>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <select value={nouveauMatch.arene} onChange={(e) => setNouveauMatch({...nouveauMatch, arene: e.target.value})} className="backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all">
+                      <option value="Arène 1">Arène 1</option>
+                      <option value="Arène 2">Arène 2</option>
+                    </select>
+                    <select value={nouveauMatch.type} onChange={(e) => setNouveauMatch({...nouveauMatch, type: e.target.value})} className="backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all">
+                      <option value="Ligue">Ligue</option>
+                      <option value="Scrim">Scrim</option>
+                      <option value="Tournoi">Tournoi</option>
+                      <option value="Division">Division</option>
+                    </select>
+                  </div>
                   <button onClick={ajouterMatch} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">Ajouter + Discord</button>
+                </div>
+                <div className="backdrop-blur-xl bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4 flex items-center gap-2">🗑️ Supprimer Matchs</h3>
+                  {matchs.length === 0 ? (
+                    <p className="text-gray-500 text-center">Aucun match à supprimer</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {matchs.map(match => (
+                        <div key={match.id} className="flex items-center justify-between bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
+                          <div>
+                            <p className="text-[#D4AF37] font-bold text-sm">{match.adversaire}</p>
+                            <p className="text-gray-500 text-xs">{match.date}</p>
+                          </div>
+                          <button onClick={() => supprimerMatch(match.id)} className="text-red-400 text-xl hover:scale-110 transition">🗑️</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="backdrop-blur-xl bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4 flex items-center gap-2">🎬 Replay</h3>
