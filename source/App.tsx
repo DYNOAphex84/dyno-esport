@@ -25,19 +25,7 @@ const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 
-const EVA_MAPS = [
-  { id: 'artefact', name: 'Artefact', color: 'bg-amber-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'atlantis', name: 'Atlantis', color: 'bg-blue-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'ceres', name: 'Ceres', color: 'bg-gray-800', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'engine', name: 'Engine', color: 'bg-orange-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'helios', name: 'Helios', color: 'bg-yellow-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'horizon', name: 'Horizon', color: 'bg-emerald-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'lunar', name: 'Lunar', color: 'bg-indigo-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'outlaw', name: 'Outlaw', color: 'bg-amber-800', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'polaris', name: 'Polaris', color: 'bg-cyan-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'silva', name: 'Silva', color: 'bg-green-900', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' },
-  { id: 'cliff', name: 'Cliff', color: 'bg-orange-800', evaUrl: 'https://evabattleplan.com/fr/tools/battleplan' }
-]
+const ALL_MAPS = ['Engine', 'Helios', 'Silva', 'The Cliff', 'Artefact', 'Outlaw', 'Atlantis', 'Horizon', 'Polaris', 'Lunar', 'Ceres']
 
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
@@ -54,16 +42,14 @@ function App() {
   const [replays, setReplays] = useState<any[]>([])
   const [joueurs, setJoueurs] = useState<any[]>([])
   const [notes, setNotes] = useState<any[]>([])
-  const [mapMatches, setMapMatches] = useState<any[]>([])
-  const [selectedMap, setSelectedMap] = useState<any>(null)
-  const [showMapDetails, setShowMapDetails] = useState(false)
+  const [strats, setStrats] = useState<any[]>([])
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
   const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
-  const [nouveauMapMatch, setNouveauMapMatch] = useState({ adversaire: '', picksText: '', bansText: '', notes: '' })
-  const [showAddMapMatch, setShowAddMapMatch] = useState(false)
+  const [nouvelleStrat, setNouvelleStrat] = useState({ adversaire: '', picks: [], bans: [] })
+  const [showAddStrat, setShowAddStrat] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstall, setShowInstall] = useState(false)
 
@@ -132,11 +118,11 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const q = query(collection(db, 'mapMatches'), orderBy('createdAt', 'desc'))
+    const q = query(collection(db, 'strats'), orderBy('createdAt', 'desc'))
     const unsubscribe = onSnapshot(q, (snapshot: any) => {
-      const mapMatchesData: any[] = []
-      snapshot.forEach((doc: any) => mapMatchesData.push({ id: doc.id, ...doc.data() }))
-      setMapMatches(mapMatchesData)
+      const stratsData: any[] = []
+      snapshot.forEach((doc: any) => stratsData.push({ id: doc.id, ...doc.data() }))
+      setStrats(stratsData)
     })
     return () => unsubscribe()
   }, [])
@@ -251,10 +237,28 @@ function App() {
     alert('✅ Note ajoutée !')
   }
 
+  const ajouterStrat = async () => {
+    if (!nouvelleStrat.adversaire || nouvelleStrat.picks.length === 0 || nouvelleStrat.bans.length === 0) { 
+      alert('⚠️ Remplis l\'adversaire, picks et bans !'); 
+      return 
+    }
+    await addDoc(collection(db, 'strats'), {
+      adversaire: nouvelleStrat.adversaire,
+      picks: nouvelleStrat.picks,
+      bans: nouvelleStrat.bans,
+      auteur: pseudo,
+      auteurId: user?.uid,
+      createdAt: Date.now()
+    })
+    setNouvelleStrat({ adversaire: '', picks: [], bans: [] })
+    setShowAddStrat(false)
+    alert('✅ Stratégie ajoutée !')
+  }
+
   const supprimerMatch = async (id: string) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Match supprimé !') }
   const supprimerReplay = async (id: string) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Replay supprimé !') }
   const supprimerJoueur = async (id: string) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Joueur supprimé !') }
-  const supprimerMapMatch = async (id: string) => { await deleteDoc(doc(db, 'mapMatches', id)); alert('✅ Stratégie supprimée !') }
+  const supprimerStrat = async (id: string) => { await deleteDoc(doc(db, 'strats', id)); alert('✅ Stratégie supprimée !') }
   const supprimerNote = async (id: string) => { await deleteDoc(doc(db, 'notes', id)); alert('✅ Note supprimée !') }
 
   const updateScore = async () => {
@@ -271,64 +275,6 @@ function App() {
     const estDispo = match.disponibles.includes(pseudo)
     const nouveauxDisponibles = estDispo ? match.disponibles.filter((p: string) => p !== pseudo) : [...match.disponibles, pseudo]
     await updateDoc(doc(db, 'matchs', matchId), { disponibles: nouveauxDisponibles })
-  }
-
-  const toggleLike = async (matchId: string) => {
-    if (!user) { alert('⚠️ Connecte-toi !'); return }
-    const match = mapMatches.find((m: any) => m.id === matchId)
-    if (!match) return
-    const hasLiked = match.likes?.includes(user.uid)
-    const hasDisliked = match.dislikes?.includes(user.uid)
-    let newLikes = match.likes || []
-    let newDislikes = match.dislikes || []
-    if (hasLiked) {
-      newLikes = newLikes.filter((id: string) => id !== user.uid)
-    } else {
-      newLikes = [...newLikes, user.uid]
-      if (hasDisliked) {
-        newDislikes = newDislikes.filter((id: string) => id !== user.uid)
-      }
-    }
-    await updateDoc(doc(db, 'mapMatches', matchId), { likes: newLikes, dislikes: newDislikes })
-  }
-
-  const toggleDislike = async (matchId: string) => {
-    if (!user) { alert('⚠️ Connecte-toi !'); return }
-    const match = mapMatches.find((m: any) => m.id === matchId)
-    if (!match) return
-    const hasLiked = match.likes?.includes(user.uid)
-    const hasDisliked = match.dislikes?.includes(user.uid)
-    let newLikes = match.likes || []
-    let newDislikes = match.dislikes || []
-    if (hasDisliked) {
-      newDislikes = newDislikes.filter((id: string) => id !== user.uid)
-    } else {
-      newDislikes = [...newDislikes, user.uid]
-      if (hasLiked) {
-        newLikes = newLikes.filter((id: string) => id !== user.uid)
-      }
-    }
-    await updateDoc(doc(db, 'mapMatches', matchId), { likes: newLikes, dislikes: newDislikes })
-  }
-
-  const ajouterMapMatch = async () => {
-    if (!selectedMap || !nouveauMapMatch.adversaire) { alert('⚠️ Remplis tout !'); return }
-    await addDoc(collection(db, 'mapMatches'), {
-      mapId: selectedMap.id,
-      mapName: selectedMap.name,
-      adversaire: nouveauMapMatch.adversaire,
-      picks: nouveauMapMatch.picksText ? nouveauMapMatch.picksText.split(',').map((s: string) => s.trim()).filter((s: string) => s) : [],
-      bans: nouveauMapMatch.bansText ? nouveauMapMatch.bansText.split(',').map((s: string) => s.trim()).filter((s: string) => s) : [],
-      notes: nouveauMapMatch.notes,
-      auteur: pseudo,
-      auteurId: user?.uid,
-      likes: [],
-      dislikes: [],
-      createdAt: Date.now()
-    })
-    setNouveauMapMatch({ adversaire: '', picksText: '', bansText: '', notes: '' })
-    setShowAddMapMatch(false)
-    alert('✅ Stratégie ajoutée !')
   }
 
   const formatDateFR = (dateString: string) => {
@@ -408,6 +354,22 @@ function App() {
   const getYouTubeId = (url: string) => {
     const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
     return match ? match[1] : null
+  }
+
+  const toggleMapSelection = (map: string, type: 'picks' | 'bans') => {
+    if (type === 'picks') {
+      if (nouvelleStrat.picks.includes(map)) {
+        setNouvelleStrat({...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map)})
+      } else if (nouvelleStrat.picks.length < 3) {
+        setNouvelleStrat({...nouvelleStrat, picks: [...nouvelleStrat.picks, map]})
+      }
+    } else {
+      if (nouvelleStrat.bans.includes(map)) {
+        setNouvelleStrat({...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map)})
+      } else if (nouvelleStrat.bans.length < 3) {
+        setNouvelleStrat({...nouvelleStrat, bans: [...nouvelleStrat.bans, map]})
+      }
+    }
   }
 
   if (showSplash) {
@@ -568,74 +530,111 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'maps' && (
+        {activeTab === 'strats' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
               <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🗺️ Maps & Stratégies</h2>
-              <p className="text-gray-400 text-sm">Picks, bans et stratégies par map</p>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🎯 Stratégies</h2>
+              <p className="text-gray-400 text-sm">Picks & Bans par équipe</p>
             </div>
-            {showMapDetails ? (
-              <div>
-                <button onClick={() => setShowMapDetails(false)} className="mb-4 px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-lg">← Retour aux maps</button>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-[#D4AF37]">📋 {selectedMap?.name}</h3>
-                  {user && (<button onClick={() => setShowAddMapMatch(true)} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Ajouter Strat</button>)}
-                </div>
-                {mapMatches.filter((m: any) => m.mapId === selectedMap?.id).length === 0 ? (
-                  <div className="text-center py-10 text-gray-500">📝 Aucune stratégie pour cette map</div>
-                ) : (
-                  <div className="space-y-4">
-                    {mapMatches.filter((m: any) => m.mapId === selectedMap?.id).map((match: any) => {
-                      const userLike = match.likes?.includes(user?.uid)
-                      const userDislike = match.dislikes?.includes(user?.uid)
-                      return (
-                        <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                          <div className="flex items-center justify-between mb-3">
-                            <div><p className="font-bold text-[#D4AF37] text-lg">VS {match.adversaire}</p><p className="text-xs text-gray-400">par {match.auteur || 'Inconnu'}</p></div>
-                            {(isAdmin || user?.uid === match.auteurId) && <button onClick={() => supprimerMapMatch(match.id)} className="text-red-400 text-xl">🗑️</button>}
-                          </div>
-                          {match.picks && match.picks.length > 0 && (<div className="mb-3"><p className="text-xs text-green-400 mb-1">✅ Picks</p><div className="flex flex-wrap gap-2">{match.picks.map((pick: string, i: number) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{pick}</span>))}</div></div>)}
-                          {match.bans && match.bans.length > 0 && (<div className="mb-3"><p className="text-xs text-red-400 mb-1">❌ Bans</p><div className="flex flex-wrap gap-2">{match.bans.map((ban: string, i: number) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{ban}</span>))}</div></div>)}
-                          {match.notes && (<div className="mb-3"><p className="text-xs text-gray-400 mb-1">📝 Notes</p><p className="text-sm text-white bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">{match.notes}</p></div>)}
-                          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-[#D4AF37]/20">
-                            <button onClick={() => toggleLike(match.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${userLike ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>👍 {match.likes?.length || 0}</button>
-                            <button onClick={() => toggleDislike(match.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${userDislike ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>👎 {match.dislikes?.length || 0}</button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
+            
+            {user && (
+              <button onClick={() => setShowAddStrat(true)} className="w-full mb-6 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">➕ Nouvelle Stratégie</button>
+            )}
+            
+            {strats.length === 0 ? (
+              <div className="text-center py-10 text-gray-500">📝 Aucune stratégie</div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
-                {EVA_MAPS.map((map) => {
-                  const mapStrats = mapMatches.filter((m: any) => m.mapId === map.id).length
-                  return (
-                    <div key={map.id} className="relative rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-xl hover:shadow-2xl group" onClick={() => { setSelectedMap(map); setShowMapDetails(true) }}>
-                      <div className={`w-full h-32 ${map.color}`} />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-                      <div className="absolute bottom-3 left-3 text-white"><p className="font-bold text-base drop-shadow-lg">{map.name}</p><p className="text-xs text-gray-400">{mapStrats} strat{mapStrats > 1 ? 's' : ''}</p></div>
-                      <div className="absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/20 transition-all" />
+              <div className="space-y-4">
+                {strats.map((strat: any) => (
+                  <div key={strat.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-lg font-bold text-[#D4AF37]">VS {strat.adversaire}</p>
+                        <p className="text-xs text-gray-400">par {strat.auteur || 'Inconnu'}</p>
+                      </div>
+                      {(isAdmin || user?.uid === strat.auteurId) && <button onClick={() => supprimerStrat(strat.id)} className="text-red-400 text-xl">🗑️</button>}
                     </div>
-                  )
-                })}
+                    <div className="mb-3">
+                      <p className="text-xs text-green-400 mb-2">✅ Picks ({strat.picks?.length || 0}/3)</p>
+                      <div className="flex flex-wrap gap-2">
+                        {strat.picks?.map((pick: string, i: number) => (
+                          <span key={i} className="bg-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-sm border border-green-500/30 font-bold">{pick}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-red-400 mb-2">❌ Bans ({strat.bans?.length || 0}/3)</p>
+                      <div className="flex flex-wrap gap-2">
+                        {strat.bans?.map((ban: string, i: number) => (
+                          <span key={i} className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm border border-red-500/30 font-bold">{ban}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
-            {showAddMapMatch && (
+            
+            {showAddStrat && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-md border border-[#D4AF37]/30 shadow-2xl max-h-[90vh] overflow-y-auto">
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📋 Stratégie - {selectedMap?.name}</h3>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">🎯 Nouvelle Stratégie</h3>
                   <div className="space-y-4 mb-6">
-                    <div><label className="text-gray-400 text-sm mb-2 block">⚔️ Adversaire</label><input type="text" placeholder="Nom de l'équipe" value={nouveauMapMatch.adversaire} onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, adversaire: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">✅ Picks (séparés par des virgules)</label><input type="text" placeholder="Ex: Jett, Sova, Omen..." value={nouveauMapMatch.picksText || ''} onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, picksText: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">❌ Bans (séparés par des virgules)</label><input type="text" placeholder="Ex: Reyna, Phoenix..." value={nouveauMapMatch.bansText || ''} onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, bansText: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">📝 Notes stratégiques</label><textarea placeholder="Stratégie, callouts, etc..." value={nouveauMapMatch.notes} onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, notes: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all h-20" /></div>
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">⚔️ Équipe Adverse</label>
+                      <input 
+                        type="text" 
+                        placeholder="Nom de l'équipe"
+                        value={nouvelleStrat.adversaire} 
+                        onChange={(e) => setNouvelleStrat({...nouvelleStrat, adversaire: e.target.value})} 
+                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" 
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (max 3)</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {ALL_MAPS.map((map) => (
+                          <button
+                            key={map}
+                            onClick={() => toggleMapSelection(map, 'picks')}
+                            className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${nouvelleStrat.picks.includes(map) ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                          >
+                            {map}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {nouvelleStrat.picks.map((pick, i) => (
+                          <span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{pick}</span>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans (max 3)</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {ALL_MAPS.map((map) => (
+                          <button
+                            key={map}
+                            onClick={() => toggleMapSelection(map, 'bans')}
+                            className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${nouvelleStrat.bans.includes(map) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                          >
+                            {map}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {nouvelleStrat.bans.map((ban, i) => (
+                          <span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{ban}</span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   <div className="flex gap-3">
-                    <button onClick={() => { setShowAddMapMatch(false); setNouveauMapMatch({ adversaire: '', picksText: '', bansText: '', notes: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
-                    <button onClick={ajouterMapMatch} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">✅ Valider</button>
+                    <button onClick={() => { setShowAddStrat(false); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
+                    <button onClick={ajouterStrat} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">✅ Valider</button>
                   </div>
                 </div>
               </div>
@@ -851,8 +850,8 @@ function App() {
           <button onClick={() => setActiveTab('historique')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'historique' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
             <span className="text-2xl">📜</span>
           </button>
-          <button onClick={() => setActiveTab('maps')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'maps' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
-            <span className="text-2xl">🗺️</span>
+          <button onClick={() => setActiveTab('strats')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'strats' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
+            <span className="text-2xl">🎯</span>
           </button>
           <button onClick={() => setActiveTab('notes')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'notes' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
             <span className="text-2xl">📊</span>
@@ -879,6 +878,10 @@ function App() {
             {isSignUp && (<input type="text" placeholder="Pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value)} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" />)}
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" />
             <input type="password" placeholder="Mot de passe" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-6 text-white focus:outline-none focus:border-[#D4AF37] transition-all" />
+            <div className="flex items-center gap-2 mb-4">
+              <input type="checkbox" id="rememberMe" className="w-4 h-4 accent-[#D4AF37]" />
+              <label htmlFor="rememberMe" className="text-sm text-gray-400">📝 Se souvenir de moi</label>
+            </div>
             {isSignUp ? (<button onClick={handleSignUp} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all mb-4">✅ Créer</button>) : (<button onClick={handleSignIn} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all mb-4">🔐 Connexion</button>)}
             <div className="border-t border-gray-700 pt-4">
               {isSignUp ? (<button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm hover:underline">Déjà un compte ?</button>) : (<button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm hover:underline">Pas de compte ?</button>)}
