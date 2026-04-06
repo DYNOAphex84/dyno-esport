@@ -2,7 +2,7 @@
   "name": "DYNO Esport",
   "short_name": "DYNO",
   "description": "Application officielle DYNO Esport Team",
-  "start_url": "/",
+  "start_url": "/dyno-esport/",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#D4AF37",
