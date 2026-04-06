@@ -16,7 +16,7 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 const auth = getAuth(app)
 
-setPersistence(auth, browserLocalPersistence).catch((error) => {
+setPersistence(auth, browserLocalPersistence).catch((error: any) => {
   console.error('Erreur persistance:', error)
 })
 
@@ -45,25 +45,27 @@ function App() {
   const [adminPassword, setAdminPassword] = useState('')
   const [showSplash, setShowSplash] = useState(true)
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<any>(null)
   const [pseudo, setPseudo] = useState('')
   const [email, setEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
-  const [matchs, setMatchs] = useState([])
-  const [replays, setReplays] = useState([])
-  const [joueurs, setJoueurs] = useState([])
-  const [notes, setNotes] = useState([])
-  const [mapMatches, setMapMatches] = useState([])
-  const [selectedMap, setSelectedMap] = useState(null)
+  const [matchs, setMatchs] = useState<any[]>([])
+  const [replays, setReplays] = useState<any[]>([])
+  const [joueurs, setJoueurs] = useState<any[]>([])
+  const [notes, setNotes] = useState<any[]>([])
+  const [mapMatches, setMapMatches] = useState<any[]>([])
+  const [selectedMap, setSelectedMap] = useState<any>(null)
   const [showMapDetails, setShowMapDetails] = useState(false)
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
-  const [scoreEdit, setScoreEdit] = useState(null)
+  const [scoreEdit, setScoreEdit] = useState<any>(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
   const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
-  const [selectedMatchForNotes, setSelectedMatchForNotes] = useState(null)
+  const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
   const [nouveauMapMatch, setNouveauMapMatch] = useState({ adversaire: '', picksText: '', bansText: '', notes: '' })
   const [showAddMapMatch, setShowAddMapMatch] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [showInstall, setShowInstall] = useState(false)
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('dyno-admin')
@@ -71,7 +73,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
       setUser(user)
       if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid))
@@ -91,40 +93,50 @@ function App() {
 
   useEffect(() => {
     const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMatchs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const matchsData: any[] = []
+      snapshot.forEach((doc: any) => matchsData.push({ id: doc.id, ...doc.data() }))
+      setMatchs(matchsData)
     })
     return () => unsubscribe()
   }, [])
 
   useEffect(() => {
     const q = query(collection(db, 'replays'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setReplays(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const replaysData: any[] = []
+      snapshot.forEach((doc: any) => replaysData.push({ id: doc.id, ...doc.data() }))
+      setReplays(replaysData)
     })
     return () => unsubscribe()
   }, [])
 
   useEffect(() => {
     const q = query(collection(db, 'players'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setJoueurs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const joueursData: any[] = []
+      snapshot.forEach((doc: any) => joueursData.push({ id: doc.id, ...doc.data() }))
+      setJoueurs(joueursData)
     })
     return () => unsubscribe()
   }, [])
 
   useEffect(() => {
     const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setNotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const notesData: any[] = []
+      snapshot.forEach((doc: any) => notesData.push({ id: doc.id, ...doc.data() }))
+      setNotes(notesData)
     })
     return () => unsubscribe()
   }, [])
 
   useEffect(() => {
     const q = query(collection(db, 'mapMatches'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMapMatches(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const mapMatchesData: any[] = []
+      snapshot.forEach((doc: any) => mapMatchesData.push({ id: doc.id, ...doc.data() }))
+      setMapMatches(mapMatchesData)
     })
     return () => unsubscribe()
   }, [])
@@ -133,6 +145,22 @@ function App() {
     const timer = setTimeout(() => setShowSplash(false), 2000)
     return () => clearTimeout(timer)
   }, [])
+
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e: any) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setShowInstall(true)
+    })
+  }, [])
+
+  const handleInstall = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt()
+      setDeferredPrompt(null)
+      setShowInstall(false)
+    }
+  }
 
   const handleSignUp = async () => {
     if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }
@@ -303,7 +331,6 @@ function App() {
     alert('✅ Stratégie ajoutée !')
   }
 
-  // 📅 Formater la date en FR (JJ/MM/AAAA)
   const formatDateFR = (dateString: string) => {
     if (!dateString) return ''
     if (dateString.includes('/')) return dateString
@@ -311,7 +338,6 @@ function App() {
     return `${day}/${month}/${year}`
   }
 
-  // 📅 Générer fichier ICS pour calendrier
   const addToCalendar = (match: any) => {
     try {
       if (!match || !match.date) {
@@ -407,11 +433,16 @@ function App() {
               <p className="text-xs text-gray-400">Esport Team</p>
             </div>
           </div>
-          {user ? (
-            <button onClick={handleSignOut} className="px-5 py-2.5 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg hover:shadow-red-500/30 transition-all">👋 {pseudo}</button>
-          ) : (
-            <button onClick={() => setIsSignUp(false)} className="px-5 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">👤 Compte</button>
-          )}
+          <div className="flex gap-2">
+            {showInstall && (
+              <button onClick={handleInstall} className="px-4 py-2.5 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg hover:shadow-blue-500/30 transition-all">📲 Installer</button>
+            )}
+            {user ? (
+              <button onClick={handleSignOut} className="px-5 py-2.5 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg hover:shadow-red-500/30 transition-all">👋 {pseudo}</button>
+            ) : (
+              <button onClick={() => setIsSignUp(false)} className="px-5 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg hover:shadow-[#D4AF37]/50 transition-all">👤 Compte</button>
+            )}
+          </div>
         </div>
       </header>
 
