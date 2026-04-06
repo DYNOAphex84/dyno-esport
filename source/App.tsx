@@ -333,7 +333,14 @@ function App() {
     alert('✅ Stratégie ajoutée !')
   }
 
-  // 📅 Générer fichier ICS pour calendrier - CORRIGÉ
+  // 📅 Formater la date en FR (JJ/MM/AAAA)
+const formatDateFR = (dateString) => {
+  if (!dateString) return ''
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
+// 📅 Générer fichier ICS pour calendrier - CORRIGÉ
 const addToCalendar = (match) => {
   try {
     if (!match || !match.date || !match.horaire1) {
@@ -353,7 +360,6 @@ const addToCalendar = (match) => {
     const endTime = `${endTimeHour.toString().padStart(2, '0')}${minutes}00`
     
     if (isIOS) {
-      // Générer fichier ICS pour iOS
       const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//DYNO Esport//FR
@@ -377,10 +383,9 @@ END:VCALENDAR`
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-      alert('✅ Fichier calendrier téléchargé ! Ouvre-le pour l\'ajouter.')
+      alert('✅ Fichier calendrier téléchargé !')
     } else {
-      // Lien Google Calendar pour Android
-      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${matchDate}T${startTime}/${matchDate}T${endTime}&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\nArène: ${match.arene}\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
+      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${matchDate}T${startTime}/${matchDate}T${endTime}&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\\nArène: ${match.arene}\\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
       
       window.open(googleCalendarUrl, '_blank')
     }
@@ -388,8 +393,7 @@ END:VCALENDAR`
     console.error('Erreur calendrier:', error)
     alert('❌ Erreur: ' + error.message)
   }
-}
-
+        }
   const victoires = matchs.filter((m) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter((m) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const totalMatchs = victoires + defaites
