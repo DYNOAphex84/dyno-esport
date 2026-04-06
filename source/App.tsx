@@ -16,7 +16,6 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 const auth = getAuth(app)
 
-// ✅ Persistance activée
 setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.error('Erreur persistance:', error)
 })
@@ -66,38 +65,26 @@ function App() {
   const [nouveauMapMatch, setNouveauMapMatch] = useState({ adversaire: '', picksText: '', bansText: '', notes: '' })
   const [showAddMapMatch, setShowAddMapMatch] = useState(false)
 
-  // ✅ Vérifier admin au chargement
   useEffect(() => {
-    const checkAdmin = async () => {
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid))
-          if (userDoc.exists()) {
-            const userData = userDoc.data()
-            setPseudo(userData.pseudo || '')
-            if (user.email === ADMIN_EMAIL || userData.isAdmin === true) {
-              setIsAdmin(true)
-              localStorage.setItem('dyno-admin', 'true')
-            }
-          }
-        } catch (error) {
-          console.error('Erreur lecture user:', error)
-        }
-      }
-      setLoading(false)
-    }
-    checkAdmin()
-  }, [user])
+    const savedAdmin = localStorage.getItem('dyno-admin')
+    if (savedAdmin === 'true') setIsAdmin(true)
+  }, [])
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
-      if (!user) {
-        setPseudo('')
-        setIsAdmin(false)
-        localStorage.removeItem('dyno-admin')
-        localStorage.removeItem('user-email')
+      if (user) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid))
+        if (userDoc.exists()) {
+          const data = userDoc.data()
+          setPseudo(data.pseudo || '')
+          if (user.email === ADMIN_EMAIL || data.isAdmin === true) {
+            setIsAdmin(true)
+            localStorage.setItem('dyno-admin', 'true')
+          }
+        }
       }
+      setLoading(false)
     })
     return () => unsubscribe()
   }, [])
@@ -151,24 +138,13 @@ function App() {
     if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }
     try {
       const result = await createUserWithEmailAndPassword(auth, email, authPassword)
-      await setDoc(doc(db, 'users', result.user.uid), { 
-        pseudo, 
-        email, 
-        createdAt: Date.now(), 
-        isAdmin: email === ADMIN_EMAIL 
-      })
-      await addDoc(collection(db, 'players'), { 
-        pseudo, 
-        role: 'Joueur', 
-        rang: 'Nouveau', 
-        userId: result.user.uid, 
-        createdAt: Date.now() 
-      })
+      await setDoc(doc(db, 'users', result.user.uid), { pseudo, email, createdAt: Date.now(), isAdmin: email === ADMIN_EMAIL })
+      await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', rang: 'Nouveau', userId: result.user.uid, createdAt: Date.now() })
       alert('✅ Compte créé !')
       setIsSignUp(false)
       setEmail('')
       setAuthPassword('')
-    } catch (error) { alert('❌ ' + error.message) }
+    } catch (error: any) { alert('❌ ' + error.message) }
   }
 
   const handleSignIn = async () => {
@@ -180,7 +156,7 @@ function App() {
       alert('✅ Connecté !')
       setEmail('')
       setAuthPassword('')
-    } catch (error) { alert('❌ ' + error.message) }
+    } catch (error: any) { alert('❌ ' + error.message) }
   }
 
   const handleSignOut = async () => {
@@ -247,11 +223,11 @@ function App() {
     alert('✅ Note ajoutée !')
   }
 
-  const supprimerMatch = async (id) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Match supprimé !') }
-  const supprimerReplay = async (id) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Replay supprimé !') }
-  const supprimerJoueur = async (id) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Joueur supprimé !') }
-  const supprimerMapMatch = async (id) => { await deleteDoc(doc(db, 'mapMatches', id)); alert('✅ Stratégie supprimée !') }
-  const supprimerNote = async (id) => { await deleteDoc(doc(db, 'notes', id)); alert('✅ Note supprimée !') }
+  const supprimerMatch = async (id: string) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Match supprimé !') }
+  const supprimerReplay = async (id: string) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Replay supprimé !') }
+  const supprimerJoueur = async (id: string) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Joueur supprimé !') }
+  const supprimerMapMatch = async (id: string) => { await deleteDoc(doc(db, 'mapMatches', id)); alert('✅ Stratégie supprimée !') }
+  const supprimerNote = async (id: string) => { await deleteDoc(doc(db, 'notes', id)); alert('✅ Note supprimée !') }
 
   const updateScore = async () => {
     if (!scoreEdit) return
@@ -260,56 +236,50 @@ function App() {
     alert('✅ Score mis à jour !')
   }
 
-  const toggleDisponibilite = async (matchId) => {
+  const toggleDisponibilite = async (matchId: string) => {
     if (!user) return
-    const match = matchs.find(m => m.id === matchId)
+    const match = matchs.find((m: any) => m.id === matchId)
     if (!match) return
     const estDispo = match.disponibles.includes(pseudo)
-    const nouveauxDisponibles = estDispo ? match.disponibles.filter((p) => p !== pseudo) : [...match.disponibles, pseudo]
+    const nouveauxDisponibles = estDispo ? match.disponibles.filter((p: string) => p !== pseudo) : [...match.disponibles, pseudo]
     await updateDoc(doc(db, 'matchs', matchId), { disponibles: nouveauxDisponibles })
   }
 
-  const toggleLike = async (matchId) => {
+  const toggleLike = async (matchId: string) => {
     if (!user) { alert('⚠️ Connecte-toi !'); return }
-    const match = mapMatches.find(m => m.id === matchId)
+    const match = mapMatches.find((m: any) => m.id === matchId)
     if (!match) return
     const hasLiked = match.likes?.includes(user.uid)
     const hasDisliked = match.dislikes?.includes(user.uid)
-    
     let newLikes = match.likes || []
     let newDislikes = match.dislikes || []
-    
     if (hasLiked) {
-      newLikes = newLikes.filter((id) => id !== user.uid)
+      newLikes = newLikes.filter((id: string) => id !== user.uid)
     } else {
       newLikes = [...newLikes, user.uid]
       if (hasDisliked) {
-        newDislikes = newDislikes.filter((id) => id !== user.uid)
+        newDislikes = newDislikes.filter((id: string) => id !== user.uid)
       }
     }
-    
     await updateDoc(doc(db, 'mapMatches', matchId), { likes: newLikes, dislikes: newDislikes })
   }
 
-  const toggleDislike = async (matchId) => {
+  const toggleDislike = async (matchId: string) => {
     if (!user) { alert('⚠️ Connecte-toi !'); return }
-    const match = mapMatches.find(m => m.id === matchId)
+    const match = mapMatches.find((m: any) => m.id === matchId)
     if (!match) return
     const hasLiked = match.likes?.includes(user.uid)
     const hasDisliked = match.dislikes?.includes(user.uid)
-    
     let newLikes = match.likes || []
     let newDislikes = match.dislikes || []
-    
     if (hasDisliked) {
-      newDislikes = newDislikes.filter((id) => id !== user.uid)
+      newDislikes = newDislikes.filter((id: string) => id !== user.uid)
     } else {
       newDislikes = [...newDislikes, user.uid]
       if (hasLiked) {
-        newLikes = newLikes.filter((id) => id !== user.uid)
+        newLikes = newLikes.filter((id: string) => id !== user.uid)
       }
     }
-    
     await updateDoc(doc(db, 'mapMatches', matchId), { likes: newLikes, dislikes: newDislikes })
   }
 
@@ -319,8 +289,8 @@ function App() {
       mapId: selectedMap.id,
       mapName: selectedMap.name,
       adversaire: nouveauMapMatch.adversaire,
-      picks: nouveauMapMatch.picksText ? nouveauMapMatch.picksText.split(',').map((s) => s.trim()).filter((s) => s) : [],
-      bans: nouveauMapMatch.bansText ? nouveauMapMatch.bansText.split(',').map((s) => s.trim()).filter((s) => s) : [],
+      picks: nouveauMapMatch.picksText ? nouveauMapMatch.picksText.split(',').map((s: string) => s.trim()).filter((s: string) => s) : [],
+      bans: nouveauMapMatch.bansText ? nouveauMapMatch.bansText.split(',').map((s: string) => s.trim()).filter((s: string) => s) : [],
       notes: nouveauMapMatch.notes,
       auteur: pseudo,
       auteurId: user?.uid,
@@ -334,108 +304,82 @@ function App() {
   }
 
   // 📅 Formater la date en FR (JJ/MM/AAAA)
-const formatDateFR = (dateString) => {
-  if (!dateString) return ''
-  const [year, month, day] = dateString.split('-')
-  return `${day}/${month}/${year}`
-}
-
-// 📅 Générer fichier ICS pour calendrier - CORRIGÉ
-const addToCalendar = (match) => {
-  try {
-    if (!match || !match.date) {
-      alert('⚠️ Match non trouvé')
-      return
-    }
-
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    
-    // Formater la date (DD/MM/YYYY → YYYYMMDD)
-    let year, month, day
-    if (match.date.includes('/')) {
-      const [d, m, y] = match.date.split('/')
-      day = d
-      month = m
-      year = y
-    } else {
-      const [y, m, d] = match.date.split('-')
-      year = y
-      month = m
-      day = d
-    }
-    
-    const matchDate = `${year}${month}${day}`
-    
-    // Récupérer l'horaire
-    let hours = '20'
-    let minutes = '00'
-    if (match.horaires && match.horaires.length > 0) {
-      const [h, m] = match.horaires[0].split(':')
-      hours = h
-      minutes = m || '00'
-    } else if (match.horaire1) {
-      const [h, m] = match.horaire1.split(':')
-      hours = h
-      minutes = m || '00'
-    }
-    
-    const startTime = `${hours}${minutes}00`
-    const endTimeHour = parseInt(hours) + 2
-    const endTime = `${endTimeHour.toString().padStart(2, '0')}${minutes}00`
-    
-    if (isIOS) {
-      const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//DYNO Esport//FR
-BEGIN:VEVENT
-UID:${match.id}@dyno-esport
-DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-DTSTART:${matchDate}T${startTime}
-DTEND:${matchDate}T${endTime}
-SUMMARY:🎮 DYNO vs ${match.adversaire}
-DESCRIPTION:Match DYNO Esport vs ${match.adversaire}\\nArène: ${match.arene}\\nType: ${match.type}
-LOCATION:${match.arene}
-END:VEVENT
-END:VCALENDAR`
-      
-      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `DYNO_vs_${match.adversaire}.ics`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-      alert('✅ Fichier calendrier téléchargé !')
-    } else {
-      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${matchDate}T${startTime}/${matchDate}T${endTime}&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\\nArène: ${match.arene}\\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
-      
-      window.open(googleCalendarUrl, '_blank')
-    }
-  } catch (error) {
-    console.error('Erreur calendrier:', error)
-    alert('❌ Erreur: ' + error.message)
+  const formatDateFR = (dateString: string) => {
+    if (!dateString) return ''
+    if (dateString.includes('/')) return dateString
+    const [year, month, day] = dateString.split('-')
+    return `${day}/${month}/${year}`
   }
-}
-        }
-  const victoires = matchs.filter((m) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
-  const defaites = matchs.filter((m) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
+
+  // 📅 Générer fichier ICS pour calendrier
+  const addToCalendar = (match: any) => {
+    try {
+      if (!match || !match.date) {
+        alert('⚠️ Match non trouvé')
+        return
+      }
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      let year: string, month: string, day: string
+      if (match.date.includes('/')) {
+        const [d, m, y] = match.date.split('/')
+        day = d
+        month = m
+        year = y
+      } else {
+        const [y, m, d] = match.date.split('-')
+        year = y
+        month = m
+        day = d
+      }
+      const matchDate = `${year}${month}${day}`
+      let hours = '20'
+      let minutes = '00'
+      if (match.horaires && match.horaires.length > 0) {
+        const [h, m] = match.horaires[0].split(':')
+        hours = h
+        minutes = m || '00'
+      } else if (match.horaire1) {
+        const [h, m] = match.horaire1.split(':')
+        hours = h
+        minutes = m || '00'
+      }
+      const startTime = `${hours}${minutes}00`
+      const endTimeHour = parseInt(hours) + 2
+      const endTime = `${endTimeHour.toString().padStart(2, '0')}${minutes}00`
+      if (isIOS) {
+        const icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//DYNO Esport//FR\nBEGIN:VEVENT\nUID:${match.id}@dyno-esport\nDTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\nDTSTART:${matchDate}T${startTime}\nDTEND:${matchDate}T${endTime}\nSUMMARY:🎮 DYNO vs ${match.adversaire}\nDESCRIPTION:Match DYNO Esport vs ${match.adversaire}\\nArène: ${match.arene}\\nType: ${match.type}\nLOCATION:${match.arene}\nEND:VEVENT\nEND:VCALENDAR`
+        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `DYNO_vs_${match.adversaire}.ics`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        alert('✅ Fichier calendrier téléchargé !')
+      } else {
+        const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${matchDate}T${startTime}/${matchDate}T${endTime}&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\\nArène: ${match.arene}\\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
+        window.open(googleCalendarUrl, '_blank')
+      }
+    } catch (error: any) {
+      console.error('Erreur calendrier:', error)
+      alert('❌ Erreur: ' + error.message)
+    }
+  }
+
+  const victoires = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
+  const defaites = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const totalMatchs = victoires + defaites
   const winRate = totalMatchs > 0 ? Math.round((victoires / totalMatchs) * 100) : 0
-  
-  // 🔥 Tri des prochains matchs par date DESC (du plus récent au plus loin)
-  const prochainsMatchs = matchs
-    .filter((m) => !m.termine)
-    .sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.horaire1}`)
-      const dateB = new Date(`${b.date}T${b.horaire1}`)
-      return dateB.getTime() - dateA.getTime()
-    })
-  
-  const historique = matchs.filter((m) => m.termine)
+  const prochainsMatchs = matchs.filter((m: any) => !m.termine).sort((a: any, b: any) => {
+    const dateA = new Date(`${a.date}T${a.horaires?.[0] || a.horaire1 || '20:00'}`)
+    const dateB = new Date(`${b.date}T${b.horaires?.[0] || b.horaire1 || '20:00'}`)
+    return dateA.getTime() - dateB.getTime()
+  })
+  const historique = matchs.filter((m: any) => m.termine)
 
-  const getYouTubeId = (url) => {
+  const getYouTubeId = (url: string) => {
     const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
     return match ? match[1] : null
   }
@@ -454,7 +398,6 @@ END:VCALENDAR`
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a] pb-24">
-      {/* Header Moderne */}
       <header className="backdrop-blur-xl bg-black/40 border-b border-[#D4AF37]/20 sticky top-0 z-50 shadow-2xl">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -483,15 +426,10 @@ END:VCALENDAR`
             </div>
             {loading ? (<div className="text-center py-10 text-[#D4AF37]">⏳...</div>) : prochainsMatchs.length === 0 ? (<div className="text-center py-10 text-gray-500">📭 Aucun match</div>) : (
               <div className="space-y-4">
-                {prochainsMatchs.map((match) => (
+                {prochainsMatchs.map((match: any) => (
                   <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl hover:shadow-[#D4AF37]/20 transition-all">
                     <div className="flex items-center justify-between mb-4">
-                      <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${
-                        match.type === 'Ligue' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : 
-                        match.type === 'Scrim' ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' : 
-                        match.type === 'Tournoi' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white' :
-                        'bg-gradient-to-r from-orange-600 to-orange-700 text-white'
-                      }`}>{match.type}</span>
+                      <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${match.type === 'Ligue' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : match.type === 'Scrim' ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' : match.type === 'Tournoi' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white' : 'bg-gradient-to-r from-orange-600 to-orange-700 text-white'}`}>{match.type}</span>
                       <span className="text-[#D4AF37] font-bold">{formatDateFR(match.date)}</span>
                     </div>
                     <div className="flex items-center gap-4 mb-4">
@@ -504,22 +442,14 @@ END:VCALENDAR`
                     </div>
                     <div className="backdrop-blur-xl bg-black/60 rounded-xl p-3 mb-3 border border-[#D4AF37]/20">
                       <p className="text-xs text-gray-400 mb-1">⏰ Horaires</p>
-                      <p className="text-[#D4AF37] font-bold">{match.horaires?.join(' / ') || [match.horaire1, match.horaire2].filter(Boolean).join(' / ')}</p>
+                      <p className="text-[#D4AF37] font-bold">{match.horaires?.join(' / ') || match.horaire1 || '20:00'}</p>
                     </div>
                     <div className="backdrop-blur-xl bg-black/60 rounded-xl p-3 mb-4 border border-[#D4AF37]/20">
-                      <p className="text-xs text-gray-400 mb-2">👥 Disponibles ({match.disponibles.length})</p>
-                      {match.disponibles.length > 0 && (<div className="flex flex-wrap gap-2">{match.disponibles.map((p, i) => (<span key={i} className="backdrop-blur-xl bg-gradient-to-r from-[#D4AF37]/20 to-[#D4AF37]/10 text-[#D4AF37] px-3 py-1.5 rounded-xl text-xs font-bold border border-[#D4AF37]/30">{p}</span>))}</div>)}
+                      <p className="text-xs text-gray-400 mb-2">👥 Disponibles ({match.disponibles?.length || 0})</p>
+                      {match.disponibles?.length > 0 && (<div className="flex flex-wrap gap-2">{match.disponibles.map((p: string, i: number) => (<span key={i} className="backdrop-blur-xl bg-gradient-to-r from-[#D4AF37]/20 to-[#D4AF37]/10 text-[#D4AF37] px-3 py-1.5 rounded-xl text-xs font-bold border border-[#D4AF37]/30">{p}</span>))}</div>)}
                     </div>
-                    
-                    {/* 📅 Bouton Add to Calendar */}
-                    <button 
-                      onClick={() => addToCalendar(match)}
-                      className="w-full mb-4 py-3 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg hover:shadow-blue-500/50 transition-all flex items-center justify-center gap-2"
-                    >
-                      📅 Ajouter au calendrier
-                    </button>
-                    
-                    <button onClick={() => toggleDisponibilite(match.id)} disabled={!user} className={`w-full py-4 rounded-xl font-bold transition-all shadow-lg ${!user ? 'bg-gray-700 text-gray-400' : match.disponibles.includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-[#D4AF37]/50' : 'border-2 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10'}`}>{!user ? '🔐 Connecte-toi' : match.disponibles.includes(pseudo) ? '✅ Je suis disponible' : '📅 Je me marque'}</button>
+                    <button onClick={() => addToCalendar(match)} className="w-full mb-4 py-3 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg hover:shadow-blue-500/50 transition-all flex items-center justify-center gap-2">📅 Ajouter au calendrier</button>
+                    <button onClick={() => toggleDisponibilite(match.id)} disabled={!user} className={`w-full py-4 rounded-xl font-bold transition-all shadow-lg ${!user ? 'bg-gray-700 text-gray-400' : match.disponibles?.includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-[#D4AF37]/50' : 'border-2 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10'}`}>{!user ? '🔐 Connecte-toi' : match.disponibles?.includes(pseudo) ? '✅ Je suis disponible' : '📅 Je me marque'}</button>
                   </div>
                 ))}
               </div>
@@ -545,14 +475,12 @@ END:VCALENDAR`
             </div>
             {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📜 Aucun match</div>) : (
               <div className="space-y-4">
-                {historique.map((match) => {
-                  const matchNotes = notes.filter((n) => n.matchId === match.id)
+                {historique.map((match: any) => {
+                  const matchNotes = notes.filter((n: any) => n.matchId === match.id)
                   return (
                     <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                       <div className="flex items-center justify-between mb-4">
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${
-                          (match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'
-                        }`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
+                        <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'}`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
                         <span className="text-gray-400 text-sm">{formatDateFR(match.date)}</span>
                       </div>
                       <div className="flex items-center justify-between mb-4">
@@ -566,90 +494,38 @@ END:VCALENDAR`
                           <p className="text-4xl font-bold text-gray-400">{match.scoreAdversaire}</p>
                         </div>
                       </div>
-                      
-                      <button 
-                        onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }}
-                        className="w-full mb-4 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg hover:shadow-purple-500/50 transition-all"
-                      >
-                        📝 Ajouter des notes
-                      </button>
-                      
+                      <button onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }} className="w-full mb-4 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg hover:shadow-purple-500/50 transition-all">📝 Ajouter des notes</button>
                       {matchNotes.length > 0 ? (
                         <div className="space-y-2">
                           <p className="text-xs text-gray-400 mb-2">{matchNotes.length} note(s)</p>
-                          {matchNotes.map((note) => (
+                          {matchNotes.map((note: any) => (
                             <div key={note.id} className="backdrop-blur-xl bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-[#D4AF37] font-bold text-sm">{note.joueur}</p>
                                 {isAdmin && (<button onClick={() => supprimerNote(note.id)} className="text-red-400 text-xs">🗑️</button>)}
                               </div>
                               <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                                <div className="bg-purple-500/20 rounded-lg p-2">
-                                  <p className="text-gray-400">🧠</p>
-                                  <p className="text-purple-400 font-bold">{note.mental}/10</p>
-                                </div>
-                                <div className="bg-blue-500/20 rounded-lg p-2">
-                                  <p className="text-gray-400">💬</p>
-                                  <p className="text-blue-400 font-bold">{note.communication}/10</p>
-                                </div>
-                                <div className="bg-green-500/20 rounded-lg p-2">
-                                  <p className="text-gray-400">🎯</p>
-                                  <p className="text-green-400 font-bold">{note.gameplay}/10</p>
-                                </div>
+                                <div className="bg-purple-500/20 rounded-lg p-2"><p className="text-gray-400">🧠</p><p className="text-purple-400 font-bold">{note.mental}/10</p></div>
+                                <div className="bg-blue-500/20 rounded-lg p-2"><p className="text-gray-400">💬</p><p className="text-blue-400 font-bold">{note.communication}/10</p></div>
+                                <div className="bg-green-500/20 rounded-lg p-2"><p className="text-gray-400">🎯</p><p className="text-green-400 font-bold">{note.gameplay}/10</p></div>
                               </div>
                             </div>
                           ))}
                         </div>
-                      ) : (
-                        <p className="text-gray-500 text-sm text-center">Aucune note pour ce match</p>
-                      )}
+                      ) : (<p className="text-gray-500 text-sm text-center">Aucune note pour ce match</p>)}
                     </div>
                   )
                 })}
               </div>
             )}
-            
             {selectedMatchForNotes && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📊 Notes - {selectedMatchForNotes.adversaire}</h3>
                   <div className="space-y-4 mb-6">
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">🧠 Mental (0-10)</label>
-                      <input 
-                        type="number" 
-                        min="0"
-                        max="10"
-                        placeholder="0"
-                        value={nouvelleNote.mental} 
-                        onChange={(e) => setNouvelleNote({...nouvelleNote, mental: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">💬 Communication (0-10)</label>
-                      <input 
-                        type="number" 
-                        min="0"
-                        max="10"
-                        placeholder="0"
-                        value={nouvelleNote.communication} 
-                        onChange={(e) => setNouvelleNote({...nouvelleNote, communication: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">🎯 Performance (0-10)</label>
-                      <input 
-                        type="number" 
-                        min="0"
-                        max="10"
-                        placeholder="0"
-                        value={nouvelleNote.gameplay} 
-                        onChange={(e) => setNouvelleNote({...nouvelleNote, gameplay: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
-                      />
-                    </div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">🧠 Mental (0-10)</label><input type="number" min="0" max="10" placeholder="0" value={nouvelleNote.mental} onChange={(e) => setNouvelleNote({...nouvelleNote, mental: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">💬 Communication (0-10)</label><input type="number" min="0" max="10" placeholder="0" value={nouvelleNote.communication} onChange={(e) => setNouvelleNote({...nouvelleNote, communication: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">🎯 Performance (0-10)</label><input type="number" min="0" max="10" placeholder="0" value={nouvelleNote.gameplay} onChange={(e) => setNouvelleNote({...nouvelleNote, gameplay: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
                   </div>
                   <div className="flex gap-3">
                     <button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
@@ -668,77 +544,32 @@ END:VCALENDAR`
               <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🗺️ Maps & Stratégies</h2>
               <p className="text-gray-400 text-sm">Picks, bans et stratégies par map</p>
             </div>
-            
             {showMapDetails ? (
               <div>
                 <button onClick={() => setShowMapDetails(false)} className="mb-4 px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-lg">← Retour aux maps</button>
-                
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold text-[#D4AF37]">📋 {selectedMap?.name}</h3>
-                  {user && (
-                    <button onClick={() => setShowAddMapMatch(true)} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Ajouter Strat</button>
-                  )}
+                  {user && (<button onClick={() => setShowAddMapMatch(true)} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Ajouter Strat</button>)}
                 </div>
-                
-                {mapMatches.filter((m) => m.mapId === selectedMap?.id).length === 0 ? (
+                {mapMatches.filter((m: any) => m.mapId === selectedMap?.id).length === 0 ? (
                   <div className="text-center py-10 text-gray-500">📝 Aucune stratégie pour cette map</div>
                 ) : (
                   <div className="space-y-4">
-                    {mapMatches.filter((m) => m.mapId === selectedMap?.id).map((match) => {
+                    {mapMatches.filter((m: any) => m.mapId === selectedMap?.id).map((match: any) => {
                       const userLike = match.likes?.includes(user?.uid)
                       const userDislike = match.dislikes?.includes(user?.uid)
                       return (
                         <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                           <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <p className="font-bold text-[#D4AF37] text-lg">VS {match.adversaire}</p>
-                              <p className="text-xs text-gray-400">par {match.auteur || 'Inconnu'}</p>
-                            </div>
+                            <div><p className="font-bold text-[#D4AF37] text-lg">VS {match.adversaire}</p><p className="text-xs text-gray-400">par {match.auteur || 'Inconnu'}</p></div>
                             {(isAdmin || user?.uid === match.auteurId) && <button onClick={() => supprimerMapMatch(match.id)} className="text-red-400 text-xl">🗑️</button>}
                           </div>
-                          
-                          {match.picks && match.picks.length > 0 && (
-                            <div className="mb-3">
-                              <p className="text-xs text-green-400 mb-1">✅ Picks</p>
-                              <div className="flex flex-wrap gap-2">
-                                {match.picks.map((pick, i) => (
-                                  <span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{pick}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {match.bans && match.bans.length > 0 && (
-                            <div className="mb-3">
-                              <p className="text-xs text-red-400 mb-1">❌ Bans</p>
-                              <div className="flex flex-wrap gap-2">
-                                {match.bans.map((ban, i) => (
-                                  <span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{ban}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {match.notes && (
-                            <div className="mb-3">
-                              <p className="text-xs text-gray-400 mb-1">📝 Notes</p>
-                              <p className="text-sm text-white bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">{match.notes}</p>
-                            </div>
-                          )}
-                          
+                          {match.picks && match.picks.length > 0 && (<div className="mb-3"><p className="text-xs text-green-400 mb-1">✅ Picks</p><div className="flex flex-wrap gap-2">{match.picks.map((pick: string, i: number) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{pick}</span>))}</div></div>)}
+                          {match.bans && match.bans.length > 0 && (<div className="mb-3"><p className="text-xs text-red-400 mb-1">❌ Bans</p><div className="flex flex-wrap gap-2">{match.bans.map((ban: string, i: number) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{ban}</span>))}</div></div>)}
+                          {match.notes && (<div className="mb-3"><p className="text-xs text-gray-400 mb-1">📝 Notes</p><p className="text-sm text-white bg-[#0a0a0a] rounded-lg p-3 border border-[#D4AF37]/20">{match.notes}</p></div>)}
                           <div className="flex items-center gap-4 mt-4 pt-4 border-t border-[#D4AF37]/20">
-                            <button 
-                              onClick={() => toggleLike(match.id)}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${userLike ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
-                            >
-                              👍 {match.likes?.length || 0}
-                            </button>
-                            <button 
-                              onClick={() => toggleDislike(match.id)}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${userDislike ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
-                            >
-                              👎 {match.dislikes?.length || 0}
-                            </button>
+                            <button onClick={() => toggleLike(match.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${userLike ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>👍 {match.likes?.length || 0}</button>
+                            <button onClick={() => toggleDislike(match.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${userDislike ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>👎 {match.dislikes?.length || 0}</button>
                           </div>
                         </div>
                       )
@@ -749,73 +580,27 @@ END:VCALENDAR`
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 {EVA_MAPS.map((map) => {
-                  const mapStrats = mapMatches.filter((m) => m.mapId === map.id).length
+                  const mapStrats = mapMatches.filter((m: any) => m.mapId === map.id).length
                   return (
-                    <div 
-                      key={map.id} 
-                      className="relative rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-xl hover:shadow-2xl group"
-                      onClick={() => { setSelectedMap(map); setShowMapDetails(true) }}
-                    >
+                    <div key={map.id} className="relative rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-xl hover:shadow-2xl group" onClick={() => { setSelectedMap(map); setShowMapDetails(true) }}>
                       <div className={`w-full h-32 ${map.color}`} />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-                      <div className="absolute bottom-3 left-3 text-white">
-                        <p className="font-bold text-base drop-shadow-lg">{map.name}</p>
-                        <p className="text-xs text-gray-400">{mapStrats} strat{mapStrats > 1 ? 's' : ''}</p>
-                      </div>
+                      <div className="absolute bottom-3 left-3 text-white"><p className="font-bold text-base drop-shadow-lg">{map.name}</p><p className="text-xs text-gray-400">{mapStrats} strat{mapStrats > 1 ? 's' : ''}</p></div>
                       <div className="absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/20 transition-all" />
                     </div>
                   )
                 })}
               </div>
             )}
-            
             {showAddMapMatch && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-md border border-[#D4AF37]/30 shadow-2xl max-h-[90vh] overflow-y-auto">
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📋 Stratégie - {selectedMap?.name}</h3>
                   <div className="space-y-4 mb-6">
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">⚔️ Adversaire</label>
-                      <input 
-                        type="text" 
-                        placeholder="Nom de l'équipe"
-                        value={nouveauMapMatch.adversaire} 
-                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, adversaire: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" 
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (séparés par des virgules)</label>
-                      <input 
-                        type="text" 
-                        placeholder="Ex: Jett, Sova, Omen..."
-                        value={nouveauMapMatch.picksText || ''} 
-                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, picksText: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" 
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans (séparés par des virgules)</label>
-                      <input 
-                        type="text" 
-                        placeholder="Ex: Reyna, Phoenix..."
-                        value={nouveauMapMatch.bansText || ''} 
-                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, bansText: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" 
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">📝 Notes stratégiques</label>
-                      <textarea 
-                        placeholder="Stratégie, callouts, etc..."
-                        value={nouveauMapMatch.notes} 
-                        onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, notes: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all h-20" 
-                      />
-                    </div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">⚔️ Adversaire</label><input type="text" placeholder="Nom de l'équipe" value={nouveauMapMatch.adversaire} onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, adversaire: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">✅ Picks (séparés par des virgules)</label><input type="text" placeholder="Ex: Jett, Sova, Omen..." value={nouveauMapMatch.picksText || ''} onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, picksText: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">❌ Bans (séparés par des virgules)</label><input type="text" placeholder="Ex: Reyna, Phoenix..." value={nouveauMapMatch.bansText || ''} onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, bansText: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">📝 Notes stratégiques</label><textarea placeholder="Stratégie, callouts, etc..." value={nouveauMapMatch.notes} onChange={(e) => setNouveauMapMatch({...nouveauMapMatch, notes: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all h-20" /></div>
                   </div>
                   <div className="flex gap-3">
                     <button onClick={() => { setShowAddMapMatch(false); setNouveauMapMatch({ adversaire: '', picksText: '', bansText: '', notes: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
@@ -835,29 +620,20 @@ END:VCALENDAR`
             </div>
             {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📊 Aucun match</div>) : (
               <div className="space-y-4">
-                {historique.map((match) => {
-                  const matchNotes = notes.filter((n) => n.matchId === match.id)
+                {historique.map((match: any) => {
+                  const matchNotes = notes.filter((n: any) => n.matchId === match.id)
                   return (
                     <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                       <p className="font-bold text-[#D4AF37] mb-3 text-lg">{match.adversaire} - {formatDateFR(match.date)}</p>
                       {matchNotes.length > 0 ? (
                         <div className="space-y-3">
-                          {matchNotes.map((note) => (
+                          {matchNotes.map((note: any) => (
                             <div key={note.id} className="backdrop-blur-xl bg-black/60 rounded-xl p-4 border border-[#D4AF37]/20">
                               <p className="text-[#D4AF37] font-bold mb-3">{note.joueur}</p>
                               <div className="grid grid-cols-3 gap-3">
-                                <div className="text-center backdrop-blur-xl bg-gradient-to-br from-purple-500/20 to-purple-500/10 rounded-xl p-3 border border-purple-500/30">
-                                  <p className="text-xs text-gray-400 mb-1">🧠 Mental</p>
-                                  <p className="text-2xl font-bold text-purple-400">{note.mental}/10</p>
-                                </div>
-                                <div className="text-center backdrop-blur-xl bg-gradient-to-br from-blue-500/20 to-blue-500/10 rounded-xl p-3 border border-blue-500/30">
-                                  <p className="text-xs text-gray-400 mb-1">💬 Comm</p>
-                                  <p className="text-2xl font-bold text-blue-400">{note.communication}/10</p>
-                                </div>
-                                <div className="text-center backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-green-500/10 rounded-xl p-3 border border-green-500/30">
-                                  <p className="text-xs text-gray-400 mb-1">🎯 Perf</p>
-                                  <p className="text-2xl font-bold text-green-400">{note.gameplay}/10</p>
-                                </div>
+                                <div className="text-center backdrop-blur-xl bg-gradient-to-br from-purple-500/20 to-purple-500/10 rounded-xl p-3 border border-purple-500/30"><p className="text-xs text-gray-400 mb-1">🧠 Mental</p><p className="text-2xl font-bold text-purple-400">{note.mental}/10</p></div>
+                                <div className="text-center backdrop-blur-xl bg-gradient-to-br from-blue-500/20 to-blue-500/10 rounded-xl p-3 border border-blue-500/30"><p className="text-xs text-gray-400 mb-1">💬 Comm</p><p className="text-2xl font-bold text-blue-400">{note.communication}/10</p></div>
+                                <div className="text-center backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-green-500/10 rounded-xl p-3 border border-green-500/30"><p className="text-xs text-gray-400 mb-1">🎯 Perf</p><p className="text-2xl font-bold text-green-400">{note.gameplay}/10</p></div>
                               </div>
                             </div>
                           ))}
@@ -880,7 +656,7 @@ END:VCALENDAR`
             </div>
             {replays.length === 0 ? (<div className="text-center py-10 text-gray-500">📹 Aucun replay</div>) : (
               <div className="space-y-4">
-                {replays.map((replay) => (
+                {replays.map((replay: any) => (
                   <div key={replay.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                     <h3 className="font-bold text-[#D4AF37] mb-3 text-lg">{replay.titre}</h3>
                     {getYouTubeId(replay.lien) ? (
@@ -904,7 +680,7 @@ END:VCALENDAR`
               <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">👥 Roster</h2>
             </div>
             <div className="space-y-4">
-              {joueurs.filter((j) => j.actif !== false).map((joueur) => (
+              {joueurs.filter((j: any) => j.actif !== false).map((joueur: any) => (
                 <div key={joueur.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#D4AF37]/30 to-[#D4AF37]/10 flex items-center justify-center text-[#D4AF37] font-bold text-2xl border border-[#D4AF37]/30 shadow-lg">{joueur.pseudo[0]?.toUpperCase()}</div>
                   <div className="flex-1">
@@ -938,22 +714,12 @@ END:VCALENDAR`
               <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Répartition</h3>
               <div className="space-y-4">
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-400">🏆 Victoires</span>
-                    <span className="text-[#D4AF37] font-bold">{victoires}</span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-3 shadow-inner">
-                    <div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-3 rounded-full shadow-[0_0_10px_rgba(212,175,55,0.5)]" style={{ width: `${totalMatchs > 0 ? (victoires/totalMatchs)*100 : 0}%` }}></div>
-                  </div>
+                  <div className="flex items-center justify-between mb-2"><span className="text-gray-400">🏆 Victoires</span><span className="text-[#D4AF37] font-bold">{victoires}</span></div>
+                  <div className="w-full bg-gray-800 rounded-full h-3 shadow-inner"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-3 rounded-full shadow-[0_0_10px_rgba(212,175,55,0.5)]" style={{ width: `${totalMatchs > 0 ? (victoires/totalMatchs)*100 : 0}%` }}></div></div>
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-400">❌ Défaites</span>
-                    <span className="text-red-500 font-bold">{defaites}</span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-3 shadow-inner">
-                    <div className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]" style={{ width: `${totalMatchs > 0 ? (defaites/totalMatchs)*100 : 0}%` }}></div>
-                  </div>
+                  <div className="flex items-center justify-between mb-2"><span className="text-gray-400">❌ Défaites</span><span className="text-red-500 font-bold">{defaites}</span></div>
+                  <div className="w-full bg-gray-800 rounded-full h-3 shadow-inner"><div className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]" style={{ width: `${totalMatchs > 0 ? (defaites/totalMatchs)*100 : 0}%` }}></div></div>
                 </div>
               </div>
             </div>
@@ -998,16 +764,11 @@ END:VCALENDAR`
                 </div>
                 <div className="backdrop-blur-xl bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4 flex items-center gap-2">🗑️ Supprimer Matchs</h3>
-                  {matchs.length === 0 ? (
-                    <p className="text-gray-500 text-center">Aucun match à supprimer</p>
-                  ) : (
+                  {matchs.length === 0 ? (<p className="text-gray-500 text-center">Aucun match à supprimer</p>) : (
                     <div className="space-y-2">
-                      {matchs.map((match) => (
+                      {matchs.map((match: any) => (
                         <div key={match.id} className="flex items-center justify-between bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
-                          <div>
-                            <p className="text-[#D4AF37] font-bold text-sm">{match.adversaire}</p>
-                            <p className="text-gray-500 text-xs">{formatDateFR(match.date)}</p>
-                          </div>
+                          <div><p className="text-[#D4AF37] font-bold text-sm">{match.adversaire}</p><p className="text-gray-500 text-xs">{formatDateFR(match.date)}</p></div>
                           <button onClick={() => supprimerMatch(match.id)} className="text-red-400 text-xl hover:scale-110 transition">🗑️</button>
                         </div>
                       ))}
@@ -1022,7 +783,7 @@ END:VCALENDAR`
                 </div>
                 <div className="backdrop-blur-xl bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4 flex items-center gap-2">✏️ Scores</h3>
-                  {prochainsMatchs.map((match) => (
+                  {prochainsMatchs.map((match: any) => (
                     <div key={match.id} className="backdrop-blur-xl bg-black/60 rounded-xl p-4 mb-3 border border-[#D4AF37]/20">
                       <p className="font-bold text-[#D4AF37] mb-3">{match.adversaire}</p>
                       <button onClick={() => setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">📝 Score</button>
@@ -1032,32 +793,13 @@ END:VCALENDAR`
                 <button onClick={handleAdminLogout} className="w-full border-2 border-red-500 text-red-500 py-4 rounded-xl font-bold hover:bg-red-500/10 transition-all">🚪 Déconnexion</button>
               </div>
             )}
-
             {scoreEdit && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="backdrop-blur-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📝 Score</h3>
                   <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">DYNO</label>
-                      <input 
-                        type="number" 
-                        placeholder="0"
-                        value={scoreEdit.scoreDyno} 
-                        onChange={(e) => setScoreEdit({...scoreEdit, scoreDyno: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
-                      />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">Adv</label>
-                      <input 
-                        type="number" 
-                        placeholder="0"
-                        value={scoreEdit.scoreAdv} 
-                        onChange={(e) => setScoreEdit({...scoreEdit, scoreAdv: e.target.value})} 
-                        className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" 
-                      />
-                    </div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={(e) => setScoreEdit({...scoreEdit, scoreDyno: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={(e) => setScoreEdit({...scoreEdit, scoreAdv: e.target.value})} className="w-full backdrop-blur-xl bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37] transition-all" /></div>
                   </div>
                   <div className="flex gap-3">
                     <button onClick={() => setScoreEdit(null)} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400 hover:bg-gray-800 transition-all">Annuler</button>
@@ -1070,7 +812,6 @@ END:VCALENDAR`
         )}
       </main>
 
-      {/* Navigation Moderne */}
       <nav className="fixed bottom-0 left-0 right-0 backdrop-blur-xl bg-black/60 border-t border-[#D4AF37]/20 shadow-2xl">
         <div className="max-w-lg mx-auto flex">
           <button onClick={() => setActiveTab('matchs')} className={`flex-1 py-5 text-center transition-all ${activeTab === 'matchs' ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}>
