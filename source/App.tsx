@@ -343,18 +343,42 @@ const formatDateFR = (dateString) => {
 // 📅 Générer fichier ICS pour calendrier - CORRIGÉ
 const addToCalendar = (match) => {
   try {
-    if (!match || !match.date || !match.horaire1) {
-      alert('⚠️ Informations du match incomplètes')
+    if (!match || !match.date) {
+      alert('⚠️ Match non trouvé')
       return
     }
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
     
-    // Formater la date correctement
-    const [year, month, day] = match.date.split('-')
-    const [hours, minutes] = match.horaire1.split(':')
+    // Formater la date (DD/MM/YYYY → YYYYMMDD)
+    let year, month, day
+    if (match.date.includes('/')) {
+      const [d, m, y] = match.date.split('/')
+      day = d
+      month = m
+      year = y
+    } else {
+      const [y, m, d] = match.date.split('-')
+      year = y
+      month = m
+      day = d
+    }
     
     const matchDate = `${year}${month}${day}`
+    
+    // Récupérer l'horaire
+    let hours = '20'
+    let minutes = '00'
+    if (match.horaires && match.horaires.length > 0) {
+      const [h, m] = match.horaires[0].split(':')
+      hours = h
+      minutes = m || '00'
+    } else if (match.horaire1) {
+      const [h, m] = match.horaire1.split(':')
+      hours = h
+      minutes = m || '00'
+    }
+    
     const startTime = `${hours}${minutes}00`
     const endTimeHour = parseInt(hours) + 2
     const endTime = `${endTimeHour.toString().padStart(2, '0')}${minutes}00`
@@ -393,6 +417,7 @@ END:VCALENDAR`
     console.error('Erreur calendrier:', error)
     alert('❌ Erreur: ' + error.message)
   }
+}
         }
   const victoires = matchs.filter((m) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter((m) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
