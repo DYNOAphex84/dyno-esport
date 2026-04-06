@@ -16,7 +16,10 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 const auth = getAuth(app)
 
-setPersistence(auth, browserLocalPersistence)
+// ✅ Persistance activée AVANT toute opération
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error('Erreur persistance:', error)
+})
 
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
@@ -63,25 +66,38 @@ function App() {
   const [nouveauMapMatch, setNouveauMapMatch] = useState({ adversaire: '', picksText: '', bansText: '', notes: '' })
   const [showAddMapMatch, setShowAddMapMatch] = useState(false)
 
+  // ✅ Vérifier admin au chargement
   useEffect(() => {
-    const savedAdmin = localStorage.getItem('dyno-admin')
-    if (savedAdmin === 'true') setIsAdmin(true)
-  }, [])
+    const checkAdmin = async () => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            setPseudo(userData.pseudo || '')
+            // ✅ Vérifie si email admin OU isAdmin=true dans la DB
+            if (user.email === ADMIN_EMAIL || userData.isAdmin === true) {
+              setIsAdmin(true)
+              localStorage.setItem('dyno-admin', 'true')
+            }
+          }
+        } catch (error) {
+          console.error('Erreur lecture user:', error)
+        }
+      }
+      setLoading(false)
+    }
+    checkAdmin()
+  }, [user])
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid))
-        if (userDoc.exists()) {
-          setPseudo(userDoc.data().pseudo)
-          if (userDoc.data().isAdmin) {
-            setIsAdmin(true)
-            localStorage.setItem('dyno-admin', 'true')
-          }
-        }
+      if (!user) {
+        setPseudo('')
+        setIsAdmin(false)
+        localStorage.removeItem('dyno-admin')
       }
-      setLoading(false)
     })
     return () => unsubscribe()
   }, [])
@@ -135,8 +151,19 @@ function App() {
     if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }
     try {
       const result = await createUserWithEmailAndPassword(auth, email, authPassword)
-      await setDoc(doc(db, 'users', result.user.uid), { pseudo, email, createdAt: Date.now(), isAdmin: email === ADMIN_EMAIL })
-      await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', rang: 'Nouveau', userId: result.user.uid, createdAt: Date.now() })
+      await setDoc(doc(db, 'users', result.user.uid), { 
+        pseudo, 
+        email, 
+        createdAt: Date.now(), 
+        isAdmin: email === ADMIN_EMAIL 
+      })
+      await addDoc(collection(db, 'players'), { 
+        pseudo, 
+        role: 'Joueur', 
+        rang: 'Nouveau', 
+        userId: result.user.uid, 
+        createdAt: Date.now() 
+      })
       alert('✅ Compte créé !')
       setIsSignUp(false)
       setEmail('')
@@ -147,7 +174,11 @@ function App() {
   const handleSignIn = async () => {
     if (!email || !authPassword) { alert('⚠️ Remplis tout !'); return }
     try {
+      // ✅ Persistance explicite avant login
+      await setPersistence(auth, browserLocalPersistence)
       await signInWithEmailAndPassword(auth, email, authPassword)
+      // ✅ Sauvegarder l'email pour vérif admin
+      localStorage.setItem('user-email', email)
       alert('✅ Connecté !')
       setEmail('')
       setAuthPassword('')
@@ -159,6 +190,8 @@ function App() {
     setPseudo('')
     setIsAdmin(false)
     localStorage.removeItem('dyno-admin')
+    localStorage.removeItem('user-email')
+    alert('✅ Déconnecté !')
   }
 
   const handleAdminLogin = () => {
@@ -223,6 +256,7 @@ function App() {
   const supprimerNote = async (id) => { await deleteDoc(doc(db, 'notes', id)); alert('✅ Note supprimée !') }
 
   const updateScore = async () => {
+    if (!scoreEdit) return
     await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
     setScoreEdit(null)
     alert('✅ Score mis à jour !')
@@ -231,8 +265,10 @@ function App() {
   const toggleDisponibilite = async (matchId) => {
     if (!user) return
     const match = matchs.find(m => m.id === matchId)
+    if (!match) return
     const estDispo = match.disponibles.includes(pseudo)
-    await updateDoc(doc(db, 'matchs', matchId), { disponibles: estDispo ? match.disponibles.filter(p => p !== pseudo) : [...match.disponibles, pseudo] })
+    const nouveauxDisponibles = estDispo ? match.disponibles.filter((p) => p !== pseudo) : [...match.disponibles, pseudo]
+    await updateDoc(doc(db, 'matchs', matchId), { disponibles: nouveauxDisponibles })
   }
 
   const toggleLike = async (matchId) => {
@@ -246,11 +282,11 @@ function App() {
     let newDislikes = match.dislikes || []
     
     if (hasLiked) {
-      newLikes = newLikes.filter(id => id !== user.uid)
+      newLikes = newLikes.filter((id) => id !== user.uid)
     } else {
       newLikes = [...newLikes, user.uid]
       if (hasDisliked) {
-        newDislikes = newDislikes.filter(id => id !== user.uid)
+        newDislikes = newDislikes.filter((id) => id !== user.uid)
       }
     }
     
@@ -268,11 +304,11 @@ function App() {
     let newDislikes = match.dislikes || []
     
     if (hasDisliked) {
-      newDislikes = newDislikes.filter(id => id !== user.uid)
+      newDislikes = newDislikes.filter((id) => id !== user.uid)
     } else {
       newDislikes = [...newDislikes, user.uid]
       if (hasLiked) {
-        newLikes = newLikes.filter(id => id !== user.uid)
+        newLikes = newLikes.filter((id) => id !== user.uid)
       }
     }
     
@@ -285,8 +321,8 @@ function App() {
       mapId: selectedMap.id,
       mapName: selectedMap.name,
       adversaire: nouveauMapMatch.adversaire,
-      picks: nouveauMapMatch.picksText ? nouveauMapMatch.picksText.split(',').map(s => s.trim()).filter(s => s) : [],
-      bans: nouveauMapMatch.bansText ? nouveauMapMatch.bansText.split(',').map(s => s.trim()).filter(s => s) : [],
+      picks: nouveauMapMatch.picksText ? nouveauMapMatch.picksText.split(',').map((s) => s.trim()).filter((s) => s) : [],
+      bans: nouveauMapMatch.bansText ? nouveauMapMatch.bansText.split(',').map((s) => s.trim()).filter((s) => s) : [],
       notes: nouveauMapMatch.notes,
       auteur: pseudo,
       auteurId: user?.uid,
@@ -299,61 +335,69 @@ function App() {
     alert('✅ Stratégie ajoutée !')
   }
 
-  // 📅 Générer fichier ICS pour calendrier
+  // 📅 Générer fichier ICS pour calendrier - CORRIGÉ
   const addToCalendar = (match) => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    
-    if (isIOS) {
-      // Générer fichier ICS pour iOS
-      const icsContent = `BEGIN:VCALENDAR
+    try {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      
+      // Formater la date correctement
+      const matchDate = match.date.replace(/-/g, '')
+      const startTime = match.horaire1.replace(':', '')
+      const endTimeHour = parseInt(match.horaire1.split(':')[0]) + 2
+      const endTime = `${endTimeHour.toString().padStart(2, '0')}${match.horaire1.split(':')[1]}`
+      
+      if (isIOS) {
+        // Générer fichier ICS pour iOS
+        const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//DYNO Esport//FR
 BEGIN:VEVENT
 UID:${match.id}@dyno-esport
 DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-DTSTART:${match.date.replace(/-/g, '')}T${match.horaire1.replace(':', '')}00
-DTEND:${match.date.replace(/-/g, '')}T${(parseInt(match.horaire1.split(':')[0]) + 2).toString().padStart(2, '0')}${match.horaire1.split(':')[1]}00
+DTSTART:${matchDate}T${startTime}00
+DTEND:${matchDate}T${endTime}00
 SUMMARY:🎮 DYNO vs ${match.adversaire}
-DESCRIPTION:Match DYNO Esport vs ${match.adversaire}\nArène: ${match.arene}\nType: ${match.type}
+DESCRIPTION:Match DYNO Esport vs ${match.adversaire}\\nArène: ${match.arene}\\nType: ${match.type}
 LOCATION:${match.arene}
 END:VEVENT
 END:VCALENDAR`
-      
-      const blob = new Blob([icsContent], { type: 'text/calendar' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `DYNO_vs_${match.adversaire}.ics`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } else {
-      // Lien Google Calendar pour Android
-      const startDate = `${match.date.replace(/-/g, '')}T${match.horaire1.replace(':', '')}00`
-      const endDate = `${match.date.replace(/-/g, '')}T${(parseInt(match.horaire1.split(':')[0]) + 2).toString().padStart(2, '0')}${match.horaire1.split(':')[1]}00`
-      
-      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${startDate}/${endDate}&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\nArène: ${match.arene}\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
-      
-      window.open(googleCalendarUrl, '_blank')
+        
+        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `DYNO_vs_${match.adversaire}.ics`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      } else {
+        // Lien Google Calendar pour Android
+        const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${matchDate}T${startTime}00/${matchDate}T${endTime}00&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\nArène: ${match.arene}\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
+        
+        window.open(googleCalendarUrl, '_blank')
+      }
+    } catch (error) {
+      console.error('Erreur calendrier:', error)
+      alert('❌ Erreur lors de l\'ajout au calendrier')
     }
   }
 
-  const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
-  const defaites = matchs.filter(m => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
+  const victoires = matchs.filter((m) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
+  const defaites = matchs.filter((m) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const totalMatchs = victoires + defaites
   const winRate = totalMatchs > 0 ? Math.round((victoires / totalMatchs) * 100) : 0
   
-  // 🔥 Tri des prochains matchs par date ASC (du plus proche au plus loin)
+  // 🔥 Tri des prochains matchs par date ASC
   const prochainsMatchs = matchs
-    .filter(m => !m.termine)
+    .filter((m) => !m.termine)
     .sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.horaire1}`)
       const dateB = new Date(`${b.date}T${b.horaire1}`)
       return dateA.getTime() - dateB.getTime()
     })
   
-  const historique = matchs.filter(m => m.termine)
+  const historique = matchs.filter((m) => m.termine)
 
   const getYouTubeId = (url) => {
     const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
@@ -403,7 +447,7 @@ END:VCALENDAR`
             </div>
             {loading ? (<div className="text-center py-10 text-[#D4AF37]">⏳...</div>) : prochainsMatchs.length === 0 ? (<div className="text-center py-10 text-gray-500">📭 Aucun match</div>) : (
               <div className="space-y-4">
-                {prochainsMatchs.map(match => (
+                {prochainsMatchs.map((match) => (
                   <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl hover:shadow-[#D4AF37]/20 transition-all">
                     <div className="flex items-center justify-between mb-4">
                       <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${
@@ -465,8 +509,8 @@ END:VCALENDAR`
             </div>
             {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📜 Aucun match</div>) : (
               <div className="space-y-4">
-                {historique.map(match => {
-                  const matchNotes = notes.filter(n => n.matchId === match.id)
+                {historique.map((match) => {
+                  const matchNotes = notes.filter((n) => n.matchId === match.id)
                   return (
                     <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                       <div className="flex items-center justify-between mb-4">
@@ -497,7 +541,7 @@ END:VCALENDAR`
                       {matchNotes.length > 0 ? (
                         <div className="space-y-2">
                           <p className="text-xs text-gray-400 mb-2">{matchNotes.length} note(s)</p>
-                          {matchNotes.map(note => (
+                          {matchNotes.map((note) => (
                             <div key={note.id} className="backdrop-blur-xl bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-[#D4AF37] font-bold text-sm">{note.joueur}</p>
@@ -600,11 +644,11 @@ END:VCALENDAR`
                   )}
                 </div>
                 
-                {mapMatches.filter(m => m.mapId === selectedMap?.id).length === 0 ? (
+                {mapMatches.filter((m) => m.mapId === selectedMap?.id).length === 0 ? (
                   <div className="text-center py-10 text-gray-500">📝 Aucune stratégie pour cette map</div>
                 ) : (
                   <div className="space-y-4">
-                    {mapMatches.filter(m => m.mapId === selectedMap?.id).map(match => {
+                    {mapMatches.filter((m) => m.mapId === selectedMap?.id).map((match) => {
                       const userLike = match.likes?.includes(user?.uid)
                       const userDislike = match.dislikes?.includes(user?.uid)
                       return (
@@ -668,8 +712,8 @@ END:VCALENDAR`
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
-                {EVA_MAPS.map(map => {
-                  const mapStrats = mapMatches.filter(m => m.mapId === map.id).length
+                {EVA_MAPS.map((map) => {
+                  const mapStrats = mapMatches.filter((m) => m.mapId === map.id).length
                   return (
                     <div 
                       key={map.id} 
@@ -755,14 +799,14 @@ END:VCALENDAR`
             </div>
             {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📊 Aucun match</div>) : (
               <div className="space-y-4">
-                {historique.map(match => {
-                  const matchNotes = notes.filter(n => n.matchId === match.id)
+                {historique.map((match) => {
+                  const matchNotes = notes.filter((n) => n.matchId === match.id)
                   return (
                     <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                       <p className="font-bold text-[#D4AF37] mb-3 text-lg">{match.adversaire} - {match.date}</p>
                       {matchNotes.length > 0 ? (
                         <div className="space-y-3">
-                          {matchNotes.map(note => (
+                          {matchNotes.map((note) => (
                             <div key={note.id} className="backdrop-blur-xl bg-black/60 rounded-xl p-4 border border-[#D4AF37]/20">
                               <p className="text-[#D4AF37] font-bold mb-3">{note.joueur}</p>
                               <div className="grid grid-cols-3 gap-3">
@@ -800,7 +844,7 @@ END:VCALENDAR`
             </div>
             {replays.length === 0 ? (<div className="text-center py-10 text-gray-500">📹 Aucun replay</div>) : (
               <div className="space-y-4">
-                {replays.map(replay => (
+                {replays.map((replay) => (
                   <div key={replay.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                     <h3 className="font-bold text-[#D4AF37] mb-3 text-lg">{replay.titre}</h3>
                     {getYouTubeId(replay.lien) ? (
@@ -824,7 +868,7 @@ END:VCALENDAR`
               <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">👥 Roster</h2>
             </div>
             <div className="space-y-4">
-              {joueurs.filter(j => j.actif !== false).map(joueur => (
+              {joueurs.filter((j) => j.actif !== false).map((joueur) => (
                 <div key={joueur.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#D4AF37]/30 to-[#D4AF37]/10 flex items-center justify-center text-[#D4AF37] font-bold text-2xl border border-[#D4AF37]/30 shadow-lg">{joueur.pseudo[0]?.toUpperCase()}</div>
                   <div className="flex-1">
@@ -922,7 +966,7 @@ END:VCALENDAR`
                     <p className="text-gray-500 text-center">Aucun match à supprimer</p>
                   ) : (
                     <div className="space-y-2">
-                      {matchs.map(match => (
+                      {matchs.map((match) => (
                         <div key={match.id} className="flex items-center justify-between bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
                           <div>
                             <p className="text-[#D4AF37] font-bold text-sm">{match.adversaire}</p>
@@ -942,7 +986,7 @@ END:VCALENDAR`
                 </div>
                 <div className="backdrop-blur-xl bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4 flex items-center gap-2">✏️ Scores</h3>
-                  {prochainsMatchs.map(match => (
+                  {prochainsMatchs.map((match) => (
                     <div key={match.id} className="backdrop-blur-xl bg-black/60 rounded-xl p-4 mb-3 border border-[#D4AF37]/20">
                       <p className="font-bold text-[#D4AF37] mb-3">{match.adversaire}</p>
                       <button onClick={() => setScoreEdit({id: match.id, scoreDyno: '', scoreAdv: ''})} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">📝 Score</button>
