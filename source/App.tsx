@@ -333,57 +333,62 @@ function App() {
     alert('✅ Stratégie ajoutée !')
   }
 
-  // 📅 Générer fichier ICS pour calendrier
-  const addToCalendar = (match) => {
-    try {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-      
-      const matchDate = match.date.replace(/-/g, '')
-      const startTime = match.horaire1.replace(':', '')
-      const endTimeHour = parseInt(match.horaire1.split(':')[0]) + 2
-      const endTime = `${endTimeHour.toString().padStart(2, '0')}${match.horaire1.split(':')[1]}`
-      
-      if (isIOS) {
-        const icsContent = `BEGIN:VCALENDAR
+  // 📅 Générer fichier ICS pour calendrier - CORRIGÉ
+const addToCalendar = (match) => {
+  try {
+    if (!match || !match.date || !match.horaire1) {
+      alert('⚠️ Informations du match incomplètes')
+      return
+    }
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    
+    // Formater la date correctement
+    const [year, month, day] = match.date.split('-')
+    const [hours, minutes] = match.horaire1.split(':')
+    
+    const matchDate = `${year}${month}${day}`
+    const startTime = `${hours}${minutes}00`
+    const endTimeHour = parseInt(hours) + 2
+    const endTime = `${endTimeHour.toString().padStart(2, '0')}${minutes}00`
+    
+    if (isIOS) {
+      // Générer fichier ICS pour iOS
+      const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//DYNO Esport//FR
 BEGIN:VEVENT
 UID:${match.id}@dyno-esport
 DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-DTSTART:${matchDate}T${startTime}00
-DTEND:${matchDate}T${endTime}00
+DTSTART:${matchDate}T${startTime}
+DTEND:${matchDate}T${endTime}
 SUMMARY:🎮 DYNO vs ${match.adversaire}
 DESCRIPTION:Match DYNO Esport vs ${match.adversaire}\\nArène: ${match.arene}\\nType: ${match.type}
 LOCATION:${match.arene}
 END:VEVENT
 END:VCALENDAR`
-        
-        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `DYNO_vs_${match.adversaire}.ics`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-      } else {
-        const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${matchDate}T${startTime}00/${matchDate}T${endTime}00&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\nArène: ${match.arene}\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
-        
-        window.open(googleCalendarUrl, '_blank')
-      }
-    } catch (error) {
-      console.error('Erreur calendrier:', error)
-      alert('❌ Erreur lors de l\'ajout au calendrier')
+      
+      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `DYNO_vs_${match.adversaire}.ics`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      alert('✅ Fichier calendrier téléchargé ! Ouvre-le pour l\'ajouter.')
+    } else {
+      // Lien Google Calendar pour Android
+      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${matchDate}T${startTime}/${matchDate}T${endTime}&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\nArène: ${match.arene}\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
+      
+      window.open(googleCalendarUrl, '_blank')
     }
+  } catch (error) {
+    console.error('Erreur calendrier:', error)
+    alert('❌ Erreur: ' + error.message)
   }
-
-  // 📅 Formater la date en FR (JJ/MM/AAAA)
-  const formatDateFR = (dateString) => {
-    if (!dateString) return ''
-    const [year, month, day] = dateString.split('-')
-    return `${day}/${month}/${year}`
-  }
+}
 
   const victoires = matchs.filter((m) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter((m) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
