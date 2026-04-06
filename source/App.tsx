@@ -16,7 +16,7 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 const auth = getAuth(app)
 
-// ✅ Persistance activée AVANT toute opération
+// ✅ Persistance activée
 setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.error('Erreur persistance:', error)
 })
@@ -75,7 +75,6 @@ function App() {
           if (userDoc.exists()) {
             const userData = userDoc.data()
             setPseudo(userData.pseudo || '')
-            // ✅ Vérifie si email admin OU isAdmin=true dans la DB
             if (user.email === ADMIN_EMAIL || userData.isAdmin === true) {
               setIsAdmin(true)
               localStorage.setItem('dyno-admin', 'true')
@@ -97,6 +96,7 @@ function App() {
         setPseudo('')
         setIsAdmin(false)
         localStorage.removeItem('dyno-admin')
+        localStorage.removeItem('user-email')
       }
     })
     return () => unsubscribe()
@@ -174,10 +174,8 @@ function App() {
   const handleSignIn = async () => {
     if (!email || !authPassword) { alert('⚠️ Remplis tout !'); return }
     try {
-      // ✅ Persistance explicite avant login
       await setPersistence(auth, browserLocalPersistence)
       await signInWithEmailAndPassword(auth, email, authPassword)
-      // ✅ Sauvegarder l'email pour vérif admin
       localStorage.setItem('user-email', email)
       alert('✅ Connecté !')
       setEmail('')
@@ -335,19 +333,17 @@ function App() {
     alert('✅ Stratégie ajoutée !')
   }
 
-  // 📅 Générer fichier ICS pour calendrier - CORRIGÉ
+  // 📅 Générer fichier ICS pour calendrier
   const addToCalendar = (match) => {
     try {
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
       
-      // Formater la date correctement
       const matchDate = match.date.replace(/-/g, '')
       const startTime = match.horaire1.replace(':', '')
       const endTimeHour = parseInt(match.horaire1.split(':')[0]) + 2
       const endTime = `${endTimeHour.toString().padStart(2, '0')}${match.horaire1.split(':')[1]}`
       
       if (isIOS) {
-        // Générer fichier ICS pour iOS
         const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//DYNO Esport//FR
@@ -372,7 +368,6 @@ END:VCALENDAR`
         document.body.removeChild(a)
         window.URL.revokeObjectURL(url)
       } else {
-        // Lien Google Calendar pour Android
         const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${matchDate}T${startTime}00/${matchDate}T${endTime}00&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\nArène: ${match.arene}\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`
         
         window.open(googleCalendarUrl, '_blank')
@@ -383,18 +378,25 @@ END:VCALENDAR`
     }
   }
 
+  // 📅 Formater la date en FR (JJ/MM/AAAA)
+  const formatDateFR = (dateString) => {
+    if (!dateString) return ''
+    const [year, month, day] = dateString.split('-')
+    return `${day}/${month}/${year}`
+  }
+
   const victoires = matchs.filter((m) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter((m) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const totalMatchs = victoires + defaites
   const winRate = totalMatchs > 0 ? Math.round((victoires / totalMatchs) * 100) : 0
   
-  // 🔥 Tri des prochains matchs par date ASC
+  // 🔥 Tri des prochains matchs par date DESC (du plus récent au plus loin)
   const prochainsMatchs = matchs
     .filter((m) => !m.termine)
     .sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.horaire1}`)
       const dateB = new Date(`${b.date}T${b.horaire1}`)
-      return dateA.getTime() - dateB.getTime()
+      return dateB.getTime() - dateA.getTime()
     })
   
   const historique = matchs.filter((m) => m.termine)
@@ -456,7 +458,7 @@ END:VCALENDAR`
                         match.type === 'Tournoi' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white' :
                         'bg-gradient-to-r from-orange-600 to-orange-700 text-white'
                       }`}>{match.type}</span>
-                      <span className="text-[#D4AF37] font-bold">{match.date}</span>
+                      <span className="text-[#D4AF37] font-bold">{formatDateFR(match.date)}</span>
                     </div>
                     <div className="flex items-center gap-4 mb-4">
                       <img src={LOGO_URL} alt="DYNO" className="w-14 h-14 drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]" />
@@ -517,7 +519,7 @@ END:VCALENDAR`
                         <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${
                           (match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'
                         }`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
-                        <span className="text-gray-400 text-sm">{match.date}</span>
+                        <span className="text-gray-400 text-sm">{formatDateFR(match.date)}</span>
                       </div>
                       <div className="flex items-center justify-between mb-4">
                         <div className="text-center">
@@ -803,7 +805,7 @@ END:VCALENDAR`
                   const matchNotes = notes.filter((n) => n.matchId === match.id)
                   return (
                     <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                      <p className="font-bold text-[#D4AF37] mb-3 text-lg">{match.adversaire} - {match.date}</p>
+                      <p className="font-bold text-[#D4AF37] mb-3 text-lg">{match.adversaire} - {formatDateFR(match.date)}</p>
                       {matchNotes.length > 0 ? (
                         <div className="space-y-3">
                           {matchNotes.map((note) => (
@@ -970,7 +972,7 @@ END:VCALENDAR`
                         <div key={match.id} className="flex items-center justify-between bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
                           <div>
                             <p className="text-[#D4AF37] font-bold text-sm">{match.adversaire}</p>
-                            <p className="text-gray-500 text-xs">{match.date}</p>
+                            <p className="text-gray-500 text-xs">{formatDateFR(match.date)}</p>
                           </div>
                           <button onClick={() => supprimerMatch(match.id)} className="text-red-400 text-xl hover:scale-110 transition">🗑️</button>
                         </div>
