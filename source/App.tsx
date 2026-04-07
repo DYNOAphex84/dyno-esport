@@ -15,16 +15,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 const auth = getAuth(app)
-
-setPersistence(auth, browserLocalPersistence).catch((error: any) => {
-  console.error('Erreur persistance:', error)
-})
+setPersistence(auth, browserLocalPersistence).catch((e: any) => console.error('Erreur persistance:', e))
 
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
-
 const ALL_MAPS = ['Engine', 'Helios', 'Silva', 'The Cliff', 'Artefact', 'Outlaw', 'Atlantis', 'Horizon', 'Polaris', 'Lunar', 'Ceres']
 
 function App() {
@@ -58,475 +54,210 @@ function App() {
   const [selectedMatchForComment, setSelectedMatchForComment] = useState<any>(null)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [notifiedMatchs, setNotifiedMatchs] = useState<string[]>([])
-
   const prevMatchCount = useRef(0)
   const prevNoteCount = useRef(0)
   const prevCommentCount = useRef(0)
   const prevStratCount = useRef(0)
 
-  // ==================== RESET D'URGENCE ====================
-  useEffect(() => {
-    if (window.location.search.includes('reset=1')) {
-      localStorage.clear()
-      window.location.href = window.location.pathname
-    }
-  }, [])
+  useEffect(() => { if (window.location.search.includes('reset=1')) { localStorage.clear(); window.location.href = window.location.pathname } }, [])
 
-  // ==================== NOTIFICATIONS ====================
   const sendNotification = useCallback((title: string, body: string, tag?: string) => {
     try {
-      if (!('Notification' in window)) return
-      if (Notification.permission === 'granted') {
-        const notif = new Notification(title, {
-          body,
-          icon: LOGO_URL,
-          badge: LOGO_URL,
-          tag: tag || 'dyno-notification',
-          requireInteraction: false
-        })
-        notif.onclick = () => { window.focus(); notif.close() }
-      }
-    } catch (e) { console.error('Erreur envoi notification:', e) }
+      if (!('Notification' in window) || Notification.permission !== 'granted') return
+      const n = new Notification(title, { body, icon: LOGO_URL, badge: LOGO_URL, tag: tag || 'dyno-notif', requireInteraction: false })
+      n.onclick = () => { window.focus(); n.close() }
+    } catch (e) { console.error('Erreur notification:', e) }
   }, [])
 
   const requestNotificationPermission = async () => {
     try {
-      if (!('Notification' in window)) { alert('❌ Ton navigateur ne supporte pas les notifications'); return }
-      const permission = await Notification.requestPermission()
-      if (permission === 'granted') {
-        setNotificationsEnabled(true)
-        localStorage.setItem('dyno-notifs', 'true')
-        alert('✅ Notifications activées !')
-      } else {
-        setNotificationsEnabled(false)
-        localStorage.setItem('dyno-notifs', 'false')
-        alert('❌ Notifications refusées')
-      }
-    } catch (e) { console.error('Erreur notifications:', e); alert('❌ Erreur avec les notifications') }
+      if (!('Notification' in window)) { alert('❌ Navigateur non supporté'); return }
+      const p = await Notification.requestPermission()
+      if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('✅ Notifications activées !') }
+      else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false'); alert('❌ Notifications refusées') }
+    } catch (e) { alert('❌ Erreur notifications') }
   }
 
   const getMatchDateTime = useCallback((match: any): Date | null => {
-    if (!match || !match.date) return null
-    let dateStr = match.date
-    const timeStr = match.horaires?.[0] || match.horaire1 || '20:00'
-    if (dateStr.includes('/')) { const [d, m, y] = dateStr.split('/'); dateStr = `${y}-${m}-${d}` }
-    try {
-      const d = new Date(`${dateStr}T${timeStr}:00`)
-      if (isNaN(d.getTime())) return null
-      return d
-    } catch { return null }
+    if (!match?.date) return null
+    let d = match.date; const t = match.horaires?.[0] || match.horaire1 || '20:00'
+    if (d.includes('/')) { const [dd, mm, yy] = d.split('/'); d = `${yy}-${mm}-${dd}` }
+    try { const dt = new Date(`${d}T${t}:00`); return isNaN(dt.getTime()) ? null : dt } catch { return null }
   }, [])
 
   useEffect(() => {
-    try {
-      if ('Notification' in window && Notification.permission === 'granted') {
-        const saved = localStorage.getItem('dyno-notifs')
-        if (saved === 'true') setNotificationsEnabled(true)
-      }
-    } catch (e) { console.error('Notifications non supportées:', e) }
-    try { setNotifiedMatchs(JSON.parse(localStorage.getItem('dyno-notified') || '[]')) }
-    catch (e) { setNotifiedMatchs([]) }
+    try { if ('Notification' in window && Notification.permission === 'granted' && localStorage.getItem('dyno-notifs') === 'true') setNotificationsEnabled(true) } catch {}
+    try { setNotifiedMatchs(JSON.parse(localStorage.getItem('dyno-notified') || '[]')) } catch { setNotifiedMatchs([]) }
   }, [])
 
-  // Rappels avant match
   useEffect(() => {
     if (!notificationsEnabled) return
-    try { if (!('Notification' in window) || Notification.permission !== 'granted') return } catch (e) { return }
-    const checkMatchReminders = () => {
+    try { if (!('Notification' in window) || Notification.permission !== 'granted') return } catch { return }
+    const check = () => {
       const now = new Date()
-      matchs.forEach((match: any) => {
-        if (match.termine) return
-        const matchTime = getMatchDateTime(match)
-        if (!matchTime) return
-        const diffMinutes = (matchTime.getTime() - now.getTime()) / (1000 * 60)
-
-        const key1h = `${match.id}-1h`
-        if (diffMinutes > 55 && diffMinutes <= 65 && !notifiedMatchs.includes(key1h)) {
-          sendNotification('🎮 DYNO — Match dans 1h !', `⚔️ VS ${match.adversaire}\n⏰ ${match.horaires?.[0] || match.horaire1 || '20:00'}\n🏟️ ${match.arene}`, 'match-1h')
-          const updated = [...notifiedMatchs, key1h]; setNotifiedMatchs(updated); localStorage.setItem('dyno-notified', JSON.stringify(updated))
-        }
-        const key15 = `${match.id}-15m`
-        if (diffMinutes > 10 && diffMinutes <= 20 && !notifiedMatchs.includes(key15)) {
-          sendNotification('🔥 DYNO — Match dans 15 min !', `⚔️ VS ${match.adversaire}\n⏰ Prépare-toi !\n🏟️ ${match.arene}`, 'match-15m')
-          const updated = [...notifiedMatchs, key15]; setNotifiedMatchs(updated); localStorage.setItem('dyno-notified', JSON.stringify(updated))
-        }
-        const keyNow = `${match.id}-now`
-        if (diffMinutes >= -2 && diffMinutes <= 3 && !notifiedMatchs.includes(keyNow)) {
-          sendNotification('⚡ DYNO — C\'EST MAINTENANT !', `⚔️ VS ${match.adversaire}\n🏟️ ${match.arene}\nGO GO GO ! 💪`, 'match-now')
-          const updated = [...notifiedMatchs, keyNow]; setNotifiedMatchs(updated); localStorage.setItem('dyno-notified', JSON.stringify(updated))
-        }
+      matchs.forEach((m: any) => {
+        if (m.termine) return; const mt = getMatchDateTime(m); if (!mt) return
+        const dm = (mt.getTime() - now.getTime()) / 60000
+        const k1 = `${m.id}-1h`; if (dm > 55 && dm <= 65 && !notifiedMatchs.includes(k1)) { sendNotification('🎮 Match dans 1h !', `⚔️ VS ${m.adversaire}\n🏟️ ${m.arene}`, 'match-1h'); const u = [...notifiedMatchs, k1]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
+        const k2 = `${m.id}-15m`; if (dm > 10 && dm <= 20 && !notifiedMatchs.includes(k2)) { sendNotification('🔥 Match dans 15 min !', `⚔️ VS ${m.adversaire}`, 'match-15m'); const u = [...notifiedMatchs, k2]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
+        const k3 = `${m.id}-now`; if (dm >= -2 && dm <= 3 && !notifiedMatchs.includes(k3)) { sendNotification('⚡ C\'EST MAINTENANT !', `⚔️ VS ${m.adversaire} GO !`, 'match-now'); const u = [...notifiedMatchs, k3]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
       })
     }
-    checkMatchReminders()
-    const interval = setInterval(checkMatchReminders, 60000)
-    return () => clearInterval(interval)
+    check(); const i = setInterval(check, 60000); return () => clearInterval(i)
   }, [notificationsEnabled, matchs, notifiedMatchs, sendNotification, getMatchDateTime])
 
-  // ==================== COUNTDOWN ====================
   useEffect(() => {
-    const updateCountdowns = () => {
-      const now = new Date()
-      const newCountdowns: Record<string, string> = {}
-      matchs.forEach((match: any) => {
-        if (match.termine) return
-        const matchTime = getMatchDateTime(match)
-        if (!matchTime) return
-        const diffMs = matchTime.getTime() - now.getTime()
-        if (diffMs <= 0) { newCountdowns[match.id] = '🔴 EN COURS'; return }
-        const jours = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-        const heures = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-        const secondes = Math.floor((diffMs % (1000 * 60)) / 1000)
-        let countdown = ''
-        if (jours > 0) countdown += `${jours}j `
-        if (heures > 0 || jours > 0) countdown += `${heures}h `
-        countdown += `${minutes}m ${secondes}s`
-        newCountdowns[match.id] = countdown
+    const update = () => {
+      const now = new Date(); const c: Record<string, string> = {}
+      matchs.forEach((m: any) => {
+        if (m.termine) return; const mt = getMatchDateTime(m); if (!mt) return
+        const df = mt.getTime() - now.getTime()
+        if (df <= 0) { c[m.id] = '🔴 EN COURS'; return }
+        const j = Math.floor(df / 86400000), h = Math.floor((df % 86400000) / 3600000), mi = Math.floor((df % 3600000) / 60000), s = Math.floor((df % 60000) / 1000)
+        c[m.id] = `${j > 0 ? j + 'j ' : ''}${(h > 0 || j > 0) ? h + 'h ' : ''}${mi}m ${s}s`
       })
-      setCountdowns(newCountdowns)
+      setCountdowns(c)
     }
-    updateCountdowns()
-    const interval = setInterval(updateCountdowns, 1000)
-    return () => clearInterval(interval)
+    update(); const i = setInterval(update, 1000); return () => clearInterval(i)
   }, [matchs, getMatchDateTime])
 
-  // ==================== AUTH ====================
-  useEffect(() => { const s = localStorage.getItem('dyno-admin'); if (s === 'true') setIsAdmin(true) }, [])
-
+  useEffect(() => { if (localStorage.getItem('dyno-admin') === 'true') setIsAdmin(true) }, [])
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
-      setUser(user)
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid))
-        if (userDoc.exists()) {
-          const data = userDoc.data()
-          setPseudo(data.pseudo || '')
-          if (user.email === ADMIN_EMAIL || data.isAdmin === true) { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true') }
-        }
-      }
+    const unsub = onAuthStateChanged(auth, async (u: any) => {
+      setUser(u)
+      if (u) { const d = await getDoc(doc(db, 'users', u.uid)); if (d.exists()) { const data = d.data(); setPseudo(data.pseudo || ''); if (u.email === ADMIN_EMAIL || data.isAdmin) { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true') } } }
       setLoading(false)
-    })
-    return () => unsubscribe()
+    }); return () => unsub()
   }, [])
 
-  // ==================== DATA (chargement seul, pas de notification ici) ====================
-  useEffect(() => {
-    const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot: any) => {
-      const data: any[] = []; snapshot.forEach((doc: any) => data.push({ id: doc.id, ...doc.data() })); setMatchs(data)
-    })
-    return () => unsubscribe()
-  }, [])
+  useEffect(() => { const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setMatchs(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setNotes(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'commentaires'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setCommentaires(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'strats'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setStrats(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'replays'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setReplays(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'players'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setJoueurs(d) }); return () => u() }, [])
 
-  useEffect(() => {
-    const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot: any) => {
-      const data: any[] = []; snapshot.forEach((doc: any) => data.push({ id: doc.id, ...doc.data() })); setNotes(data)
-    })
-    return () => unsubscribe()
-  }, [])
+  useEffect(() => { if (!notificationsEnabled || prevMatchCount.current === 0) { prevMatchCount.current = matchs.length; return }; if (matchs.length > prevMatchCount.current) { const n = matchs[0]; if (n) sendNotification('📅 Nouveau Match !', `⚔️ VS ${n.adversaire}\n📅 ${n.date}\n🏟️ ${n.arene}`, 'new-match') }; prevMatchCount.current = matchs.length }, [matchs, notificationsEnabled, sendNotification])
+  useEffect(() => { if (!notificationsEnabled || prevNoteCount.current === 0) { prevNoteCount.current = notes.length; return }; if (notes.length > prevNoteCount.current) { const n = notes[0]; if (n) sendNotification('📊 Nouvelle Note !', `${n.joueur}: 🧠${n.mental} 💬${n.communication} 🎯${n.gameplay}`, 'new-note') }; prevNoteCount.current = notes.length }, [notes, notificationsEnabled, sendNotification])
+  useEffect(() => { if (!notificationsEnabled || prevCommentCount.current === 0) { prevCommentCount.current = commentaires.length; return }; if (commentaires.length > prevCommentCount.current) { const n = commentaires[0]; if (n) sendNotification('💬 Commentaire !', `${n.joueur}: "${n.texte.substring(0, 60)}"`, 'new-comment') }; prevCommentCount.current = commentaires.length }, [commentaires, notificationsEnabled, sendNotification])
+  useEffect(() => { if (!notificationsEnabled || prevStratCount.current === 0) { prevStratCount.current = strats.length; return }; if (strats.length > prevStratCount.current) { const n = strats[0]; if (n) sendNotification('🎯 Nouvelle Strat !', `VS ${n.adversaire}\n✅ ${n.picks?.join(', ')}\n❌ ${n.bans?.join(', ')}`, 'new-strat') }; prevStratCount.current = strats.length }, [strats, notificationsEnabled, sendNotification])
 
-  useEffect(() => {
-    const q = query(collection(db, 'commentaires'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot: any) => {
-      const data: any[] = []; snapshot.forEach((doc: any) => data.push({ id: doc.id, ...doc.data() })); setCommentaires(data)
-    })
-    return () => unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    const q = query(collection(db, 'strats'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot: any) => {
-      const data: any[] = []; snapshot.forEach((doc: any) => data.push({ id: doc.id, ...doc.data() })); setStrats(data)
-    })
-    return () => unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    const q = query(collection(db, 'replays'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot: any) => {
-      const data: any[] = []; snapshot.forEach((doc: any) => data.push({ id: doc.id, ...doc.data() })); setReplays(data)
-    })
-    return () => unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    const q = query(collection(db, 'players'), orderBy('createdAt', 'desc'))
-    const unsubscribe = onSnapshot(q, (snapshot: any) => {
-      const data: any[] = []; snapshot.forEach((doc: any) => data.push({ id: doc.id, ...doc.data() })); setJoueurs(data)
-    })
-    return () => unsubscribe()
-  }, [])
-
-  // ==================== NOTIFICATIONS TEMPS RÉEL (séparé) ====================
-  useEffect(() => {
-    if (!notificationsEnabled) return
-    if (matchs.length > 0 && prevMatchCount.current > 0 && matchs.length > prevMatchCount.current) {
-      const newest = matchs[0]
-      if (newest) sendNotification('📅 Nouveau Match !', `⚔️ VS ${newest.adversaire}\n📅 ${newest.date}\n🏟️ ${newest.arene}\n📊 ${newest.type}`, 'new-match')
-    }
-    prevMatchCount.current = matchs.length
-  }, [matchs, notificationsEnabled, sendNotification])
-
-  useEffect(() => {
-    if (!notificationsEnabled) return
-    if (notes.length > 0 && prevNoteCount.current > 0 && notes.length > prevNoteCount.current) {
-      const newest = notes[0]
-      if (newest) sendNotification('📊 Nouvelle Note !', `${newest.joueur} a noté un match\n🧠 ${newest.mental}/10 💬 ${newest.communication}/10 🎯 ${newest.gameplay}/10`, 'new-note')
-    }
-    prevNoteCount.current = notes.length
-  }, [notes, notificationsEnabled, sendNotification])
-
-  useEffect(() => {
-    if (!notificationsEnabled) return
-    if (commentaires.length > 0 && prevCommentCount.current > 0 && commentaires.length > prevCommentCount.current) {
-      const newest = commentaires[0]
-      if (newest) sendNotification('💬 Nouveau Commentaire !', `${newest.joueur}: "${newest.texte.substring(0, 80)}${newest.texte.length > 80 ? '...' : ''}"`, 'new-comment')
-    }
-    prevCommentCount.current = commentaires.length
-  }, [commentaires, notificationsEnabled, sendNotification])
-
-  useEffect(() => {
-    if (!notificationsEnabled) return
-    if (strats.length > 0 && prevStratCount.current > 0 && strats.length > prevStratCount.current) {
-      const newest = strats[0]
-      if (newest) sendNotification('🎯 Nouvelle Stratégie !', `VS ${newest.adversaire}\n✅ ${newest.picks?.join(', ')}\n❌ ${newest.bans?.join(', ')}`, 'new-strat')
-    }
-    prevStratCount.current = strats.length
-  }, [strats, notificationsEnabled, sendNotification])
-
-  // ==================== SPLASH & INSTALL ====================
   useEffect(() => { const t = setTimeout(() => setShowSplash(false), 2000); return () => clearTimeout(t) }, [])
   useEffect(() => { window.addEventListener('beforeinstallprompt', (e: any) => { e.preventDefault(); setDeferredPrompt(e); setShowInstall(true) }) }, [])
 
   const handleInstall = () => { if (deferredPrompt) { deferredPrompt.prompt(); setDeferredPrompt(null); setShowInstall(false) } }
-
-  // ==================== AUTH HANDLERS ====================
-  const handleSignUp = async () => {
-    if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }
-    try {
-      const result = await createUserWithEmailAndPassword(auth, email, authPassword)
-      await setDoc(doc(db, 'users', result.user.uid), { pseudo, email, createdAt: Date.now(), isAdmin: email === ADMIN_EMAIL })
-      await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', rang: 'Nouveau', userId: result.user.uid, createdAt: Date.now() })
-      alert('✅ Compte créé !'); setIsSignUp(false); setEmail(''); setAuthPassword('')
-    } catch (error: any) { alert('❌ ' + error.message) }
-  }
-
-  const handleSignIn = async () => {
-    if (!email || !authPassword) { alert('⚠️ Remplis tout !'); return }
-    try {
-      await setPersistence(auth, browserLocalPersistence)
-      await signInWithEmailAndPassword(auth, email, authPassword)
-      localStorage.setItem('user-email', email); alert('✅ Connecté !'); setEmail(''); setAuthPassword('')
-    } catch (error: any) { alert('❌ ' + error.message) }
-  }
-
-  const handleSignOut = async () => {
-    await signOut(auth); setPseudo(''); setIsAdmin(false)
-    localStorage.removeItem('dyno-admin'); localStorage.removeItem('user-email'); alert('✅ Déconnecté !')
-  }
-
-  const handleAdminLogin = () => {
-    if (adminPassword === 'dyno2026') { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true'); setAdminPassword('') }
-    else alert('❌ Mot de passe incorrect !')
-  }
-
+  const handleSignUp = async () => { if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }; try { const r = await createUserWithEmailAndPassword(auth, email, authPassword); await setDoc(doc(db, 'users', r.user.uid), { pseudo, email, createdAt: Date.now(), isAdmin: email === ADMIN_EMAIL }); await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', rang: 'Nouveau', userId: r.user.uid, createdAt: Date.now() }); alert('✅ Compte créé !'); setIsSignUp(false); setEmail(''); setAuthPassword('') } catch (e: any) { alert('❌ ' + e.message) } }
+  const handleSignIn = async () => { if (!email || !authPassword) { alert('⚠️ Remplis tout !'); return }; try { await setPersistence(auth, browserLocalPersistence); await signInWithEmailAndPassword(auth, email, authPassword); localStorage.setItem('user-email', email); alert('✅ Connecté !'); setEmail(''); setAuthPassword('') } catch (e: any) { alert('❌ ' + e.message) } }
+  const handleSignOut = async () => { await signOut(auth); setPseudo(''); setIsAdmin(false); localStorage.removeItem('dyno-admin'); localStorage.removeItem('user-email'); alert('✅ Déconnecté !') }
+  const handleAdminLogin = () => { if (adminPassword === 'dyno2026') { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true'); setAdminPassword('') } else alert('❌ Mot de passe incorrect !') }
   const handleAdminLogout = () => { setIsAdmin(false); localStorage.removeItem('dyno-admin') }
 
-  // ==================== CRUD ====================
   const ajouterMatch = async () => {
     if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('⚠️ Remplis tout !'); return }
     await addDoc(collection(db, 'matchs'), { ...nouveauMatch, termine: false, disponibles: [], indisponibles: [], createdAt: Date.now() })
-    const horaires = [nouveauMatch.horaire1]; if (nouveauMatch.horaire2) horaires.push(nouveauMatch.horaire2)
-    try {
-      await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-        embeds: [{ title: '🎮 NOUVEAU MATCH DYNO !', color: 13934871, fields: [
-          { name: '⚔️ Adversaire', value: nouveauMatch.adversaire, inline: true },
-          { name: '📅 Date', value: nouveauMatch.date, inline: true },
-          { name: '⏰ Horaire', value: horaires.join(' / '), inline: true },
-          { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true },
-          { name: '📊 Type', value: nouveauMatch.type, inline: true }
-        ], footer: { text: 'DYNO Esport', icon_url: LOGO_URL } }]
-      }) })
-    } catch (error) { console.error('Discord error:', error) }
-    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' }); alert('✅ Match ajouté + Discord notifié !')
+    const h = [nouveauMatch.horaire1]; if (nouveauMatch.horaire2) h.push(nouveauMatch.horaire2)
+    try { await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '🎮 NOUVEAU MATCH DYNO !', color: 13934871, fields: [{ name: '⚔️ Adversaire', value: nouveauMatch.adversaire, inline: true }, { name: '📅 Date', value: nouveauMatch.date, inline: true }, { name: '⏰ Horaire', value: h.join(' / '), inline: true }, { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true }, { name: '📊 Type', value: nouveauMatch.type, inline: true }], footer: { text: 'DYNO Esport', icon_url: LOGO_URL } }] }) }) } catch {}
+    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' }); alert('✅ Match ajouté !')
   }
+  const ajouterReplay = async () => { if (!nouveauReplay.titre || !nouveauReplay.lien) { alert('⚠️ Remplis tout !'); return }; await addDoc(collection(db, 'replays'), { ...nouveauReplay, createdAt: Date.now() }); setNouveauReplay({ titre: '', lien: '' }); alert('✅ Replay ajouté !') }
+  const ajouterNote = async () => { if (!user) { alert('⚠️ Connecte-toi !'); return }; await addDoc(collection(db, 'notes'), { matchId: selectedMatchForNotes?.id, joueur: pseudo, joueurId: user.uid, ...nouvelleNote, createdAt: Date.now() }); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }); setSelectedMatchForNotes(null); alert('✅ Note ajoutée !') }
+  const ajouterCommentaire = async (matchId: string) => { if (!user) { alert('⚠️ Connecte-toi !'); return }; if (!nouveauCommentaire.trim()) { alert('⚠️ Écris un commentaire !'); return }; await addDoc(collection(db, 'commentaires'), { matchId, joueur: pseudo, joueurId: user.uid, texte: nouveauCommentaire.trim(), createdAt: Date.now() }); setNouveauCommentaire(''); setSelectedMatchForComment(null); alert('✅ Commentaire ajouté !') }
+  const ajouterStrat = async () => { if (!nouvelleStrat.adversaire || nouvelleStrat.picks.length === 0 || nouvelleStrat.bans.length === 0) { alert('⚠️ Remplis tout !'); return }; await addDoc(collection(db, 'strats'), { adversaire: nouvelleStrat.adversaire, picks: nouvelleStrat.picks, bans: nouvelleStrat.bans, auteur: pseudo, auteurId: user?.uid, createdAt: Date.now() }); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }); setShowAddStrat(false); alert('✅ Stratégie ajoutée !') }
 
-  const ajouterReplay = async () => {
-    if (!nouveauReplay.titre || !nouveauReplay.lien) { alert('⚠️ Remplis tout !'); return }
-    await addDoc(collection(db, 'replays'), { ...nouveauReplay, createdAt: Date.now() })
-    setNouveauReplay({ titre: '', lien: '' }); alert('✅ Replay ajouté !')
-  }
+  const supprimerMatch = async (id: string) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Supprimé !') }
+  const supprimerReplay = async (id: string) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Supprimé !') }
+  const supprimerJoueur = async (id: string) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Supprimé !') }
+  const supprimerStrat = async (id: string) => { await deleteDoc(doc(db, 'strats', id)); alert('✅ Supprimé !') }
+  const supprimerNote = async (id: string) => { await deleteDoc(doc(db, 'notes', id)); alert('✅ Supprimé !') }
+  const supprimerCommentaire = async (id: string) => { await deleteDoc(doc(db, 'commentaires', id)); alert('✅ Supprimé !') }
 
-  const ajouterNote = async () => {
-    if (!user) { alert('⚠️ Connecte-toi !'); return }
-    await addDoc(collection(db, 'notes'), { matchId: selectedMatchForNotes?.id, joueur: pseudo, joueurId: user.uid, ...nouvelleNote, createdAt: Date.now() })
-    setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }); setSelectedMatchForNotes(null); alert('✅ Note ajoutée !')
-  }
+  const updateScore = async () => { if (!scoreEdit) return; await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true }); setScoreEdit(null); alert('✅ Score mis à jour !') }
 
-  const ajouterCommentaire = async (matchId: string) => {
-    if (!user) { alert('⚠️ Connecte-toi !'); return }
-    if (!nouveauCommentaire.trim()) { alert('⚠️ Écris un commentaire !'); return }
-    await addDoc(collection(db, 'commentaires'), { matchId, joueur: pseudo, joueurId: user.uid, texte: nouveauCommentaire.trim(), createdAt: Date.now() })
-    setNouveauCommentaire(''); setSelectedMatchForComment(null); alert('✅ Commentaire ajouté !')
-  }
+  const toggleDisponibilite = async (matchId: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === matchId); if (!m) return; const d = m.disponibles || [], i = m.indisponibles || []; await updateDoc(doc(db, 'matchs', matchId), { disponibles: d.includes(pseudo) ? d.filter((p: string) => p !== pseudo) : [...d, pseudo], indisponibles: i.filter((p: string) => p !== pseudo) }) }
+  const toggleIndisponibilite = async (matchId: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === matchId); if (!m) return; const d = m.disponibles || [], i = m.indisponibles || []; await updateDoc(doc(db, 'matchs', matchId), { indisponibles: i.includes(pseudo) ? i.filter((p: string) => p !== pseudo) : [...i, pseudo], disponibles: d.filter((p: string) => p !== pseudo) }) }
 
-  const ajouterStrat = async () => {
-    if (!nouvelleStrat.adversaire || nouvelleStrat.picks.length === 0 || nouvelleStrat.bans.length === 0) { alert('⚠️ Remplis l\'adversaire, picks et bans !'); return }
-    await addDoc(collection(db, 'strats'), { adversaire: nouvelleStrat.adversaire, picks: nouvelleStrat.picks, bans: nouvelleStrat.bans, auteur: pseudo, auteurId: user?.uid, createdAt: Date.now() })
-    setNouvelleStrat({ adversaire: '', picks: [], bans: [] }); setShowAddStrat(false); alert('✅ Stratégie ajoutée !')
-  }
-
-  const supprimerMatch = async (id: string) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Match supprimé !') }
-  const supprimerReplay = async (id: string) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Replay supprimé !') }
-  const supprimerJoueur = async (id: string) => { await deleteDoc(doc(db, 'players', id)); alert('✅ Joueur supprimé !') }
-  const supprimerStrat = async (id: string) => { await deleteDoc(doc(db, 'strats', id)); alert('✅ Stratégie supprimée !') }
-  const supprimerNote = async (id: string) => { await deleteDoc(doc(db, 'notes', id)); alert('✅ Note supprimée !') }
-  const supprimerCommentaire = async (id: string) => { await deleteDoc(doc(db, 'commentaires', id)); alert('✅ Commentaire supprimé !') }
-
-  const updateScore = async () => {
-    if (!scoreEdit) return
-    await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true })
-    setScoreEdit(null); alert('✅ Score mis à jour !')
-  }
-
-  const toggleDisponibilite = async (matchId: string) => {
-    if (!user) return
-    const match = matchs.find((m: any) => m.id === matchId); if (!match) return
-    const dispos = match.disponibles || []; const indispos = match.indisponibles || []
-    const nouveauxDisponibles = dispos.includes(pseudo) ? dispos.filter((p: string) => p !== pseudo) : [...dispos, pseudo]
-    const nouveauxIndisponibles = indispos.filter((p: string) => p !== pseudo)
-    await updateDoc(doc(db, 'matchs', matchId), { disponibles: nouveauxDisponibles, indisponibles: nouveauxIndisponibles })
-  }
-
-  const toggleIndisponibilite = async (matchId: string) => {
-    if (!user) return
-    const match = matchs.find((m: any) => m.id === matchId); if (!match) return
-    const dispos = match.disponibles || []; const indispos = match.indisponibles || []
-    const nouveauxIndisponibles = indispos.includes(pseudo) ? indispos.filter((p: string) => p !== pseudo) : [...indispos, pseudo]
-    const nouveauxDisponibles = dispos.filter((p: string) => p !== pseudo)
-    await updateDoc(doc(db, 'matchs', matchId), { disponibles: nouveauxDisponibles, indisponibles: nouveauxIndisponibles })
-  }
-
-  const formatDateFR = (dateString: string) => {
-    if (!dateString) return ''
-    if (dateString.includes('/')) return dateString
-    const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`
-  }
-
-  const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp)
-    return `${date.toLocaleDateString('fr-FR')} à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-  }
+  const formatDateFR = (s: string) => { if (!s) return ''; if (s.includes('/')) return s; const [y, m, d] = s.split('-'); return `${d}/${m}/${y}` }
+  const formatTimestamp = (t: number) => { const d = new Date(t); return `${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` }
 
   const addToCalendar = (match: any) => {
     try {
-      if (!match || !match.date) { alert('⚠️ Match non trouvé'); return }
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-      let year: string, month: string, day: string
-      if (match.date.includes('/')) { const [d, m, y] = match.date.split('/'); day = d; month = m; year = y }
-      else { const [y, m, d] = match.date.split('-'); year = y; month = m; day = d }
-      const matchDate = `${year}${month}${day}`
-      let hours = '20', minutes = '00'
-      if (match.horaires?.length > 0) { const [h, m] = match.horaires[0].split(':'); hours = h; minutes = m || '00' }
-      else if (match.horaire1) { const [h, m] = match.horaire1.split(':'); hours = h; minutes = m || '00' }
-      const startTime = `${hours}${minutes}00`
-      const endTime = `${(parseInt(hours) + 2).toString().padStart(2, '0')}${minutes}00`
-      if (isIOS) {
-        const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//DYNO Esport//FR\nBEGIN:VEVENT\nUID:${match.id}@dyno-esport\nDTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\nDTSTART:${matchDate}T${startTime}\nDTEND:${matchDate}T${endTime}\nSUMMARY:🎮 DYNO vs ${match.adversaire}\nDESCRIPTION:Match DYNO Esport vs ${match.adversaire}\\nArène: ${match.arene}\\nType: ${match.type}\nLOCATION:${match.arene}\nEND:VEVENT\nEND:VCALENDAR`
-        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' }); const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a'); a.href = url; a.download = `DYNO_vs_${match.adversaire}.ics`
-        document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url)
-        alert('✅ Fichier calendrier téléchargé !')
-      } else {
-        window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${matchDate}T${startTime}/${matchDate}T${endTime}&details=${encodeURIComponent(`Match DYNO Esport vs ${match.adversaire}\\nArène: ${match.arene}\\nType: ${match.type}`)}&location=${encodeURIComponent(match.arene)}`, '_blank')
-      }
-    } catch (error: any) { console.error('Erreur calendrier:', error); alert('❌ Erreur: ' + error.message) }
+      if (!match?.date) { alert('⚠️ Match non trouvé'); return }
+      let y: string, m: string, d: string
+      if (match.date.includes('/')) { const [dd, mm, yy] = match.date.split('/'); d = dd; m = mm; y = yy } else { const [yy, mm, dd] = match.date.split('-'); y = yy; m = mm; d = dd }
+      const md = `${y}${m}${d}`; let h = '20', mi = '00'
+      if (match.horaires?.length > 0) { const [hh, mm] = match.horaires[0].split(':'); h = hh; mi = mm || '00' } else if (match.horaire1) { const [hh, mm] = match.horaire1.split(':'); h = hh; mi = mm || '00' }
+      const st = `${h}${mi}00`, et = `${(parseInt(h) + 2).toString().padStart(2, '0')}${mi}00`
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:${match.id}@dyno\nDTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\nDTSTART:${md}T${st}\nDTEND:${md}T${et}\nSUMMARY:🎮 DYNO vs ${match.adversaire}\nLOCATION:${match.arene}\nEND:VEVENT\nEND:VCALENDAR`
+        const b = new Blob([ics], { type: 'text/calendar' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `DYNO_vs_${match.adversaire}.ics`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u)
+      } else { window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${md}T${st}/${md}T${et}&location=${encodeURIComponent(match.arene)}`, '_blank') }
+    } catch (e: any) { alert('❌ ' + e.message) }
   }
 
-  // ==================== COMPUTED ====================
   const victoires = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const totalMatchs = victoires + defaites
   const winRate = totalMatchs > 0 ? Math.round((victoires / totalMatchs) * 100) : 0
-  const prochainsMatchs = matchs.filter((m: any) => !m.termine).sort((a: any, b: any) => {
-    const dateA = new Date(`${a.date}T${a.horaires?.[0] || a.horaire1 || '20:00'}`); const dateB = new Date(`${b.date}T${b.horaires?.[0] || b.horaire1 || '20:00'}`)
-    return dateA.getTime() - dateB.getTime()
-  })
+  const prochainsMatchs = matchs.filter((m: any) => !m.termine).sort((a: any, b: any) => new Date(`${a.date}T${a.horaires?.[0] || a.horaire1 || '20:00'}`).getTime() - new Date(`${b.date}T${b.horaires?.[0] || b.horaire1 || '20:00'}`).getTime())
   const historique = matchs.filter((m: any) => m.termine)
-
   const getYouTubeId = (url: string) => { const m = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/); return m ? m[1] : null }
 
   const toggleMapSelection = (map: string, type: 'picks' | 'bans') => {
-    if (type === 'picks') {
-      if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) })
-      else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] })
-    } else {
-      if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) })
-      else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] })
-    }
+    if (type === 'picks') { if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) }); else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] }) }
+    else { if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) }); else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] }) }
   }
 
-  // ==================== RENDER ====================
-  if (showSplash) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a] flex items-center justify-center">
-        <div className="text-center">
-          <img src={LOGO_URL} alt="DYNO" className="w-56 h-56 mx-auto animate-pulse drop-shadow-[0_0_30px_rgba(212,175,55,0.5)]" />
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 animate-pulse">DYNO</h1>
-          <p className="text-gray-400 mt-2">Esport Team</p>
-        </div>
+  if (showSplash) return (
+    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a] flex items-center justify-center">
+      <div className="text-center">
+        <img src={LOGO_URL} alt="DYNO" className="w-56 h-56 mx-auto animate-pulse drop-shadow-[0_0_30px_rgba(212,175,55,0.5)]" />
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 animate-pulse">DYNO</h1>
+        <p className="text-gray-400 mt-2">Esport Team</p>
       </div>
-    )
-  }
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a] pb-24">
+      {/* HEADER */}
       <header className="backdrop-blur-xl bg-black/40 border-b border-[#D4AF37]/20 sticky top-0 z-50 shadow-2xl">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={LOGO_URL} alt="DYNO" className="w-14 h-14 drop-shadow-[0_0_15px_rgba(212,175,55,0.5)]" />
             <div><h1 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h1><p className="text-xs text-gray-400">Esport Team</p></div>
           </div>
-          <div className="flex gap-2">
-            {showInstall && (<button onClick={handleInstall} className="px-4 py-2.5 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">📲 Installer</button>)}
-            {user ? (<button onClick={handleSignOut} className="px-5 py-2.5 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg">👋 {pseudo}</button>) : (<button onClick={() => setIsSignUp(false)} className="px-5 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">👤 Compte</button>)}
+          <div className="flex gap-2 items-center">
+            {user && (
+              <button onClick={requestNotificationPermission} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${notificationsEnabled ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40' : 'bg-gray-800 border border-gray-600'}`} title={notificationsEnabled ? 'Notifications activées' : 'Activer les notifications'}>
+                <span className="text-lg">{notificationsEnabled ? '🔔' : '🔕'}</span>
+              </button>
+            )}
+            {showInstall && (<button onClick={handleInstall} className="px-3 py-2 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg text-sm">📲</button>)}
+            {user ? (<button onClick={handleSignOut} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg text-sm">👋 {pseudo}</button>) : (<button onClick={() => setIsSignUp(false)} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg text-sm">👤 Compte</button>)}
           </div>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
-
-        {/* ==================== MATCHS ==================== */}
+        {/* MATCHS */}
         {activeTab === 'matchs' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-  <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
-  {user && (
-    <button onClick={requestNotificationPermission} className={`absolute top-4 right-4 z-20 w-10 h-10 rounded-full flex items-center justify-center transition-all ${notificationsEnabled ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40' : 'bg-gray-800/60 border border-gray-600'}`} title={notificationsEnabled ? 'Notifications activées' : 'Activer les notifications'}>
-      <span className="text-xl">{notificationsEnabled ? '🔔' : '🔕'}</span>
-    </button>
-  )}
-  <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-  <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2 relative z-10">Prochains Matchs</h2>
-  <p className="text-gray-400 text-sm relative z-10">Restez prêts pour la victoire</p>
-</div>
-            {user && (
-    <button onClick={requestNotificationPermission} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${notificationsEnabled ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40' : 'bg-gray-800 border border-gray-600'}`} title={notificationsEnabled ? 'Notifications activées' : 'Activer les notifications'}>
-      <span className="text-xl">{notificationsEnabled ? '🔔' : '🔕'}</span>
-    </button>
-  </div>
-)}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
+              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2 relative z-10">Prochains Matchs</h2>
+              <p className="text-gray-400 text-sm relative z-10">Restez prêts pour la victoire</p>
+            </div>
             {loading ? (<div className="text-center py-10 text-[#D4AF37]">⏳...</div>) : prochainsMatchs.length === 0 ? (<div className="text-center py-10 text-gray-500">📭 Aucun match</div>) : (
               <div className="space-y-4">
                 {prochainsMatchs.map((match: any) => (
-                  <div key={match.id} className="backdrop-blur-xl bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
+                  <div key={match.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                     <div className="flex items-center justify-between mb-4">
                       <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${match.type === 'Ligue' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : match.type === 'Scrim' ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' : match.type === 'Tournoi' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white' : 'bg-gradient-to-r from-orange-600 to-orange-700 text-white'}`}>{match.type}</span>
                       <span className="text-[#D4AF37] font-bold">{formatDateFR(match.date)}</span>
                     </div>
                     {countdowns[match.id] && (
-                      <div className={`rounded-xl p-3 mb-4 text-center border ${countdowns[match.id] === '🔴 EN COURS' ? 'bg-gradient-to-r from-red-600/20 to-red-600/10 border-red-500/30' : 'bg-gradient-to-r from-[#D4AF37]/20 to-[#D4AF37]/10 border-[#D4AF37]/30'}`}>
+                      <div className={`rounded-xl p-3 mb-4 text-center border ${countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-600/20 border-red-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30'}`}>
                         <p className="text-xs text-gray-400 mb-1">⏱️ Compte à rebours</p>
                         <p className={`text-2xl font-bold font-mono ${countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent'}`}>{countdowns[match.id]}</p>
                       </div>
@@ -539,11 +270,11 @@ function App() {
                     <div className="bg-black/60 rounded-xl p-3 mb-3 border border-[#D4AF37]/20"><p className="text-xs text-gray-400 mb-1">⏰ Horaires</p><p className="text-[#D4AF37] font-bold">{match.horaires?.join(' / ') || match.horaire1 || '20:00'}</p></div>
                     <div className="bg-black/60 rounded-xl p-3 mb-3 border border-[#D4AF37]/20">
                       <p className="text-xs text-gray-400 mb-2">👥 Disponibles ({(match.disponibles || []).length})</p>
-                      {(match.disponibles || []).length > 0 && (<div className="flex flex-wrap gap-2">{(match.disponibles || []).map((p: string, i: number) => (<span key={i} className="bg-gradient-to-r from-[#D4AF37]/20 to-[#D4AF37]/10 text-[#D4AF37] px-3 py-1.5 rounded-xl text-xs font-bold border border-[#D4AF37]/30">{p}</span>))}</div>)}
+                      {(match.disponibles || []).length > 0 && (<div className="flex flex-wrap gap-2">{(match.disponibles || []).map((p: string, i: number) => (<span key={i} className="bg-[#D4AF37]/20 text-[#D4AF37] px-3 py-1.5 rounded-xl text-xs font-bold border border-[#D4AF37]/30">{p}</span>))}</div>)}
                     </div>
                     <div className="bg-black/60 rounded-xl p-3 mb-4 border border-red-500/20">
                       <p className="text-xs text-gray-400 mb-2">🚫 Indisponibles ({(match.indisponibles || []).length})</p>
-                      {(match.indisponibles || []).length > 0 && (<div className="flex flex-wrap gap-2">{(match.indisponibles || []).map((p: string, i: number) => (<span key={i} className="bg-gradient-to-r from-red-500/20 to-red-500/10 text-red-400 px-3 py-1.5 rounded-xl text-xs font-bold border border-red-500/30">{p}</span>))}</div>)}
+                      {(match.indisponibles || []).length > 0 && (<div className="flex flex-wrap gap-2">{(match.indisponibles || []).map((p: string, i: number) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-xl text-xs font-bold border border-red-500/30">{p}</span>))}</div>)}
                     </div>
                     <button onClick={() => addToCalendar(match)} className="w-full mb-3 py-3 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg flex items-center justify-center gap-2">📅 Ajouter au calendrier</button>
                     <div className="flex gap-3">
@@ -557,7 +288,7 @@ function App() {
           </div>
         )}
 
-        {/* ==================== HISTORIQUE ==================== */}
+        {/* HISTORIQUE */}
         {activeTab === 'historique' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -565,18 +296,18 @@ function App() {
               <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">Historique</h2>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-gradient-to-br from-[#D4AF37]/20 to-[#D4AF37]/10 rounded-2xl p-5 border border-[#D4AF37]/30 shadow-xl"><p className="text-4xl font-bold text-[#D4AF37]">{victoires}</p><p className="text-xs text-gray-400 mt-1">Victoires</p></div>
-              <div className="bg-gradient-to-br from-red-500/20 to-red-500/10 rounded-2xl p-5 border border-red-500/30 shadow-xl"><p className="text-4xl font-bold text-red-500">{defaites}</p><p className="text-xs text-gray-400 mt-1">Défaites</p></div>
+              <div className="bg-[#D4AF37]/20 rounded-2xl p-5 border border-[#D4AF37]/30 shadow-xl"><p className="text-4xl font-bold text-[#D4AF37]">{victoires}</p><p className="text-xs text-gray-400 mt-1">Victoires</p></div>
+              <div className="bg-red-500/20 rounded-2xl p-5 border border-red-500/30 shadow-xl"><p className="text-4xl font-bold text-red-500">{defaites}</p><p className="text-xs text-gray-400 mt-1">Défaites</p></div>
             </div>
             {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📜 Aucun match</div>) : (
               <div className="space-y-4">
                 {historique.map((match: any) => {
-                  const matchNotes = notes.filter((n: any) => n.matchId === match.id)
-                  const matchComs = commentaires.filter((c: any) => c.matchId === match.id)
+                  const mn = notes.filter((n: any) => n.matchId === match.id)
+                  const mc = commentaires.filter((c: any) => c.matchId === match.id)
                   return (
                     <div key={match.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                       <div className="flex items-center justify-between mb-4">
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'}`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
+                        <span className={`px-4 py-1.5 rounded-full text-xs font-bold ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'}`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
                         <span className="text-gray-400 text-sm">{formatDateFR(match.date)}</span>
                       </div>
                       <div className="flex items-center justify-between mb-4">
@@ -594,35 +325,8 @@ function App() {
                           <button onClick={() => ajouterCommentaire(match.id)} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg text-sm">💬 Envoyer</button>
                         </div>
                       )}
-                      {matchComs.length > 0 && (
-                        <div className="space-y-2 mb-4">
-                          <p className="text-xs text-cyan-400 mb-2">💬 Commentaires ({matchComs.length})</p>
-                          {matchComs.map((com: any) => (
-                            <div key={com.id} className="bg-black/60 rounded-xl p-3 border border-cyan-500/20">
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="text-cyan-400 font-bold text-sm">{com.joueur}</p>
-                                <div className="flex items-center gap-2"><p className="text-gray-500 text-xs">{formatTimestamp(com.createdAt)}</p>{(isAdmin || user?.uid === com.joueurId) && (<button onClick={() => supprimerCommentaire(com.id)} className="text-red-400 text-xs">🗑️</button>)}</div>
-                              </div>
-                              <p className="text-gray-300 text-sm">{com.texte}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {matchNotes.length > 0 ? (
-                        <div className="space-y-2">
-                          <p className="text-xs text-gray-400 mb-2">📊 {matchNotes.length} note(s)</p>
-                          {matchNotes.map((note: any) => (
-                            <div key={note.id} className="bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
-                              <div className="flex items-center justify-between mb-2"><p className="text-[#D4AF37] font-bold text-sm">{note.joueur}</p>{isAdmin && (<button onClick={() => supprimerNote(note.id)} className="text-red-400 text-xs">🗑️</button>)}</div>
-                              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                                <div className="bg-purple-500/20 rounded-lg p-2"><p className="text-gray-400">🧠</p><p className="text-purple-400 font-bold">{note.mental}/10</p></div>
-                                <div className="bg-blue-500/20 rounded-lg p-2"><p className="text-gray-400">💬</p><p className="text-blue-400 font-bold">{note.communication}/10</p></div>
-                                <div className="bg-green-500/20 rounded-lg p-2"><p className="text-gray-400">🎯</p><p className="text-green-400 font-bold">{note.gameplay}/10</p></div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (<p className="text-gray-500 text-sm text-center">Aucune note</p>)}
+                      {mc.length > 0 && (<div className="space-y-2 mb-4"><p className="text-xs text-cyan-400 mb-2">💬 Commentaires ({mc.length})</p>{mc.map((c: any) => (<div key={c.id} className="bg-black/60 rounded-xl p-3 border border-cyan-500/20"><div className="flex items-center justify-between mb-1"><p className="text-cyan-400 font-bold text-sm">{c.joueur}</p><div className="flex items-center gap-2"><p className="text-gray-500 text-xs">{formatTimestamp(c.createdAt)}</p>{(isAdmin || user?.uid === c.joueurId) && <button onClick={() => supprimerCommentaire(c.id)} className="text-red-400 text-xs">🗑️</button>}</div></div><p className="text-gray-300 text-sm">{c.texte}</p></div>))}</div>)}
+                      {mn.length > 0 ? (<div className="space-y-2"><p className="text-xs text-gray-400 mb-2">📊 {mn.length} note(s)</p>{mn.map((n: any) => (<div key={n.id} className="bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20"><div className="flex items-center justify-between mb-2"><p className="text-[#D4AF37] font-bold text-sm">{n.joueur}</p>{isAdmin && <button onClick={() => supprimerNote(n.id)} className="text-red-400 text-xs">🗑️</button>}</div><div className="grid grid-cols-3 gap-2 text-center text-xs"><div className="bg-purple-500/20 rounded-lg p-2"><p className="text-gray-400">🧠</p><p className="text-purple-400 font-bold">{n.mental}/10</p></div><div className="bg-blue-500/20 rounded-lg p-2"><p className="text-gray-400">💬</p><p className="text-blue-400 font-bold">{n.communication}/10</p></div><div className="bg-green-500/20 rounded-lg p-2"><p className="text-gray-400">🎯</p><p className="text-green-400 font-bold">{n.gameplay}/10</p></div></div></div>))}</div>) : (<p className="text-gray-500 text-sm text-center">Aucune note</p>)}
                     </div>
                   )
                 })}
@@ -633,21 +337,18 @@ function App() {
                 <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📊 Notes - {selectedMatchForNotes.adversaire}</h3>
                   <div className="space-y-4 mb-6">
-                    <div><label className="text-gray-400 text-sm mb-2 block">🧠 Mental (0-10)</label><input type="number" min="0" max="10" placeholder="0" value={nouvelleNote.mental} onChange={(e) => setNouvelleNote({ ...nouvelleNote, mental: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">💬 Communication (0-10)</label><input type="number" min="0" max="10" placeholder="0" value={nouvelleNote.communication} onChange={(e) => setNouvelleNote({ ...nouvelleNote, communication: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">🎯 Performance (0-10)</label><input type="number" min="0" max="10" placeholder="0" value={nouvelleNote.gameplay} onChange={(e) => setNouvelleNote({ ...nouvelleNote, gameplay: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">🧠 Mental (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.mental} onChange={(e) => setNouvelleNote({ ...nouvelleNote, mental: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">💬 Communication (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.communication} onChange={(e) => setNouvelleNote({ ...nouvelleNote, communication: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">🎯 Performance (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.gameplay} onChange={(e) => setNouvelleNote({ ...nouvelleNote, gameplay: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
                   </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button>
-                    <button onClick={ajouterNote} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button>
-                  </div>
+                  <div className="flex gap-3"><button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={ajouterNote} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ==================== STRATS ==================== */}
+        {/* STRATS */}
         {activeTab === 'strats' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -657,14 +358,11 @@ function App() {
             </div>
             {user && (<button onClick={() => setShowAddStrat(true)} className="w-full mb-6 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Nouvelle Stratégie</button>)}
             {strats.length === 0 ? (<div className="text-center py-10 text-gray-500">📝 Aucune stratégie</div>) : (
-              <div className="space-y-4">{strats.map((strat: any) => (
-                <div key={strat.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <div><p className="text-lg font-bold text-[#D4AF37]">VS {strat.adversaire}</p><p className="text-xs text-gray-400">par {strat.auteur || 'Inconnu'}</p></div>
-                    {(isAdmin || user?.uid === strat.auteurId) && <button onClick={() => supprimerStrat(strat.id)} className="text-red-400 text-xl">🗑️</button>}
-                  </div>
-                  <div className="mb-3"><p className="text-xs text-green-400 mb-2">✅ Picks ({strat.picks?.length || 0}/4)</p><div className="flex flex-wrap gap-2">{strat.picks?.map((p: string, i: number) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-sm border border-green-500/30 font-bold">{p}</span>))}</div></div>
-                  <div><p className="text-xs text-red-400 mb-2">❌ Bans ({strat.bans?.length || 0}/4)</p><div className="flex flex-wrap gap-2">{strat.bans?.map((b: string, i: number) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm border border-red-500/30 font-bold">{b}</span>))}</div></div>
+              <div className="space-y-4">{strats.map((s: any) => (
+                <div key={s.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
+                  <div className="flex items-center justify-between mb-4"><div><p className="text-lg font-bold text-[#D4AF37]">VS {s.adversaire}</p><p className="text-xs text-gray-400">par {s.auteur || 'Inconnu'}</p></div>{(isAdmin || user?.uid === s.auteurId) && <button onClick={() => supprimerStrat(s.id)} className="text-red-400 text-xl">🗑️</button>}</div>
+                  <div className="mb-3"><p className="text-xs text-green-400 mb-2">✅ Picks ({s.picks?.length || 0}/4)</p><div className="flex flex-wrap gap-2">{s.picks?.map((p: string, i: number) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-sm border border-green-500/30 font-bold">{p}</span>))}</div></div>
+                  <div><p className="text-xs text-red-400 mb-2">❌ Bans ({s.bans?.length || 0}/4)</p><div className="flex flex-wrap gap-2">{s.bans?.map((b: string, i: number) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm border border-red-500/30 font-bold">{b}</span>))}</div></div>
                 </div>
               ))}</div>
             )}
@@ -673,29 +371,18 @@ function App() {
                 <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-md border border-[#D4AF37]/30 shadow-2xl max-h-[90vh] overflow-y-auto">
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">🎯 Nouvelle Stratégie</h3>
                   <div className="space-y-4 mb-6">
-                    <div><label className="text-gray-400 text-sm mb-2 block">⚔️ Équipe Adverse</label><input type="text" placeholder="Nom de l'équipe" value={nouvelleStrat.adversaire} onChange={(e) => setNouvelleStrat({ ...nouvelleStrat, adversaire: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]" /></div>
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (max 4)</label>
-                      <div className="grid grid-cols-2 gap-2">{ALL_MAPS.map((map) => (<button key={map} onClick={() => toggleMapSelection(map, 'picks')} className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${nouvelleStrat.picks.includes(map) ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>{map}</button>))}</div>
-                      <div className="flex flex-wrap gap-2 mt-2">{nouvelleStrat.picks.map((p, i) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{p}</span>))}</div>
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans (max 4)</label>
-                      <div className="grid grid-cols-2 gap-2">{ALL_MAPS.map((map) => (<button key={map} onClick={() => toggleMapSelection(map, 'bans')} className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${nouvelleStrat.bans.includes(map) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>{map}</button>))}</div>
-                      <div className="flex flex-wrap gap-2 mt-2">{nouvelleStrat.bans.map((b, i) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{b}</span>))}</div>
-                    </div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">⚔️ Équipe Adverse</label><input type="text" placeholder="Nom" value={nouvelleStrat.adversaire} onChange={(e) => setNouvelleStrat({ ...nouvelleStrat, adversaire: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]" /></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">✅ Picks (max 4)</label><div className="grid grid-cols-2 gap-2">{ALL_MAPS.map(m => (<button key={m} onClick={() => toggleMapSelection(m, 'picks')} className={`px-3 py-2 rounded-lg text-sm font-bold ${nouvelleStrat.picks.includes(m) ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>{m}</button>))}</div><div className="flex flex-wrap gap-2 mt-2">{nouvelleStrat.picks.map((p, i) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{p}</span>))}</div></div>
+                    <div><label className="text-gray-400 text-sm mb-2 block">❌ Bans (max 4)</label><div className="grid grid-cols-2 gap-2">{ALL_MAPS.map(m => (<button key={m} onClick={() => toggleMapSelection(m, 'bans')} className={`px-3 py-2 rounded-lg text-sm font-bold ${nouvelleStrat.bans.includes(m) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>{m}</button>))}</div><div className="flex flex-wrap gap-2 mt-2">{nouvelleStrat.bans.map((b, i) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{b}</span>))}</div></div>
                   </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => { setShowAddStrat(false); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button>
-                    <button onClick={ajouterStrat} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button>
-                  </div>
+                  <div className="flex gap-3"><button onClick={() => { setShowAddStrat(false); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={ajouterStrat} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ==================== NOTES ==================== */}
+        {/* NOTES */}
         {activeTab === 'notes' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -703,29 +390,17 @@ function App() {
               <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📊 Notes</h2>
             </div>
             {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📊 Aucun match</div>) : (
-              <div className="space-y-4">{historique.map((match: any) => {
-                const mn = notes.filter((n: any) => n.matchId === match.id)
-                return (
-                  <div key={match.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                    <p className="font-bold text-[#D4AF37] mb-3 text-lg">{match.adversaire} - {formatDateFR(match.date)}</p>
-                    {mn.length > 0 ? (<div className="space-y-3">{mn.map((note: any) => (
-                      <div key={note.id} className="bg-black/60 rounded-xl p-4 border border-[#D4AF37]/20">
-                        <p className="text-[#D4AF37] font-bold mb-3">{note.joueur}</p>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="text-center bg-purple-500/20 rounded-xl p-3 border border-purple-500/30"><p className="text-xs text-gray-400 mb-1">🧠 Mental</p><p className="text-2xl font-bold text-purple-400">{note.mental}/10</p></div>
-                          <div className="text-center bg-blue-500/20 rounded-xl p-3 border border-blue-500/30"><p className="text-xs text-gray-400 mb-1">💬 Comm</p><p className="text-2xl font-bold text-blue-400">{note.communication}/10</p></div>
-                          <div className="text-center bg-green-500/20 rounded-xl p-3 border border-green-500/30"><p className="text-xs text-gray-400 mb-1">🎯 Perf</p><p className="text-2xl font-bold text-green-400">{note.gameplay}/10</p></div>
-                        </div>
-                      </div>
-                    ))}</div>) : (<p className="text-gray-500 text-sm">Aucune note</p>)}
-                  </div>
-                )
-              })}</div>
+              <div className="space-y-4">{historique.map((m: any) => { const mn = notes.filter((n: any) => n.matchId === m.id); return (
+                <div key={m.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
+                  <p className="font-bold text-[#D4AF37] mb-3 text-lg">{m.adversaire} - {formatDateFR(m.date)}</p>
+                  {mn.length > 0 ? (<div className="space-y-3">{mn.map((n: any) => (<div key={n.id} className="bg-black/60 rounded-xl p-4 border border-[#D4AF37]/20"><p className="text-[#D4AF37] font-bold mb-3">{n.joueur}</p><div className="grid grid-cols-3 gap-3"><div className="text-center bg-purple-500/20 rounded-xl p-3 border border-purple-500/30"><p className="text-xs text-gray-400 mb-1">🧠</p><p className="text-2xl font-bold text-purple-400">{n.mental}/10</p></div><div className="text-center bg-blue-500/20 rounded-xl p-3 border border-blue-500/30"><p className="text-xs text-gray-400 mb-1">💬</p><p className="text-2xl font-bold text-blue-400">{n.communication}/10</p></div><div className="text-center bg-green-500/20 rounded-xl p-3 border border-green-500/30"><p className="text-xs text-gray-400 mb-1">🎯</p><p className="text-2xl font-bold text-green-400">{n.gameplay}/10</p></div></div></div>))}</div>) : (<p className="text-gray-500 text-sm">Aucune note</p>)}
+                </div>
+              ) })}</div>
             )}
           </div>
         )}
 
-        {/* ==================== REPLAYS ==================== */}
+        {/* REPLAYS */}
         {activeTab === 'rec' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -736,7 +411,7 @@ function App() {
             {replays.length === 0 ? (<div className="text-center py-10 text-gray-500">📹 Aucun replay</div>) : (
               <div className="space-y-4">{replays.map((r: any) => (
                 <div key={r.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                  <h3 className="font-bold text-[#D4AF37] mb-3 text-lg">{r.titre}</h3>
+                  <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-[#D4AF37] text-lg">{r.titre}</h3>{isAdmin && <button onClick={() => supprimerReplay(r.id)} className="text-red-400 text-xs">🗑️</button>}</div>
                   {getYouTubeId(r.lien) ? (<div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden shadow-2xl"><iframe src={`https://www.youtube.com/embed/${getYouTubeId(r.lien)}`} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen /></div>) : (<a href={r.lien} target="_blank" className="block py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-center shadow-lg">▶️ Voir</a>)}
                 </div>
               ))}</div>
@@ -744,7 +419,7 @@ function App() {
           </div>
         )}
 
-        {/* ==================== ROSTER ==================== */}
+        {/* ROSTER */}
         {activeTab === 'roster' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -753,15 +428,15 @@ function App() {
             </div>
             <div className="space-y-4">{joueurs.filter((j: any) => j.actif !== false).map((j: any) => (
               <div key={j.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#D4AF37]/30 to-[#D4AF37]/10 flex items-center justify-center text-[#D4AF37] font-bold text-2xl border border-[#D4AF37]/30 shadow-lg">{j.pseudo[0]?.toUpperCase()}</div>
+                <div className="w-16 h-16 rounded-2xl bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-bold text-2xl border border-[#D4AF37]/30 shadow-lg">{j.pseudo[0]?.toUpperCase()}</div>
                 <div className="flex-1"><p className="font-bold text-[#D4AF37] text-lg">{j.pseudo}</p><p className="text-sm text-gray-400">🎮 {j.role}</p></div>
-                {isAdmin && <button onClick={() => supprimerJoueur(j.id)} className="text-red-400 text-xl hover:scale-125 transition">🗑️</button>}
+                {isAdmin && <button onClick={() => supprimerJoueur(j.id)} className="text-red-400 text-xl">🗑️</button>}
               </div>
             ))}</div>
           </div>
         )}
 
-        {/* ==================== STATS ==================== */}
+        {/* STATS */}
         {activeTab === 'stats' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -769,26 +444,26 @@ function App() {
               <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📈 Stats</h2>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-gradient-to-br from-[#D4AF37]/20 to-[#D4AF37]/10 rounded-2xl p-6 border border-[#D4AF37]/30 shadow-xl text-center"><p className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{winRate}%</p><p className="text-xs text-gray-400 mt-2">Win Rate</p></div>
-              <div className="bg-gradient-to-br from-[#D4AF37]/20 to-[#D4AF37]/10 rounded-2xl p-6 border border-[#D4AF37]/30 shadow-xl text-center"><p className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{totalMatchs}</p><p className="text-xs text-gray-400 mt-2">Matchs</p></div>
+              <div className="bg-[#D4AF37]/20 rounded-2xl p-6 border border-[#D4AF37]/30 shadow-xl text-center"><p className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{winRate}%</p><p className="text-xs text-gray-400 mt-2">Win Rate</p></div>
+              <div className="bg-[#D4AF37]/20 rounded-2xl p-6 border border-[#D4AF37]/30 shadow-xl text-center"><p className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{totalMatchs}</p><p className="text-xs text-gray-400 mt-2">Matchs</p></div>
             </div>
             <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
               <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Répartition</h3>
               <div className="space-y-4">
-                <div><div className="flex items-center justify-between mb-2"><span className="text-gray-400">🏆 Victoires</span><span className="text-[#D4AF37] font-bold">{victoires}</span></div><div className="w-full bg-gray-800 rounded-full h-3"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-3 rounded-full" style={{ width: `${totalMatchs > 0 ? (victoires / totalMatchs) * 100 : 0}%` }}></div></div></div>
-                <div><div className="flex items-center justify-between mb-2"><span className="text-gray-400">❌ Défaites</span><span className="text-red-500 font-bold">{defaites}</span></div><div className="w-full bg-gray-800 rounded-full h-3"><div className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full" style={{ width: `${totalMatchs > 0 ? (defaites / totalMatchs) * 100 : 0}%` }}></div></div></div>
+                <div><div className="flex justify-between mb-2"><span className="text-gray-400">🏆 Victoires</span><span className="text-[#D4AF37] font-bold">{victoires}</span></div><div className="bg-gray-800 rounded-full h-3"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-3 rounded-full" style={{ width: `${totalMatchs > 0 ? (victoires / totalMatchs) * 100 : 0}%` }}></div></div></div>
+                <div><div className="flex justify-between mb-2"><span className="text-gray-400">❌ Défaites</span><span className="text-red-500 font-bold">{defaites}</span></div><div className="bg-gray-800 rounded-full h-3"><div className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full" style={{ width: `${totalMatchs > 0 ? (defaites / totalMatchs) * 100 : 0}%` }}></div></div></div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ==================== ADMIN ==================== */}
+        {/* ADMIN */}
         {activeTab === 'admin' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
               <img src={LOGO_URL} alt="DYNO" className="w-28 h-28 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
               <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">⚙️ Admin</h2>
-              {!isAdmin ? (<p className="text-gray-400">Connecte-toi</p>) : (<p className="text-green-400 font-bold">👑 Connecté</p>)}
+              {!isAdmin ? <p className="text-gray-400">Connecte-toi</p> : <p className="text-green-400 font-bold">👑 Connecté</p>}
             </div>
             {!isAdmin ? (
               <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
@@ -812,15 +487,8 @@ function App() {
                   <button onClick={ajouterMatch} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">Ajouter + Discord</button>
                 </div>
                 <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🗑️ Supprimer Matchs</h3>
-                  {matchs.length === 0 ? (<p className="text-gray-500 text-center">Aucun match</p>) : (
-                    <div className="space-y-2">{matchs.map((m: any) => (
-                      <div key={m.id} className="flex items-center justify-between bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20">
-                        <div><p className="text-[#D4AF37] font-bold text-sm">{m.adversaire}</p><p className="text-gray-500 text-xs">{formatDateFR(m.date)}</p></div>
-                        <button onClick={() => supprimerMatch(m.id)} className="text-red-400 text-xl">🗑️</button>
-                      </div>
-                    ))}</div>
-                  )}
+                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🗑️ Matchs</h3>
+                  {matchs.length === 0 ? <p className="text-gray-500 text-center">Aucun</p> : <div className="space-y-2">{matchs.map((m: any) => (<div key={m.id} className="flex items-center justify-between bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20"><div><p className="text-[#D4AF37] font-bold text-sm">{m.adversaire}</p><p className="text-gray-500 text-xs">{formatDateFR(m.date)}</p></div><button onClick={() => supprimerMatch(m.id)} className="text-red-400 text-xl">🗑️</button></div>))}</div>}
                 </div>
                 <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Replay</h3>
@@ -830,12 +498,7 @@ function App() {
                 </div>
                 <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
                   <h3 className="text-lg font-bold text-[#D4AF37] mb-4">✏️ Scores</h3>
-                  {prochainsMatchs.map((m: any) => (
-                    <div key={m.id} className="bg-black/60 rounded-xl p-4 mb-3 border border-[#D4AF37]/20">
-                      <p className="font-bold text-[#D4AF37] mb-3">{m.adversaire}</p>
-                      <button onClick={() => setScoreEdit({ id: m.id, scoreDyno: '', scoreAdv: '' })} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">📝 Score</button>
-                    </div>
-                  ))}
+                  {prochainsMatchs.map((m: any) => (<div key={m.id} className="bg-black/60 rounded-xl p-4 mb-3 border border-[#D4AF37]/20"><p className="font-bold text-[#D4AF37] mb-3">{m.adversaire}</p><button onClick={() => setScoreEdit({ id: m.id, scoreDyno: '', scoreAdv: '' })} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">📝 Score</button></div>))}
                 </div>
                 <button onClick={handleAdminLogout} className="w-full border-2 border-red-500 text-red-500 py-4 rounded-xl font-bold hover:bg-red-500/10">🚪 Déconnexion</button>
               </div>
@@ -848,10 +511,7 @@ function App() {
                     <div><label className="text-gray-400 text-sm mb-2 block">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={(e) => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
                     <div><label className="text-gray-400 text-sm mb-2 block">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={(e) => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
                   </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => setScoreEdit(null)} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button>
-                    <button onClick={updateScore} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button>
-                  </div>
+                  <div className="flex gap-3"><button onClick={() => setScoreEdit(null)} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={updateScore} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div>
                 </div>
               </div>
             )}
@@ -859,26 +519,26 @@ function App() {
         )}
       </main>
 
-      {/* ==================== NAV ==================== */}
+      {/* NAV */}
       <nav className="fixed bottom-0 left-0 right-0 backdrop-blur-xl bg-black/60 border-t border-[#D4AF37]/20 shadow-2xl">
         <div className="max-w-lg mx-auto flex">
-          {[{ tab: 'matchs', icon: '📅' }, { tab: 'historique', icon: '📜' }, { tab: 'strats', icon: '🎯' }, { tab: 'notes', icon: '📊' }, { tab: 'rec', icon: '🎬' }, { tab: 'roster', icon: '👥' }, { tab: 'stats', icon: '📈' }, { tab: 'admin', icon: '⚙️' }].map(({ tab, icon }) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-5 text-center transition-all ${activeTab === tab ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}><span className="text-2xl">{icon}</span></button>
+          {[{ t: 'matchs', i: '📅' }, { t: 'historique', i: '📜' }, { t: 'strats', i: '🎯' }, { t: 'notes', i: '📊' }, { t: 'rec', i: '🎬' }, { t: 'roster', i: '👥' }, { t: 'stats', i: '📈' }, { t: 'admin', i: '⚙️' }].map(({ t, i }) => (
+            <button key={t} onClick={() => setActiveTab(t)} className={`flex-1 py-5 text-center transition-all ${activeTab === t ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}><span className="text-2xl">{i}</span></button>
           ))}
         </div>
       </nav>
 
-      {/* ==================== LOGIN MODAL ==================== */}
+      {/* LOGIN */}
       {!user && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
             <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">{isSignUp ? '📝 Créer' : '👤 Connexion'}</h3>
-            {isSignUp && (<input type="text" placeholder="Pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37]" />)}
+            {isSignUp && <input type="text" placeholder="Pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37]" />}
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37]" />
             <input type="password" placeholder="Mot de passe" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-6 text-white focus:outline-none focus:border-[#D4AF37]" />
-            <div className="flex items-center gap-2 mb-4"><input type="checkbox" id="rememberMe" className="w-4 h-4 accent-[#D4AF37]" /><label htmlFor="rememberMe" className="text-sm text-gray-400">📝 Se souvenir de moi</label></div>
-            {isSignUp ? (<button onClick={handleSignUp} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg mb-4">✅ Créer</button>) : (<button onClick={handleSignIn} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg mb-4">🔐 Connexion</button>)}
-            <div className="border-t border-gray-700 pt-4">{isSignUp ? (<button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm hover:underline">Déjà un compte ?</button>) : (<button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm hover:underline">Pas de compte ?</button>)}</div>
+            <div className="flex items-center gap-2 mb-4"><input type="checkbox" id="rem" className="w-4 h-4 accent-[#D4AF37]" /><label htmlFor="rem" className="text-sm text-gray-400">📝 Se souvenir de moi</label></div>
+            {isSignUp ? <button onClick={handleSignUp} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg mb-4">✅ Créer</button> : <button onClick={handleSignIn} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg mb-4">🔐 Connexion</button>}
+            <div className="border-t border-gray-700 pt-4">{isSignUp ? <button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm hover:underline">Déjà un compte ?</button> : <button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm hover:underline">Pas de compte ?</button>}</div>
           </div>
         </div>
       )}
