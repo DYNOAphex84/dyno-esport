@@ -506,7 +506,13 @@ function App() {
               <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2 relative z-10">Prochains Matchs</h2>
               <p className="text-gray-400 text-sm relative z-10">Restez prêts pour la victoire</p>
             </div>
-            {user && (<button onClick={requestNotificationPermission} className={`w-full mb-4 py-3 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${notificationsEnabled ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' : 'bg-gradient-to-r from-purple-600 to-purple-700 text-white'}`}>{notificationsEnabled ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>)}
+            {user && (
+  <div className="flex justify-end mb-4">
+    <button onClick={requestNotificationPermission} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${notificationsEnabled ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40' : 'bg-gray-800 border border-gray-600'}`} title={notificationsEnabled ? 'Notifications activées' : 'Activer les notifications'}>
+      <span className="text-xl">{notificationsEnabled ? '🔔' : '🔕'}</span>
+    </button>
+  </div>
+)}
             {loading ? (<div className="text-center py-10 text-[#D4AF37]">⏳...</div>) : prochainsMatchs.length === 0 ? (<div className="text-center py-10 text-gray-500">📭 Aucun match</div>) : (
               <div className="space-y-4">
                 {prochainsMatchs.map((match: any) => (
