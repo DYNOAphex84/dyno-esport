@@ -85,7 +85,6 @@ function App() {
         badge: LOGO_URL,
         tag: 'dyno-match-reminder',
         requireInteraction: true,
-        vibrate: [200, 100, 200]
       })
       notif.onclick = () => {
         window.focus()
