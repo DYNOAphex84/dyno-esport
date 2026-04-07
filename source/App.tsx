@@ -238,9 +238,9 @@ function App() {
   }
 
   const ajouterStrat = async () => {
-    if (!nouvelleStrat.adversaire || nouvelleStrat.picks.length === 0 || nouvelleStrat.bans.length === 0) { 
-      alert('⚠️ Remplis l\'adversaire, picks et bans !'); 
-      return 
+    if (!nouvelleStrat.adversaire || nouvelleStrat.picks.length === 0 || nouvelleStrat.bans.length === 0) {
+      alert('⚠️ Remplis l\'adversaire, picks et bans !')
+      return
     }
     await addDoc(collection(db, 'strats'), {
       adversaire: nouvelleStrat.adversaire,
@@ -356,17 +356,18 @@ function App() {
     return match ? match[1] : null
   }
 
+  // ⬇️ MODIFICATION ICI : 3 → 4 pour picks ET bans
   const toggleMapSelection = (map: string, type: 'picks' | 'bans') => {
     if (type === 'picks') {
       if (nouvelleStrat.picks.includes(map)) {
         setNouvelleStrat({...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map)})
-      } else if (nouvelleStrat.picks.length < 3) {
+      } else if (nouvelleStrat.picks.length < 4) {
         setNouvelleStrat({...nouvelleStrat, picks: [...nouvelleStrat.picks, map]})
       }
     } else {
       if (nouvelleStrat.bans.includes(map)) {
         setNouvelleStrat({...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map)})
-      } else if (nouvelleStrat.bans.length < 3) {
+      } else if (nouvelleStrat.bans.length < 4) {
         setNouvelleStrat({...nouvelleStrat, bans: [...nouvelleStrat.bans, map]})
       }
     }
@@ -556,7 +557,8 @@ function App() {
                       {(isAdmin || user?.uid === strat.auteurId) && <button onClick={() => supprimerStrat(strat.id)} className="text-red-400 text-xl">🗑️</button>}
                     </div>
                     <div className="mb-3">
-                      <p className="text-xs text-green-400 mb-2">✅ Picks ({strat.picks?.length || 0}/3)</p>
+                      {/* ⬇️ MODIFICATION ICI : /3 → /4 */}
+                      <p className="text-xs text-green-400 mb-2">✅ Picks ({strat.picks?.length || 0}/4)</p>
                       <div className="flex flex-wrap gap-2">
                         {strat.picks?.map((pick: string, i: number) => (
                           <span key={i} className="bg-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-sm border border-green-500/30 font-bold">{pick}</span>
@@ -564,7 +566,8 @@ function App() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs text-red-400 mb-2">❌ Bans ({strat.bans?.length || 0}/3)</p>
+                      {/* ⬇️ MODIFICATION ICI : /3 → /4 */}
+                      <p className="text-xs text-red-400 mb-2">❌ Bans ({strat.bans?.length || 0}/4)</p>
                       <div className="flex flex-wrap gap-2">
                         {strat.bans?.map((ban: string, i: number) => (
                           <span key={i} className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm border border-red-500/30 font-bold">{ban}</span>
@@ -593,7 +596,8 @@ function App() {
                     </div>
                     
                     <div>
-                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (max 3)</label>
+                      {/* ⬇️ MODIFICATION ICI : max 3 → max 4 */}
+                      <label className="text-gray-400 text-sm mb-2 block">✅ Picks (max 4)</label>
                       <div className="grid grid-cols-2 gap-2">
                         {ALL_MAPS.map((map) => (
                           <button
@@ -613,7 +617,8 @@ function App() {
                     </div>
                     
                     <div>
-                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans (max 3)</label>
+                      {/* ⬇️ MODIFICATION ICI : max 3 → max 4 */}
+                      <label className="text-gray-400 text-sm mb-2 block">❌ Bans (max 4)</label>
                       <div className="grid grid-cols-2 gap-2">
                         {ALL_MAPS.map((map) => (
                           <button
