@@ -22,6 +22,14 @@ const YOUTUBE_CHANNEL = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const LOGO_URL = 'https://i.imgur.com/gTLj57a.png'
 const ADMIN_EMAIL = 'thibaut.llorens@hotmail.com'
 const ALL_MAPS = ['Engine', 'Helios', 'Silva', 'The Cliff', 'Artefact', 'Outlaw', 'Atlantis', 'Horizon', 'Polaris', 'Lunar', 'Ceres']
+const DIVISIONS: Record<number, string[]> = {
+  1: ['Edgerunners', 'Diamond Dogs', 'BEVA', 'EHPAD Thaï'],
+  2: ['Evakadabra', 'Frer', 'GOTS', 'ONYX'],
+  3: ['STORM', 'Les Touristes', 'Peacekeepers', 'Eau De Source'],
+  4: ['Resistance 84', 'DADA', 'NUKE', 'Must Have'],
+  5: ['AQUILA', 'OWL', 'DYNO', 'EYLAU']
+}
+const getMatchsDiv = (div: number) => { const t = DIVISIONS[div]; const m: { equipe1: string; equipe2: string }[] = []; for (let i = 0; i < t.length; i++) for (let j = i + 1; j < t.length; j++) m.push({ equipe1: t[i], equipe2: t[j] }); return m }
 
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
@@ -41,6 +49,9 @@ function App() {
   const [strats, setStrats] = useState<any[]>([])
   const [commentaires, setCommentaires] = useState<any[]>([])
   const [todos, setTodos] = useState<any[]>([])
+  const [pronostics, setPronostics] = useState<any[]>([])
+  const [pronoResults, setPronoResults] = useState<any[]>([])
+  const [compos, setCompos] = useState<any[]>([])
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
@@ -56,6 +67,11 @@ function App() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [notifiedMatchs, setNotifiedMatchs] = useState<string[]>([])
   const [nouveauTodo, setNouveauTodo] = useState('')
+  const [selectedDiv, setSelectedDiv] = useState(5)
+  const [selectedMapCompo, setSelectedMapCompo] = useState('')
+  const [compoJoueurs, setCompoJoueurs] = useState<string[]>([])
+  const [showAddCompo, setShowAddCompo] = useState(false)
+  const [anniversaire, setAnniversaire] = useState('')
   const prevMatchCount = useRef(0)
   const prevNoteCount = useRef(0)
   const prevCommentCount = useRef(0)
@@ -65,73 +81,29 @@ function App() {
   useEffect(() => { if (window.location.search.includes('reset=1')) { localStorage.clear(); window.location.href = window.location.pathname } }, [])
 
   const sendNotification = useCallback((title: string, body: string, tag?: string) => {
-    try {
-      if (!('Notification' in window) || Notification.permission !== 'granted') return
-      const n = new Notification(title, { body, icon: LOGO_URL, badge: LOGO_URL, tag: tag || 'dyno-notif', requireInteraction: false })
-      n.onclick = () => { window.focus(); n.close() }
-    } catch (e) { console.error('Erreur notification:', e) }
+    try { if (!('Notification' in window) || Notification.permission !== 'granted') return; const n = new Notification(title, { body, icon: LOGO_URL, badge: LOGO_URL, tag: tag || 'dyno-notif', requireInteraction: false }); n.onclick = () => { window.focus(); n.close() } } catch (e) { console.error('Erreur notification:', e) }
   }, [])
 
   const requestNotificationPermission = async () => {
-    try {
-      if (!('Notification' in window)) { alert('❌ Navigateur non supporté'); return }
-      const p = await Notification.requestPermission()
-      if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('✅ Notifications activées !') }
-      else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false'); alert('❌ Notifications refusées') }
-    } catch { alert('❌ Erreur notifications') }
+    try { if (!('Notification' in window)) { alert('❌ Navigateur non supporté'); return }; const p = await Notification.requestPermission(); if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('✅ Notifications activées !') } else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false'); alert('❌ Notifications refusées') } } catch { alert('❌ Erreur notifications') }
   }
 
   const getMatchDateTime = useCallback((match: any): Date | null => {
-    if (!match?.date) return null
-    let d = match.date; const t = match.horaires?.[0] || match.horaire1 || '20:00'
-    if (d.includes('/')) { const [dd, mm, yy] = d.split('/'); d = `${yy}-${mm}-${dd}` }
-    try { const dt = new Date(`${d}T${t}:00`); return isNaN(dt.getTime()) ? null : dt } catch { return null }
+    if (!match?.date) return null; let d = match.date; const t = match.horaires?.[0] || match.horaire1 || '20:00'; if (d.includes('/')) { const [dd, mm, yy] = d.split('/'); d = `${yy}-${mm}-${dd}` }; try { const dt = new Date(`${d}T${t}:00`); return isNaN(dt.getTime()) ? null : dt } catch { return null }
   }, [])
 
-  useEffect(() => {
-    try { if ('Notification' in window && Notification.permission === 'granted' && localStorage.getItem('dyno-notifs') === 'true') setNotificationsEnabled(true) } catch {}
-    try { setNotifiedMatchs(JSON.parse(localStorage.getItem('dyno-notified') || '[]')) } catch { setNotifiedMatchs([]) }
-  }, [])
+  useEffect(() => { try { if ('Notification' in window && Notification.permission === 'granted' && localStorage.getItem('dyno-notifs') === 'true') setNotificationsEnabled(true) } catch {}; try { setNotifiedMatchs(JSON.parse(localStorage.getItem('dyno-notified') || '[]')) } catch { setNotifiedMatchs([]) } }, [])
 
   useEffect(() => {
-    if (!notificationsEnabled) return
-    try { if (!('Notification' in window) || Notification.permission !== 'granted') return } catch { return }
-    const check = () => {
-      const now = new Date()
-      matchs.forEach((m: any) => {
-        if (m.termine) return; const mt = getMatchDateTime(m); if (!mt) return
-        const dm = (mt.getTime() - now.getTime()) / 60000
-        const k1 = `${m.id}-1h`; if (dm > 55 && dm <= 65 && !notifiedMatchs.includes(k1)) { sendNotification('🎮 Match dans 1h !', `⚔️ VS ${m.adversaire}\n🏟️ ${m.arene}`, 'match-1h'); const u = [...notifiedMatchs, k1]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
-        const k2 = `${m.id}-15m`; if (dm > 10 && dm <= 20 && !notifiedMatchs.includes(k2)) { sendNotification('🔥 Match dans 15 min !', `⚔️ VS ${m.adversaire}`, 'match-15m'); const u = [...notifiedMatchs, k2]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
-        const k3 = `${m.id}-now`; if (dm >= -2 && dm <= 3 && !notifiedMatchs.includes(k3)) { sendNotification('⚡ C\'EST MAINTENANT !', `⚔️ VS ${m.adversaire} GO !`, 'match-now'); const u = [...notifiedMatchs, k3]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
-      })
-    }
+    if (!notificationsEnabled) return; try { if (!('Notification' in window) || Notification.permission !== 'granted') return } catch { return }
+    const check = () => { const now = new Date(); matchs.forEach((m: any) => { if (m.termine) return; const mt = getMatchDateTime(m); if (!mt) return; const dm = (mt.getTime() - now.getTime()) / 60000; const k1 = `${m.id}-1h`; if (dm > 55 && dm <= 65 && !notifiedMatchs.includes(k1)) { sendNotification('🎮 Match dans 1h !', `⚔️ VS ${m.adversaire}\n🏟️ ${m.arene}`, 'match-1h'); const u = [...notifiedMatchs, k1]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }; const k2 = `${m.id}-15m`; if (dm > 10 && dm <= 20 && !notifiedMatchs.includes(k2)) { sendNotification('🔥 Match dans 15 min !', `⚔️ VS ${m.adversaire}`, 'match-15m'); const u = [...notifiedMatchs, k2]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }; const k3 = `${m.id}-now`; if (dm >= -2 && dm <= 3 && !notifiedMatchs.includes(k3)) { sendNotification('⚡ C\'EST MAINTENANT !', `⚔️ VS ${m.adversaire} GO !`, 'match-now'); const u = [...notifiedMatchs, k3]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) } }) }
     check(); const i = setInterval(check, 60000); return () => clearInterval(i)
   }, [notificationsEnabled, matchs, notifiedMatchs, sendNotification, getMatchDateTime])
 
-  useEffect(() => {
-    const update = () => {
-      const now = new Date(); const c: Record<string, string> = {}
-      matchs.forEach((m: any) => {
-        if (m.termine) return; const mt = getMatchDateTime(m); if (!mt) return
-        const df = mt.getTime() - now.getTime()
-        if (df <= 0) { c[m.id] = '🔴 EN COURS'; return }
-        const j = Math.floor(df / 86400000), h = Math.floor((df % 86400000) / 3600000), mi = Math.floor((df % 3600000) / 60000), s = Math.floor((df % 60000) / 1000)
-        c[m.id] = `${j > 0 ? j + 'j ' : ''}${(h > 0 || j > 0) ? h + 'h ' : ''}${mi}m ${s}s`
-      })
-      setCountdowns(c)
-    }
-    update(); const i = setInterval(update, 1000); return () => clearInterval(i)
-  }, [matchs, getMatchDateTime])
+  useEffect(() => { const update = () => { const now = new Date(); const c: Record<string, string> = {}; matchs.forEach((m: any) => { if (m.termine) return; const mt = getMatchDateTime(m); if (!mt) return; const df = mt.getTime() - now.getTime(); if (df <= 0) { c[m.id] = '🔴 EN COURS'; return }; const j = Math.floor(df / 86400000), h = Math.floor((df % 86400000) / 3600000), mi = Math.floor((df % 3600000) / 60000), s = Math.floor((df % 60000) / 1000); c[m.id] = `${j > 0 ? j + 'j ' : ''}${(h > 0 || j > 0) ? h + 'h ' : ''}${mi}m ${s}s` }); setCountdowns(c) }; update(); const i = setInterval(update, 1000); return () => clearInterval(i) }, [matchs, getMatchDateTime])
 
   useEffect(() => { if (localStorage.getItem('dyno-admin') === 'true') setIsAdmin(true) }, [])
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u: any) => {
-      setUser(u)
-      if (u) { const d = await getDoc(doc(db, 'users', u.uid)); if (d.exists()) { const data = d.data(); setPseudo(data.pseudo || ''); if (u.email === ADMIN_EMAIL || data.isAdmin) { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true') } } }
-      setLoading(false)
-    }); return () => unsub()
-  }, [])
+  useEffect(() => { const unsub = onAuthStateChanged(auth, async (u: any) => { setUser(u); if (u) { const d = await getDoc(doc(db, 'users', u.uid)); if (d.exists()) { const data = d.data(); setPseudo(data.pseudo || ''); if (data.anniversaire) setAnniversaire(data.anniversaire); if (u.email === ADMIN_EMAIL || data.isAdmin) { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true') } } }; setLoading(false) }); return () => unsub() }, [])
 
   useEffect(() => { const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setMatchs(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setNotes(d) }); return () => u() }, [])
@@ -140,16 +112,18 @@ function App() {
   useEffect(() => { const q = query(collection(db, 'replays'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setReplays(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'players'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setJoueurs(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'todos'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setTodos(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'pronostics'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setPronostics(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'pronoResults'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setPronoResults(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'compos'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setCompos(d) }); return () => u() }, [])
 
   useEffect(() => { if (!notificationsEnabled || prevMatchCount.current === 0) { prevMatchCount.current = matchs.length; return }; if (matchs.length > prevMatchCount.current) { const n = matchs[0]; if (n) sendNotification('📅 Nouveau Match !', `⚔️ VS ${n.adversaire}\n📅 ${n.date}\n🏟️ ${n.arene}`, 'new-match') }; prevMatchCount.current = matchs.length }, [matchs, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || prevNoteCount.current === 0) { prevNoteCount.current = notes.length; return }; if (notes.length > prevNoteCount.current) { const n = notes[0]; if (n) sendNotification('📊 Nouvelle Note !', `${n.joueur}: 🧠${n.mental} 💬${n.communication} 🎯${n.gameplay}`, 'new-note') }; prevNoteCount.current = notes.length }, [notes, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || prevCommentCount.current === 0) { prevCommentCount.current = commentaires.length; return }; if (commentaires.length > prevCommentCount.current) { const n = commentaires[0]; if (n) sendNotification('💬 Commentaire !', `${n.joueur}: "${n.texte.substring(0, 60)}"`, 'new-comment') }; prevCommentCount.current = commentaires.length }, [commentaires, notificationsEnabled, sendNotification])
-  useEffect(() => { if (!notificationsEnabled || prevStratCount.current === 0) { prevStratCount.current = strats.length; return }; if (strats.length > prevStratCount.current) { const n = strats[0]; if (n) sendNotification('🎯 Nouvelle Strat !', `VS ${n.adversaire}\n✅ ${n.picks?.join(', ')}\n❌ ${n.bans?.join(', ')}`, 'new-strat') }; prevStratCount.current = strats.length }, [strats, notificationsEnabled, sendNotification])
+  useEffect(() => { if (!notificationsEnabled || prevStratCount.current === 0) { prevStratCount.current = strats.length; return }; if (strats.length > prevStratCount.current) { const n = strats[0]; if (n) sendNotification('🎯 Nouvelle Strat !', `VS ${n.adversaire}`, 'new-strat') }; prevStratCount.current = strats.length }, [strats, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || prevTodoCount.current === 0) { prevTodoCount.current = todos.length; return }; if (todos.length > prevTodoCount.current) { const n = todos[0]; if (n) sendNotification('📝 Nouvelle Tâche !', `${n.auteur}: "${n.texte.substring(0, 60)}"`, 'new-todo') }; prevTodoCount.current = todos.length }, [todos, notificationsEnabled, sendNotification])
 
   useEffect(() => { const t = setTimeout(() => setShowSplash(false), 2000); return () => clearTimeout(t) }, [])
   useEffect(() => { window.addEventListener('beforeinstallprompt', (e: any) => { e.preventDefault(); setDeferredPrompt(e); setShowInstall(true) }) }, [])
-
   const handleInstall = () => { if (deferredPrompt) { deferredPrompt.prompt(); setDeferredPrompt(null); setShowInstall(false) } }
   const handleSignUp = async () => { if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }; try { const r = await createUserWithEmailAndPassword(auth, email, authPassword); await setDoc(doc(db, 'users', r.user.uid), { pseudo, email, createdAt: Date.now(), isAdmin: email === ADMIN_EMAIL }); await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', rang: 'Nouveau', userId: r.user.uid, createdAt: Date.now() }); alert('✅ Compte créé !'); setIsSignUp(false); setEmail(''); setAuthPassword('') } catch (e: any) { alert('❌ ' + e.message) } }
   const handleSignIn = async () => { if (!email || !authPassword) { alert('⚠️ Remplis tout !'); return }; try { await setPersistence(auth, browserLocalPersistence); await signInWithEmailAndPassword(auth, email, authPassword); localStorage.setItem('user-email', email); alert('✅ Connecté !'); setEmail(''); setAuthPassword('') } catch (e: any) { alert('❌ ' + e.message) } }
@@ -157,19 +131,19 @@ function App() {
   const handleAdminLogin = () => { if (adminPassword === 'dyno2026') { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true'); setAdminPassword('') } else alert('❌ Mot de passe incorrect !') }
   const handleAdminLogout = () => { setIsAdmin(false); localStorage.removeItem('dyno-admin') }
 
-  const ajouterMatch = async () => {
-    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('⚠️ Remplis tout !'); return }
-    await addDoc(collection(db, 'matchs'), { ...nouveauMatch, termine: false, disponibles: [], indisponibles: [], createdAt: Date.now() })
-    const h = [nouveauMatch.horaire1]; if (nouveauMatch.horaire2) h.push(nouveauMatch.horaire2)
-    try { await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '🎮 NOUVEAU MATCH DYNO !', color: 13934871, fields: [{ name: '⚔️ Adversaire', value: nouveauMatch.adversaire, inline: true }, { name: '📅 Date', value: nouveauMatch.date, inline: true }, { name: '⏰ Horaire', value: h.join(' / '), inline: true }, { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true }, { name: '📊 Type', value: nouveauMatch.type, inline: true }], footer: { text: 'DYNO Esport', icon_url: LOGO_URL } }] }) }) } catch {}
-    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' }); alert('✅ Match ajouté !')
-  }
+  const ajouterMatch = async () => { if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('⚠️ Remplis tout !'); return }; await addDoc(collection(db, 'matchs'), { ...nouveauMatch, termine: false, disponibles: [], indisponibles: [], createdAt: Date.now() }); const h = [nouveauMatch.horaire1]; if (nouveauMatch.horaire2) h.push(nouveauMatch.horaire2); try { await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '🎮 NOUVEAU MATCH DYNO !', color: 13934871, fields: [{ name: '⚔️ Adversaire', value: nouveauMatch.adversaire, inline: true }, { name: '📅 Date', value: nouveauMatch.date, inline: true }, { name: '⏰ Horaire', value: h.join(' / '), inline: true }, { name: '🏟️ Arène', value: nouveauMatch.arene, inline: true }, { name: '📊 Type', value: nouveauMatch.type, inline: true }], footer: { text: 'DYNO Esport', icon_url: LOGO_URL } }] }) }) } catch {}; setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' }); alert('✅ Match ajouté !') }
   const ajouterReplay = async () => { if (!nouveauReplay.titre || !nouveauReplay.lien) { alert('⚠️ Remplis tout !'); return }; await addDoc(collection(db, 'replays'), { ...nouveauReplay, createdAt: Date.now() }); setNouveauReplay({ titre: '', lien: '' }); alert('✅ Replay ajouté !') }
   const ajouterNote = async () => { if (!user) { alert('⚠️ Connecte-toi !'); return }; await addDoc(collection(db, 'notes'), { matchId: selectedMatchForNotes?.id, joueur: pseudo, joueurId: user.uid, ...nouvelleNote, createdAt: Date.now() }); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }); setSelectedMatchForNotes(null); alert('✅ Note ajoutée !') }
   const ajouterCommentaire = async (matchId: string) => { if (!user) { alert('⚠️ Connecte-toi !'); return }; if (!nouveauCommentaire.trim()) { alert('⚠️ Écris un commentaire !'); return }; await addDoc(collection(db, 'commentaires'), { matchId, joueur: pseudo, joueurId: user.uid, texte: nouveauCommentaire.trim(), createdAt: Date.now() }); setNouveauCommentaire(''); setSelectedMatchForComment(null); alert('✅ Commentaire ajouté !') }
   const ajouterStrat = async () => { if (!nouvelleStrat.adversaire || nouvelleStrat.picks.length === 0 || nouvelleStrat.bans.length === 0) { alert('⚠️ Remplis tout !'); return }; await addDoc(collection(db, 'strats'), { adversaire: nouvelleStrat.adversaire, picks: nouvelleStrat.picks, bans: nouvelleStrat.bans, auteur: pseudo, auteurId: user?.uid, createdAt: Date.now() }); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }); setShowAddStrat(false); alert('✅ Stratégie ajoutée !') }
   const ajouterTodo = async () => { if (!user || !nouveauTodo.trim()) { alert('⚠️ Écris une tâche !'); return }; await addDoc(collection(db, 'todos'), { texte: nouveauTodo.trim(), termine: false, auteur: pseudo, auteurId: user.uid, createdAt: Date.now() }); setNouveauTodo('') }
   const toggleTodo = async (id: string, current: boolean) => { await updateDoc(doc(db, 'todos', id), { termine: !current }) }
+  const envoyerProno = async (div: number, equipe1: string, equipe2: string, score1: string, score2: string) => { if (!user) return; const mk = `${div}-${equipe1}-${equipe2}`; const ex = pronostics.find((p: any) => p.matchKey === mk && p.joueurId === user.uid); if (ex) { await updateDoc(doc(db, 'pronostics', ex.id), { score1: parseInt(score1), score2: parseInt(score2), updatedAt: Date.now() }) } else { await addDoc(collection(db, 'pronostics'), { matchKey: mk, div, equipe1, equipe2, score1: parseInt(score1), score2: parseInt(score2), joueur: pseudo, joueurId: user.uid, createdAt: Date.now() }) } }
+  const entrerResultat = async (div: number, equipe1: string, equipe2: string, score1: string, score2: string) => { const mk = `${div}-${equipe1}-${equipe2}`; const ex = pronoResults.find((r: any) => r.matchKey === mk); if (ex) { await updateDoc(doc(db, 'pronoResults', ex.id), { score1: parseInt(score1), score2: parseInt(score2) }) } else { await addDoc(collection(db, 'pronoResults'), { matchKey: mk, div, equipe1, equipe2, score1: parseInt(score1), score2: parseInt(score2), createdAt: Date.now() }) }; alert('✅ Résultat enregistré !') }
+  const getPronoPoints = (joueurId: string) => { let pts = 0; pronoResults.forEach((r: any) => { const p = pronostics.find((x: any) => x.matchKey === r.matchKey && x.joueurId === joueurId); if (!p) return; if (p.score1 === r.score1 && p.score2 === r.score2) pts += 3; else if ((p.score1 > p.score2 && r.score1 > r.score2) || (p.score1 < p.score2 && r.score1 < r.score2)) pts += 1 }); return pts }
+  const ajouterCompo = async () => { if (!selectedMapCompo || compoJoueurs.length === 0) { alert('⚠️ Choisis une map et des joueurs !'); return }; const ex = compos.find((c: any) => c.map === selectedMapCompo); if (ex) { await updateDoc(doc(db, 'compos', ex.id), { joueurs: compoJoueurs, updatedAt: Date.now() }) } else { await addDoc(collection(db, 'compos'), { map: selectedMapCompo, joueurs: compoJoueurs, auteur: pseudo, createdAt: Date.now() }) }; setShowAddCompo(false); setSelectedMapCompo(''); setCompoJoueurs([]); alert('✅ Compo sauvegardée !') }
+  const toggleCompoJoueur = (name: string) => { if (compoJoueurs.includes(name)) setCompoJoueurs(compoJoueurs.filter(j => j !== name)); else setCompoJoueurs([...compoJoueurs, name]) }
+  const sauvegarderAnniversaire = async () => { if (!user || !anniversaire) { alert('⚠️ Entre ta date !'); return }; await updateDoc(doc(db, 'users', user.uid), { anniversaire }); alert('✅ Anniversaire sauvegardé !') }
 
   const supprimerMatch = async (id: string) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Supprimé !') }
   const supprimerReplay = async (id: string) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Supprimé !') }
@@ -178,28 +152,13 @@ function App() {
   const supprimerNote = async (id: string) => { await deleteDoc(doc(db, 'notes', id)); alert('✅ Supprimé !') }
   const supprimerCommentaire = async (id: string) => { await deleteDoc(doc(db, 'commentaires', id)); alert('✅ Supprimé !') }
   const supprimerTodo = async (id: string) => { await deleteDoc(doc(db, 'todos', id)) }
-
+  const supprimerCompo = async (id: string) => { await deleteDoc(doc(db, 'compos', id)); alert('✅ Supprimé !') }
   const updateScore = async () => { if (!scoreEdit) return; await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true }); setScoreEdit(null); alert('✅ Score mis à jour !') }
   const toggleDisponibilite = async (matchId: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === matchId); if (!m) return; const d = m.disponibles || [], i = m.indisponibles || []; await updateDoc(doc(db, 'matchs', matchId), { disponibles: d.includes(pseudo) ? d.filter((p: string) => p !== pseudo) : [...d, pseudo], indisponibles: i.filter((p: string) => p !== pseudo) }) }
   const toggleIndisponibilite = async (matchId: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === matchId); if (!m) return; const d = m.disponibles || [], i = m.indisponibles || []; await updateDoc(doc(db, 'matchs', matchId), { indisponibles: i.includes(pseudo) ? i.filter((p: string) => p !== pseudo) : [...i, pseudo], disponibles: d.filter((p: string) => p !== pseudo) }) }
-
   const formatDateFR = (s: string) => { if (!s) return ''; if (s.includes('/')) return s; const [y, m, d] = s.split('-'); return `${d}/${m}/${y}` }
   const formatTimestamp = (t: number) => { const d = new Date(t); return `${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` }
-
-  const addToCalendar = (match: any) => {
-    try {
-      if (!match?.date) { alert('⚠️ Match non trouvé'); return }
-      let y: string, m: string, d: string
-      if (match.date.includes('/')) { const [dd, mm, yy] = match.date.split('/'); d = dd; m = mm; y = yy } else { const [yy, mm, dd] = match.date.split('-'); y = yy; m = mm; d = dd }
-      const md = `${y}${m}${d}`; let h = '20', mi = '00'
-      if (match.horaires?.length > 0) { const [hh, mm] = match.horaires[0].split(':'); h = hh; mi = mm || '00' } else if (match.horaire1) { const [hh, mm] = match.horaire1.split(':'); h = hh; mi = mm || '00' }
-      const st = `${h}${mi}00`, et = `${(parseInt(h) + 2).toString().padStart(2, '0')}${mi}00`
-      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-        const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:${match.id}@dyno\nDTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\nDTSTART:${md}T${st}\nDTEND:${md}T${et}\nSUMMARY:🎮 DYNO vs ${match.adversaire}\nLOCATION:${match.arene}\nEND:VEVENT\nEND:VCALENDAR`
-        const b = new Blob([ics], { type: 'text/calendar' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `DYNO_vs_${match.adversaire}.ics`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u)
-      } else { window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${md}T${st}/${md}T${et}&location=${encodeURIComponent(match.arene)}`, '_blank') }
-    } catch (e: any) { alert('❌ ' + e.message) }
-  }
+  const addToCalendar = (match: any) => { try { if (!match?.date) { alert('⚠️ Match non trouvé'); return }; let y: string, m: string, d: string; if (match.date.includes('/')) { const [dd, mm, yy] = match.date.split('/'); d = dd; m = mm; y = yy } else { const [yy, mm, dd] = match.date.split('-'); y = yy; m = mm; d = dd }; const md = `${y}${m}${d}`; let h = '20', mi = '00'; if (match.horaires?.length > 0) { const [hh, mm] = match.horaires[0].split(':'); h = hh; mi = mm || '00' } else if (match.horaire1) { const [hh, mm] = match.horaire1.split(':'); h = hh; mi = mm || '00' }; const st = `${h}${mi}00`, et = `${(parseInt(h) + 2).toString().padStart(2, '0')}${mi}00`; if (/iPad|iPhone|iPod/.test(navigator.userAgent)) { const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:${match.id}@dyno\nDTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\nDTSTART:${md}T${st}\nDTEND:${md}T${et}\nSUMMARY:🎮 DYNO vs ${match.adversaire}\nLOCATION:${match.arene}\nEND:VEVENT\nEND:VCALENDAR`; const b = new Blob([ics], { type: 'text/calendar' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `DYNO_vs_${match.adversaire}.ics`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u) } else { window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`🎮 DYNO vs ${match.adversaire}`)}&dates=${md}T${st}/${md}T${et}&location=${encodeURIComponent(match.arene)}`, '_blank') } } catch (e: any) { alert('❌ ' + e.message) } }
 
   const victoires = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
@@ -208,29 +167,14 @@ function App() {
   const prochainsMatchs = matchs.filter((m: any) => !m.termine).sort((a: any, b: any) => new Date(`${a.date}T${a.horaires?.[0] || a.horaire1 || '20:00'}`).getTime() - new Date(`${b.date}T${b.horaires?.[0] || b.horaire1 || '20:00'}`).getTime())
   const historique = matchs.filter((m: any) => m.termine)
   const getYouTubeId = (url: string) => { const m = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/); return m ? m[1] : null }
-  const toggleMapSelection = (map: string, type: 'picks' | 'bans') => {
-    if (type === 'picks') { if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) }); else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] }) }
-    else { if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) }); else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] }) }
-  }
-
-  if (showSplash) return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a] flex items-center justify-center">
-      <div className="text-center">
-        <img src={LOGO_URL} alt="DYNO" className="w-56 h-56 mx-auto animate-pulse drop-shadow-[0_0_30px_rgba(212,175,55,0.5)]" />
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 animate-pulse">DYNO</h1>
-        <p className="text-gray-400 mt-2">Esport Team</p>
-      </div>
-    </div>
-  )
+  const toggleMapSelection = (map: string, type: 'picks' | 'bans') => { if (type === 'picks') { if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) }); else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] }) } else { if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) }); else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] }) } }
+  if (showSplash) return (<div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a] flex items-center justify-center"><div className="text-center"><img src={LOGO_URL} alt="DYNO" className="w-56 h-56 mx-auto animate-pulse drop-shadow-[0_0_30px_rgba(212,175,55,0.5)]" /><h1 className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 animate-pulse">DYNO</h1><p className="text-gray-400 mt-2">Esport Team</p></div></div>)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a] pb-24">
       <header className="backdrop-blur-xl bg-black/40 border-b border-[#D4AF37]/20 sticky top-0 z-50 shadow-2xl">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={LOGO_URL} alt="DYNO" className="w-14 h-14 drop-shadow-[0_0_15px_rgba(212,175,55,0.5)]" />
-            <div><h1 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h1><p className="text-xs text-gray-400">Esport Team</p></div>
-          </div>
+          <div className="flex items-center gap-3"><img src={LOGO_URL} alt="DYNO" className="w-14 h-14 drop-shadow-[0_0_15px_rgba(212,175,55,0.5)]" /><div><h1 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h1><p className="text-xs text-gray-400">Esport Team</p></div></div>
           <div className="flex gap-2 items-center">
             {user && (<button onClick={requestNotificationPermission} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${notificationsEnabled ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40' : 'bg-gray-800 border border-gray-600'}`}><span className="text-lg">{notificationsEnabled ? '🔔' : '🔕'}</span></button>)}
             {showInstall && (<button onClick={handleInstall} className="px-3 py-2 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg text-sm">📲</button>)}
@@ -240,342 +184,116 @@ function App() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
-        {activeTab === 'matchs' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2 relative z-10">Prochains Matchs</h2>
-              <p className="text-gray-400 text-sm relative z-10">Restez prêts pour la victoire</p>
-            </div>
-            {loading ? (<div className="text-center py-10 text-[#D4AF37]">⏳...</div>) : prochainsMatchs.length === 0 ? (<div className="text-center py-10 text-gray-500">📭 Aucun match</div>) : (
-              <div className="space-y-4">
-                {prochainsMatchs.map((match: any) => (
-                  <div key={match.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${match.type === 'Ligue' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : match.type === 'Scrim' ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' : match.type === 'Tournoi' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white' : 'bg-gradient-to-r from-orange-600 to-orange-700 text-white'}`}>{match.type}</span>
-                      <span className="text-[#D4AF37] font-bold">{formatDateFR(match.date)}</span>
-                    </div>
-                    {countdowns[match.id] && (<div className={`rounded-xl p-3 mb-4 text-center border ${countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-600/20 border-red-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30'}`}><p className="text-xs text-gray-400 mb-1">⏱️ Compte à rebours</p><p className={`text-2xl font-bold font-mono ${countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent'}`}>{countdowns[match.id]}</p></div>)}
-                    <div className="flex items-center gap-4 mb-4">
-                      <img src={LOGO_URL} alt="DYNO" className="w-14 h-14 drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]" />
-                      <span className="text-gray-500 text-xl">VS</span>
-                      <div className="flex-1 text-right"><p className="font-bold text-lg text-white">{match.adversaire}</p><p className="text-sm text-[#D4AF37]">🏟️ {match.arene}</p></div>
-                    </div>
-                    <div className="bg-black/60 rounded-xl p-3 mb-3 border border-[#D4AF37]/20"><p className="text-xs text-gray-400 mb-1">⏰ Horaires</p><p className="text-[#D4AF37] font-bold">{match.horaires?.join(' / ') || match.horaire1 || '20:00'}</p></div>
-                    <div className="bg-black/60 rounded-xl p-3 mb-3 border border-[#D4AF37]/20">
-                      <p className="text-xs text-gray-400 mb-2">👥 Disponibles ({(match.disponibles || []).length})</p>
-                      {(match.disponibles || []).length > 0 && (<div className="flex flex-wrap gap-2">{(match.disponibles || []).map((p: string, i: number) => (<span key={i} className="bg-[#D4AF37]/20 text-[#D4AF37] px-3 py-1.5 rounded-xl text-xs font-bold border border-[#D4AF37]/30">{p}</span>))}</div>)}
-                    </div>
-                    <div className="bg-black/60 rounded-xl p-3 mb-4 border border-red-500/20">
-                      <p className="text-xs text-gray-400 mb-2">🚫 Indisponibles ({(match.indisponibles || []).length})</p>
-                      {(match.indisponibles || []).length > 0 && (<div className="flex flex-wrap gap-2">{(match.indisponibles || []).map((p: string, i: number) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-xl text-xs font-bold border border-red-500/30">{p}</span>))}</div>)}
-                    </div>
-                    <button onClick={() => addToCalendar(match)} className="w-full mb-3 py-3 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg flex items-center justify-center gap-2">📅 Ajouter au calendrier</button>
-                    <div className="flex gap-3">
-                      <button onClick={() => toggleDisponibilite(match.id)} disabled={!user} className={`flex-1 py-4 rounded-xl font-bold transition-all shadow-lg ${!user ? 'bg-gray-700 text-gray-400' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'border-2 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10'}`}>{!user ? '🔐' : (match.disponibles || []).includes(pseudo) ? '✅ Dispo' : '📅 Dispo'}</button>
-                      <button onClick={() => toggleIndisponibilite(match.id)} disabled={!user} className={`flex-1 py-4 rounded-xl font-bold transition-all shadow-lg ${!user ? 'bg-gray-700 text-gray-400' : (match.indisponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-red-600 to-red-700 text-white' : 'border-2 border-red-500 text-red-400 hover:bg-red-500/10'}`}>{!user ? '🔐' : (match.indisponibles || []).includes(pseudo) ? '❌ Indispo' : '🚫 Indispo'}</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === 'matchs' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" /><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2 relative z-10">Prochains Matchs</h2><p className="text-gray-400 text-sm relative z-10">Restez prêts pour la victoire</p></div>
+          {loading ? (<div className="text-center py-10 text-[#D4AF37]">⏳...</div>) : prochainsMatchs.length === 0 ? (<div className="text-center py-10 text-gray-500">📭 Aucun match</div>) : (<div className="space-y-4">{prochainsMatchs.map((match: any) => (<div key={match.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
+            <div className="flex items-center justify-between mb-4"><span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${match.type === 'Ligue' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : match.type === 'Scrim' ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' : match.type === 'Tournoi' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white' : 'bg-gradient-to-r from-orange-600 to-orange-700 text-white'}`}>{match.type}</span><span className="text-[#D4AF37] font-bold">{formatDateFR(match.date)}</span></div>
+            {countdowns[match.id] && (<div className={`rounded-xl p-3 mb-4 text-center border ${countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-600/20 border-red-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30'}`}><p className="text-xs text-gray-400 mb-1">⏱️ Compte à rebours</p><p className={`text-2xl font-bold font-mono ${countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent'}`}>{countdowns[match.id]}</p></div>)}
+            <div className="flex items-center gap-4 mb-4"><img src={LOGO_URL} alt="DYNO" className="w-14 h-14 drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]" /><span className="text-gray-500 text-xl">VS</span><div className="flex-1 text-right"><p className="font-bold text-lg text-white">{match.adversaire}</p><p className="text-sm text-[#D4AF37]">🏟️ {match.arene}</p></div></div>
+            <div className="bg-black/60 rounded-xl p-3 mb-3 border border-[#D4AF37]/20"><p className="text-xs text-gray-400 mb-1">⏰ Horaires</p><p className="text-[#D4AF37] font-bold">{match.horaires?.join(' / ') || match.horaire1 || '20:00'}</p></div>
+            <div className="bg-black/60 rounded-xl p-3 mb-3 border border-[#D4AF37]/20"><p className="text-xs text-gray-400 mb-2">👥 Disponibles ({(match.disponibles || []).length})</p>{(match.disponibles || []).length > 0 && (<div className="flex flex-wrap gap-2">{(match.disponibles || []).map((p: string, i: number) => (<span key={i} className="bg-[#D4AF37]/20 text-[#D4AF37] px-3 py-1.5 rounded-xl text-xs font-bold border border-[#D4AF37]/30">{p}</span>))}</div>)}</div>
+            <div className="bg-black/60 rounded-xl p-3 mb-4 border border-red-500/20"><p className="text-xs text-gray-400 mb-2">🚫 Indisponibles ({(match.indisponibles || []).length})</p>{(match.indisponibles || []).length > 0 && (<div className="flex flex-wrap gap-2">{(match.indisponibles || []).map((p: string, i: number) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-xl text-xs font-bold border border-red-500/30">{p}</span>))}</div>)}</div>
+            <button onClick={() => addToCalendar(match)} className="w-full mb-3 py-3 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg flex items-center justify-center gap-2">📅 Ajouter au calendrier</button>
+            <div className="flex gap-3"><button onClick={() => toggleDisponibilite(match.id)} disabled={!user} className={`flex-1 py-4 rounded-xl font-bold transition-all shadow-lg ${!user ? 'bg-gray-700 text-gray-400' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'border-2 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10'}`}>{!user ? '🔐' : (match.disponibles || []).includes(pseudo) ? '✅ Dispo' : '📅 Dispo'}</button><button onClick={() => toggleIndisponibilite(match.id)} disabled={!user} className={`flex-1 py-4 rounded-xl font-bold transition-all shadow-lg ${!user ? 'bg-gray-700 text-gray-400' : (match.indisponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-red-600 to-red-700 text-white' : 'border-2 border-red-500 text-red-400 hover:bg-red-500/10'}`}>{!user ? '🔐' : (match.indisponibles || []).includes(pseudo) ? '❌ Indispo' : '🚫 Indispo'}</button></div>
+          </div>))}</div>)}
+        </div>)}
 
-        {activeTab === 'historique' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">Historique</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-[#D4AF37]/20 rounded-2xl p-5 border border-[#D4AF37]/30 shadow-xl"><p className="text-4xl font-bold text-[#D4AF37]">{victoires}</p><p className="text-xs text-gray-400 mt-1">Victoires</p></div>
-              <div className="bg-red-500/20 rounded-2xl p-5 border border-red-500/30 shadow-xl"><p className="text-4xl font-bold text-red-500">{defaites}</p><p className="text-xs text-gray-400 mt-1">Défaites</p></div>
-            </div>
-            {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📜 Aucun match</div>) : (
-              <div className="space-y-4">
-                {historique.map((match: any) => {
-                  const mn = notes.filter((n: any) => n.matchId === match.id); const mc = commentaires.filter((c: any) => c.matchId === match.id)
-                  return (
-                    <div key={match.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-bold ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'}`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
-                        <span className="text-gray-400 text-sm">{formatDateFR(match.date)}</span>
-                      </div>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="text-center"><p className="font-bold text-[#D4AF37]">DYNO</p><p className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{match.scoreDyno}</p></div>
-                        <span className="text-gray-600 text-2xl">-</span>
-                        <div className="text-center"><p className="font-bold text-gray-400">{match.adversaire}</p><p className="text-4xl font-bold text-gray-400">{match.scoreAdversaire}</p></div>
-                      </div>
-                      <div className="flex gap-3 mb-4">
-                        <button onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg text-sm">📝 Notes</button>
-                        <button onClick={() => setSelectedMatchForComment(selectedMatchForComment?.id === match.id ? null : match)} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg text-sm">💬 Commenter</button>
-                      </div>
-                      {selectedMatchForComment?.id === match.id && user && (<div className="bg-black/60 rounded-xl p-4 mb-4 border border-cyan-500/20"><textarea placeholder="Ton analyse du match..." value={nouveauCommentaire} onChange={(e) => setNouveauCommentaire(e.target.value)} rows={3} className="w-full bg-black/60 border border-cyan-500/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-400 resize-none mb-3" /><button onClick={() => ajouterCommentaire(match.id)} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg text-sm">💬 Envoyer</button></div>)}
-                      {mc.length > 0 && (<div className="space-y-2 mb-4"><p className="text-xs text-cyan-400 mb-2">💬 Commentaires ({mc.length})</p>{mc.map((c: any) => (<div key={c.id} className="bg-black/60 rounded-xl p-3 border border-cyan-500/20"><div className="flex items-center justify-between mb-1"><p className="text-cyan-400 font-bold text-sm">{c.joueur}</p><div className="flex items-center gap-2"><p className="text-gray-500 text-xs">{formatTimestamp(c.createdAt)}</p>{(isAdmin || user?.uid === c.joueurId) && <button onClick={() => supprimerCommentaire(c.id)} className="text-red-400 text-xs">🗑️</button>}</div></div><p className="text-gray-300 text-sm">{c.texte}</p></div>))}</div>)}
-                      {mn.length > 0 ? (<div className="space-y-2"><p className="text-xs text-gray-400 mb-2">📊 {mn.length} note(s)</p>{mn.map((n: any) => (<div key={n.id} className="bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20"><div className="flex items-center justify-between mb-2"><p className="text-[#D4AF37] font-bold text-sm">{n.joueur}</p>{isAdmin && <button onClick={() => supprimerNote(n.id)} className="text-red-400 text-xs">🗑️</button>}</div><div className="grid grid-cols-3 gap-2 text-center text-xs"><div className="bg-purple-500/20 rounded-lg p-2"><p className="text-gray-400">🧠</p><p className="text-purple-400 font-bold">{n.mental}/10</p></div><div className="bg-blue-500/20 rounded-lg p-2"><p className="text-gray-400">💬</p><p className="text-blue-400 font-bold">{n.communication}/10</p></div><div className="bg-green-500/20 rounded-lg p-2"><p className="text-gray-400">🎯</p><p className="text-green-400 font-bold">{n.gameplay}/10</p></div></div></div>))}</div>) : (<p className="text-gray-500 text-sm text-center">Aucune note</p>)}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            {selectedMatchForNotes && (
-              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📊 Notes - {selectedMatchForNotes.adversaire}</h3>
-                  <div className="space-y-4 mb-6">
-                    <div><label className="text-gray-400 text-sm mb-2 block">🧠 Mental (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.mental} onChange={(e) => setNouvelleNote({ ...nouvelleNote, mental: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">💬 Communication (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.communication} onChange={(e) => setNouvelleNote({ ...nouvelleNote, communication: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">🎯 Performance (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.gameplay} onChange={(e) => setNouvelleNote({ ...nouvelleNote, gameplay: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
-                  </div>
-                  <div className="flex gap-3"><button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={ajouterNote} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === 'historique' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">Historique</h2></div>
+          <div className="grid grid-cols-2 gap-4 mb-6"><div className="bg-[#D4AF37]/20 rounded-2xl p-5 border border-[#D4AF37]/30 shadow-xl"><p className="text-4xl font-bold text-[#D4AF37]">{victoires}</p><p className="text-xs text-gray-400 mt-1">Victoires</p></div><div className="bg-red-500/20 rounded-2xl p-5 border border-red-500/30 shadow-xl"><p className="text-4xl font-bold text-red-500">{defaites}</p><p className="text-xs text-gray-400 mt-1">Défaites</p></div></div>
+          {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📜 Aucun match</div>) : (<div className="space-y-4">{historique.map((match: any) => { const mn = notes.filter((n: any) => n.matchId === match.id); const mc = commentaires.filter((c: any) => c.matchId === match.id); return (<div key={match.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
+            <div className="flex items-center justify-between mb-4"><span className={`px-4 py-1.5 rounded-full text-xs font-bold ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-gradient-to-r from-red-600 to-red-700 text-white'}`}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span><span className="text-gray-400 text-sm">{formatDateFR(match.date)}</span></div>
+            <div className="flex items-center justify-between mb-4"><div className="text-center"><p className="font-bold text-[#D4AF37]">DYNO</p><p className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{match.scoreDyno}</p></div><span className="text-gray-600 text-2xl">-</span><div className="text-center"><p className="font-bold text-gray-400">{match.adversaire}</p><p className="text-4xl font-bold text-gray-400">{match.scoreAdversaire}</p></div></div>
+            <div className="flex gap-3 mb-4"><button onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg text-sm">📝 Notes</button><button onClick={() => setSelectedMatchForComment(selectedMatchForComment?.id === match.id ? null : match)} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg text-sm">💬 Commenter</button></div>
+            {selectedMatchForComment?.id === match.id && user && (<div className="bg-black/60 rounded-xl p-4 mb-4 border border-cyan-500/20"><textarea placeholder="Ton analyse..." value={nouveauCommentaire} onChange={(e) => setNouveauCommentaire(e.target.value)} rows={3} className="w-full bg-black/60 border border-cyan-500/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-400 resize-none mb-3" /><button onClick={() => ajouterCommentaire(match.id)} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg text-sm">💬 Envoyer</button></div>)}
+            {mc.length > 0 && (<div className="space-y-2 mb-4"><p className="text-xs text-cyan-400 mb-2">💬 Commentaires ({mc.length})</p>{mc.map((c: any) => (<div key={c.id} className="bg-black/60 rounded-xl p-3 border border-cyan-500/20"><div className="flex items-center justify-between mb-1"><p className="text-cyan-400 font-bold text-sm">{c.joueur}</p><div className="flex items-center gap-2"><p className="text-gray-500 text-xs">{formatTimestamp(c.createdAt)}</p>{(isAdmin || user?.uid === c.joueurId) && <button onClick={() => supprimerCommentaire(c.id)} className="text-red-400 text-xs">🗑️</button>}</div></div><p className="text-gray-300 text-sm">{c.texte}</p></div>))}</div>)}
+            {mn.length > 0 ? (<div className="space-y-2"><p className="text-xs text-gray-400 mb-2">📊 {mn.length} note(s)</p>{mn.map((n: any) => (<div key={n.id} className="bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20"><div className="flex items-center justify-between mb-2"><p className="text-[#D4AF37] font-bold text-sm">{n.joueur}</p>{isAdmin && <button onClick={() => supprimerNote(n.id)} className="text-red-400 text-xs">🗑️</button>}</div><div className="grid grid-cols-3 gap-2 text-center text-xs"><div className="bg-purple-500/20 rounded-lg p-2"><p className="text-gray-400">🧠</p><p className="text-purple-400 font-bold">{n.mental}/10</p></div><div className="bg-blue-500/20 rounded-lg p-2"><p className="text-gray-400">💬</p><p className="text-blue-400 font-bold">{n.communication}/10</p></div><div className="bg-green-500/20 rounded-lg p-2"><p className="text-gray-400">🎯</p><p className="text-green-400 font-bold">{n.gameplay}/10</p></div></div></div>))}</div>) : (<p className="text-gray-500 text-sm text-center">Aucune note</p>)}
+          </div>) })}</div>)}
+          {selectedMatchForNotes && (<div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl"><h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📊 Notes - {selectedMatchForNotes.adversaire}</h3><div className="space-y-4 mb-6"><div><label className="text-gray-400 text-sm mb-2 block">🧠 Mental (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.mental} onChange={(e) => setNouvelleNote({ ...nouvelleNote, mental: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div><div><label className="text-gray-400 text-sm mb-2 block">💬 Comm (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.communication} onChange={(e) => setNouvelleNote({ ...nouvelleNote, communication: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div><div><label className="text-gray-400 text-sm mb-2 block">🎯 Perf (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.gameplay} onChange={(e) => setNouvelleNote({ ...nouvelleNote, gameplay: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div></div><div className="flex gap-3"><button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={ajouterNote} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div></div></div>)}
+        </div>)}
 
-        {activeTab === 'strats' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🎯 Stratégies</h2>
-              <p className="text-gray-400 text-sm">Picks & Bans par équipe</p>
-            </div>
-            {user && (<button onClick={() => setShowAddStrat(true)} className="w-full mb-6 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Nouvelle Stratégie</button>)}
-            {strats.length === 0 ? (<div className="text-center py-10 text-gray-500">📝 Aucune stratégie</div>) : (
-              <div className="space-y-4">{strats.map((s: any) => (
-                <div key={s.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                  <div className="flex items-center justify-between mb-4"><div><p className="text-lg font-bold text-[#D4AF37]">VS {s.adversaire}</p><p className="text-xs text-gray-400">par {s.auteur || 'Inconnu'}</p></div>{(isAdmin || user?.uid === s.auteurId) && <button onClick={() => supprimerStrat(s.id)} className="text-red-400 text-xl">🗑️</button>}</div>
-                  <div className="mb-3"><p className="text-xs text-green-400 mb-2">✅ Picks ({s.picks?.length || 0}/4)</p><div className="flex flex-wrap gap-2">{s.picks?.map((p: string, i: number) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-sm border border-green-500/30 font-bold">{p}</span>))}</div></div>
-                  <div><p className="text-xs text-red-400 mb-2">❌ Bans ({s.bans?.length || 0}/4)</p><div className="flex flex-wrap gap-2">{s.bans?.map((b: string, i: number) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm border border-red-500/30 font-bold">{b}</span>))}</div></div>
-                </div>
-              ))}</div>
-            )}
-            {showAddStrat && (
-              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-md border border-[#D4AF37]/30 shadow-2xl max-h-[90vh] overflow-y-auto">
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">🎯 Nouvelle Stratégie</h3>
-                  <div className="space-y-4 mb-6">
-                    <div><label className="text-gray-400 text-sm mb-2 block">⚔️ Équipe Adverse</label><input type="text" placeholder="Nom" value={nouvelleStrat.adversaire} onChange={(e) => setNouvelleStrat({ ...nouvelleStrat, adversaire: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]" /></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">✅ Picks (max 4)</label><div className="grid grid-cols-2 gap-2">{ALL_MAPS.map(m => (<button key={m} onClick={() => toggleMapSelection(m, 'picks')} className={`px-3 py-2 rounded-lg text-sm font-bold ${nouvelleStrat.picks.includes(m) ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>{m}</button>))}</div><div className="flex flex-wrap gap-2 mt-2">{nouvelleStrat.picks.map((p, i) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{p}</span>))}</div></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">❌ Bans (max 4)</label><div className="grid grid-cols-2 gap-2">{ALL_MAPS.map(m => (<button key={m} onClick={() => toggleMapSelection(m, 'bans')} className={`px-3 py-2 rounded-lg text-sm font-bold ${nouvelleStrat.bans.includes(m) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>{m}</button>))}</div><div className="flex flex-wrap gap-2 mt-2">{nouvelleStrat.bans.map((b, i) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg text-sm border border-red-500/30">{b}</span>))}</div></div>
-                  </div>
-                  <div className="flex gap-3"><button onClick={() => { setShowAddStrat(false); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={ajouterStrat} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === 'strats' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🎯 Stratégies</h2></div>
+          {user && (<button onClick={() => setShowAddStrat(true)} className="w-full mb-6 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Nouvelle Stratégie</button>)}
+          {strats.length === 0 ? (<div className="text-center py-10 text-gray-500">📝 Aucune</div>) : (<div className="space-y-4">{strats.map((s: any) => (<div key={s.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl"><div className="flex items-center justify-between mb-4"><div><p className="text-lg font-bold text-[#D4AF37]">VS {s.adversaire}</p><p className="text-xs text-gray-400">par {s.auteur || '?'}</p></div>{(isAdmin || user?.uid === s.auteurId) && <button onClick={() => supprimerStrat(s.id)} className="text-red-400 text-xl">🗑️</button>}</div><div className="mb-3"><p className="text-xs text-green-400 mb-2">✅ Picks ({s.picks?.length || 0}/4)</p><div className="flex flex-wrap gap-2">{s.picks?.map((p: string, i: number) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-sm border border-green-500/30 font-bold">{p}</span>))}</div></div><div><p className="text-xs text-red-400 mb-2">❌ Bans ({s.bans?.length || 0}/4)</p><div className="flex flex-wrap gap-2">{s.bans?.map((b: string, i: number) => (<span key={i} className="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm border border-red-500/30 font-bold">{b}</span>))}</div></div></div>))}</div>)}
+          {showAddStrat && (<div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-md border border-[#D4AF37]/30 shadow-2xl max-h-[90vh] overflow-y-auto"><h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">🎯 Nouvelle Stratégie</h3><div className="space-y-4 mb-6"><div><label className="text-gray-400 text-sm mb-2 block">⚔️ Adversaire</label><input type="text" placeholder="Nom" value={nouvelleStrat.adversaire} onChange={(e) => setNouvelleStrat({ ...nouvelleStrat, adversaire: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]" /></div><div><label className="text-gray-400 text-sm mb-2 block">✅ Picks (max 4)</label><div className="grid grid-cols-2 gap-2">{ALL_MAPS.map(m => (<button key={m} onClick={() => toggleMapSelection(m, 'picks')} className={`px-3 py-2 rounded-lg text-sm font-bold ${nouvelleStrat.picks.includes(m) ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>{m}</button>))}</div></div><div><label className="text-gray-400 text-sm mb-2 block">❌ Bans (max 4)</label><div className="grid grid-cols-2 gap-2">{ALL_MAPS.map(m => (<button key={m} onClick={() => toggleMapSelection(m, 'bans')} className={`px-3 py-2 rounded-lg text-sm font-bold ${nouvelleStrat.bans.includes(m) ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400'}`}>{m}</button>))}</div></div></div><div className="flex gap-3"><button onClick={() => { setShowAddStrat(false); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={ajouterStrat} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div></div></div>)}
+        </div>)}
 
-        {activeTab === 'notes' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📊 Notes</h2>
-            </div>
-            {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📊 Aucun match</div>) : (
-              <div className="space-y-4">{historique.map((m: any) => { const mn = notes.filter((n: any) => n.matchId === m.id); return (
-                <div key={m.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                  <p className="font-bold text-[#D4AF37] mb-3 text-lg">{m.adversaire} - {formatDateFR(m.date)}</p>
-                  {mn.length > 0 ? (<div className="space-y-3">{mn.map((n: any) => (<div key={n.id} className="bg-black/60 rounded-xl p-4 border border-[#D4AF37]/20"><p className="text-[#D4AF37] font-bold mb-3">{n.joueur}</p><div className="grid grid-cols-3 gap-3"><div className="text-center bg-purple-500/20 rounded-xl p-3 border border-purple-500/30"><p className="text-xs text-gray-400 mb-1">🧠</p><p className="text-2xl font-bold text-purple-400">{n.mental}/10</p></div><div className="text-center bg-blue-500/20 rounded-xl p-3 border border-blue-500/30"><p className="text-xs text-gray-400 mb-1">💬</p><p className="text-2xl font-bold text-blue-400">{n.communication}/10</p></div><div className="text-center bg-green-500/20 rounded-xl p-3 border border-green-500/30"><p className="text-xs text-gray-400 mb-1">🎯</p><p className="text-2xl font-bold text-green-400">{n.gameplay}/10</p></div></div></div>))}</div>) : (<p className="text-gray-500 text-sm">Aucune note</p>)}
-                </div>
-              ) })}</div>
-            )}
-          </div>
-        )}
+        {activeTab === 'pronostics' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🎰 Pronostics</h2><p className="text-gray-400 text-sm">EVA Cross League</p></div>
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">{[1,2,3,4,5].map(d => (<button key={d} onClick={() => setSelectedDiv(d)} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap ${selectedDiv === d ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-black/40 text-gray-400 border border-[#D4AF37]/20'}`}>Div {d}</button>))}<button onClick={() => setSelectedDiv(0)} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap ${selectedDiv === 0 ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-black/40 text-gray-400 border border-[#D4AF37]/20'}`}>🏆</button></div>
+          {selectedDiv === 0 ? (<div><h3 className="text-lg font-bold text-[#D4AF37] mb-4">🏆 Classement</h3><div className="space-y-2">{joueurs.filter((j: any) => j.actif !== false).map((j: any) => ({ ...j, pts: getPronoPoints(j.userId) })).sort((a: any, b: any) => b.pts - a.pts).map((j: any, idx: number) => (<div key={j.id} className="bg-black/40 rounded-xl p-4 border border-[#D4AF37]/20 flex items-center gap-3"><span className="text-2xl font-bold">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx+1}.`}</span><div className="flex-1"><p className="text-[#D4AF37] font-bold">{j.pseudo}</p></div><p className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{j.pts} pts</p></div>))}</div></div>) : (<div className="space-y-3">
+            <div className="bg-black/40 rounded-xl p-4 border border-[#D4AF37]/20 mb-4"><p className="text-xs text-gray-400 mb-2">📋 Division {selectedDiv}</p><div className="flex flex-wrap gap-2">{DIVISIONS[selectedDiv].map((t, i) => (<span key={i} className={`px-3 py-1.5 rounded-lg text-sm font-bold ${t === 'DYNO' ? 'bg-[#D4AF37]/30 text-[#D4AF37] border border-[#D4AF37]/50' : 'bg-gray-700/50 text-gray-300'}`}>{t}</span>))}</div></div>
+            {getMatchsDiv(selectedDiv).map((match, idx) => { const mk = `${selectedDiv}-${match.equipe1}-${match.equipe2}`; const mp = pronostics.find((p: any) => p.matchKey === mk && p.joueurId === user?.uid); const res = pronoResults.find((r: any) => r.matchKey === mk); let pts = 0; if (mp && res) { if (mp.score1 === res.score1 && mp.score2 === res.score2) pts = 3; else if ((mp.score1 > mp.score2 && res.score1 > res.score2) || (mp.score1 < mp.score2 && res.score1 < res.score2)) pts = 1 }; return (<div key={idx} className="bg-black/40 rounded-xl p-4 border border-[#D4AF37]/20">
+              <div className="flex items-center justify-between mb-3"><p className={`font-bold text-sm ${match.equipe1 === 'DYNO' ? 'text-[#D4AF37]' : 'text-white'}`}>{match.equipe1}</p><span className="text-gray-500 text-xs">VS</span><p className={`font-bold text-sm ${match.equipe2 === 'DYNO' ? 'text-[#D4AF37]' : 'text-white'}`}>{match.equipe2}</p></div>
+              {res && (<div className="bg-green-500/10 rounded-lg p-2 mb-3 border border-green-500/20 text-center"><p className="text-xs text-gray-400">Résultat</p><p className="text-green-400 font-bold text-lg">{res.score1} - {res.score2}</p>{mp && <p className={`text-xs mt-1 ${pts === 3 ? 'text-[#FFD700]' : pts === 1 ? 'text-green-400' : 'text-red-400'}`}>{pts === 3 ? '🎯 Exact ! +3' : pts === 1 ? '✅ Bon gagnant +1' : '❌ Raté'}</p>}</div>)}
+              {user && !res && (<div className="flex items-center gap-2"><input type="number" min="0" max="20" placeholder="0" defaultValue={mp?.score1 ?? ''} id={`p1-${mk}`} className="w-16 bg-black/60 border border-[#D4AF37]/30 rounded-lg px-2 py-2 text-white text-center text-sm focus:outline-none" /><span className="text-gray-500">-</span><input type="number" min="0" max="20" placeholder="0" defaultValue={mp?.score2 ?? ''} id={`p2-${mk}`} className="w-16 bg-black/60 border border-[#D4AF37]/30 rounded-lg px-2 py-2 text-white text-center text-sm focus:outline-none" /><button onClick={() => { const s1 = (document.getElementById(`p1-${mk}`) as HTMLInputElement)?.value; const s2 = (document.getElementById(`p2-${mk}`) as HTMLInputElement)?.value; if (s1 && s2) envoyerProno(selectedDiv, match.equipe1, match.equipe2, s1, s2) }} className="flex-1 py-2 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">{mp ? '✏️' : '🎰'}</button></div>)}
+              {mp && !res && (<p className="text-xs text-gray-400 mt-2 text-center">Prono: <span className="text-[#D4AF37] font-bold">{mp.score1}-{mp.score2}</span></p>)}
+              {isAdmin && !res && (<div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-700"><span className="text-xs text-gray-500">Admin:</span><input type="number" min="0" max="20" placeholder="0" id={`r1-${mk}`} className="w-14 bg-red-500/10 border border-red-500/30 rounded-lg px-2 py-1.5 text-white text-center text-xs focus:outline-none" /><span className="text-gray-500 text-xs">-</span><input type="number" min="0" max="20" placeholder="0" id={`r2-${mk}`} className="w-14 bg-red-500/10 border border-red-500/30 rounded-lg px-2 py-1.5 text-white text-center text-xs focus:outline-none" /><button onClick={() => { const s1 = (document.getElementById(`r1-${mk}`) as HTMLInputElement)?.value; const s2 = (document.getElementById(`r2-${mk}`) as HTMLInputElement)?.value; if (s1 && s2) entrerResultat(selectedDiv, match.equipe1, match.equipe2, s1, s2) }} className="px-3 py-1.5 rounded-lg font-bold bg-gradient-to-r from-red-600 to-red-700 text-white text-xs">✅</button></div>)}
+            </div>) })}
+          </div>)}
+        </div>)}
 
-        {activeTab === 'todos' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📝 To-Do Équipe</h2>
-              <p className="text-gray-400 text-sm">Tâches partagées de l'équipe</p>
-            </div>
-            {user && (
-              <div className="flex gap-2 mb-6">
-                <input type="text" placeholder="Nouvelle tâche..." value={nouveauTodo} onChange={(e) => setNouveauTodo(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') ajouterTodo() }} className="flex-1 bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]" />
-                <button onClick={ajouterTodo} className="px-5 py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕</button>
-              </div>
-            )}
-            {todos.length === 0 ? (<div className="text-center py-10 text-gray-500">✅ Aucune tâche</div>) : (
-              <div className="space-y-3">
-                {todos.filter((t: any) => !t.termine).length > 0 && (
-                  <div>
-                    <p className="text-xs text-[#D4AF37] mb-3 font-bold">🔄 En cours ({todos.filter((t: any) => !t.termine).length})</p>
-                    <div className="space-y-2">
-                      {todos.filter((t: any) => !t.termine).map((todo: any) => (
-                        <div key={todo.id} className="bg-black/40 rounded-xl p-4 border border-[#D4AF37]/20 flex items-start gap-3">
-                          <button onClick={() => toggleTodo(todo.id, todo.termine)} className="mt-0.5 w-6 h-6 rounded-lg border-2 border-[#D4AF37]/50 flex items-center justify-center hover:bg-[#D4AF37]/20 transition-all flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm">{todo.texte}</p>
-                            <p className="text-gray-500 text-xs mt-1">par {todo.auteur} • {new Date(todo.createdAt).toLocaleDateString('fr-FR')}</p>
-                          </div>
-                          {(isAdmin || user?.uid === todo.auteurId) && (<button onClick={() => supprimerTodo(todo.id)} className="text-red-400/50 hover:text-red-400 text-sm flex-shrink-0">🗑️</button>)}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {todos.filter((t: any) => t.termine).length > 0 && (
-                  <div className="mt-6">
-                    <p className="text-xs text-green-400 mb-3 font-bold">✅ Terminées ({todos.filter((t: any) => t.termine).length})</p>
-                    <div className="space-y-2">
-                      {todos.filter((t: any) => t.termine).map((todo: any) => (
-                        <div key={todo.id} className="bg-black/20 rounded-xl p-4 border border-green-500/10 flex items-start gap-3 opacity-60">
-                          <button onClick={() => toggleTodo(todo.id, todo.termine)} className="mt-0.5 w-6 h-6 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-xs">✓</span></button>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-gray-400 text-sm line-through">{todo.texte}</p>
-                            <p className="text-gray-600 text-xs mt-1">par {todo.auteur}</p>
-                          </div>
-                          {(isAdmin || user?.uid === todo.auteurId) && (<button onClick={() => supprimerTodo(todo.id)} className="text-red-400/50 hover:text-red-400 text-sm flex-shrink-0">🗑️</button>)}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === 'compos' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📋 Compos</h2><p className="text-gray-400 text-sm">Par map</p></div>
+          {user && (<button onClick={() => setShowAddCompo(true)} className="w-full mb-6 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕ Nouvelle Compo</button>)}
+          {compos.length === 0 ? (<div className="text-center py-10 text-gray-500">📋 Aucune compo</div>) : (<div className="space-y-4">{compos.map((c: any) => (<div key={c.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl"><div className="flex items-center justify-between mb-3"><p className="text-lg font-bold text-[#D4AF37]">🗺️ {c.map}</p>{(isAdmin || user?.uid === c.auteurId) && <button onClick={() => supprimerCompo(c.id)} className="text-red-400 text-sm">🗑️</button>}</div><div className="flex flex-wrap gap-2">{c.joueurs?.map((j: string, i: number) => (<span key={i} className="bg-[#D4AF37]/20 text-[#D4AF37] px-3 py-1.5 rounded-xl text-sm font-bold border border-[#D4AF37]/30">{j}</span>))}</div></div>))}</div>)}
+          {showAddCompo && (<div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-md border border-[#D4AF37]/30 shadow-2xl max-h-[90vh] overflow-y-auto"><h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📋 Nouvelle Compo</h3><div className="space-y-4 mb-6"><div><label className="text-gray-400 text-sm mb-2 block">🗺️ Map</label><div className="grid grid-cols-2 gap-2">{ALL_MAPS.map(m => (<button key={m} onClick={() => setSelectedMapCompo(m)} className={`px-3 py-2 rounded-lg text-sm font-bold ${selectedMapCompo === m ? 'bg-[#D4AF37] text-black' : 'bg-gray-700 text-gray-400'}`}>{m}</button>))}</div></div><div><label className="text-gray-400 text-sm mb-2 block">👥 Joueurs</label><div className="grid grid-cols-2 gap-2">{joueurs.filter((j: any) => j.actif !== false).map((j: any) => (<button key={j.id} onClick={() => toggleCompoJoueur(j.pseudo)} className={`px-3 py-2 rounded-lg text-sm font-bold ${compoJoueurs.includes(j.pseudo) ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'}`}>{j.pseudo}</button>))}</div>{compoJoueurs.length > 0 && (<div className="flex flex-wrap gap-2 mt-2">{compoJoueurs.map((j, i) => (<span key={i} className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm border border-green-500/30">{j}</span>))}</div>)}</div></div><div className="flex gap-3"><button onClick={() => { setShowAddCompo(false); setSelectedMapCompo(''); setCompoJoueurs([]) }} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={ajouterCompo} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div></div></div>)}
+        </div>)}
 
-        {activeTab === 'rec' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🎬 Replays</h2>
-              <a href={YOUTUBE_CHANNEL} target="_blank" className="inline-block px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg">🔴 S'abonner</a>
-            </div>
-            {replays.length === 0 ? (<div className="text-center py-10 text-gray-500">📹 Aucun replay</div>) : (
-              <div className="space-y-4">{replays.map((r: any) => (
-                <div key={r.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
-                  <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-[#D4AF37] text-lg">{r.titre}</h3>{isAdmin && <button onClick={() => supprimerReplay(r.id)} className="text-red-400 text-xs">🗑️</button>}</div>
-                  {getYouTubeId(r.lien) ? (<div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden shadow-2xl"><iframe src={`https://www.youtube.com/embed/${getYouTubeId(r.lien)}`} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen /></div>) : (<a href={r.lien} target="_blank" className="block py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-center shadow-lg">▶️ Voir</a>)}
-                </div>
-              ))}</div>
-            )}
-          </div>
-        )}
+        {activeTab === 'todos' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📝 To-Do</h2></div>
+          {user && (<div className="flex gap-2 mb-6"><input type="text" placeholder="Nouvelle tâche..." value={nouveauTodo} onChange={(e) => setNouveauTodo(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') ajouterTodo() }} className="flex-1 bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]" /><button onClick={ajouterTodo} className="px-5 py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕</button></div>)}
+          {todos.length === 0 ? (<div className="text-center py-10 text-gray-500">✅ Aucune tâche</div>) : (<div className="space-y-3">
+            {todos.filter((t: any) => !t.termine).length > 0 && (<div><p className="text-xs text-[#D4AF37] mb-3 font-bold">🔄 En cours ({todos.filter((t: any) => !t.termine).length})</p><div className="space-y-2">{todos.filter((t: any) => !t.termine).map((todo: any) => (<div key={todo.id} className="bg-black/40 rounded-xl p-4 border border-[#D4AF37]/20 flex items-start gap-3"><button onClick={() => toggleTodo(todo.id, todo.termine)} className="mt-0.5 w-6 h-6 rounded-lg border-2 border-[#D4AF37]/50 flex-shrink-0" /><div className="flex-1 min-w-0"><p className="text-white text-sm">{todo.texte}</p><p className="text-gray-500 text-xs mt-1">par {todo.auteur} • {new Date(todo.createdAt).toLocaleDateString('fr-FR')}</p></div>{(isAdmin || user?.uid === todo.auteurId) && (<button onClick={() => supprimerTodo(todo.id)} className="text-red-400/50 hover:text-red-400 text-sm flex-shrink-0">🗑️</button>)}</div>))}</div></div>)}
+            {todos.filter((t: any) => t.termine).length > 0 && (<div className="mt-6"><p className="text-xs text-green-400 mb-3 font-bold">✅ Terminées ({todos.filter((t: any) => t.termine).length})</p><div className="space-y-2">{todos.filter((t: any) => t.termine).map((todo: any) => (<div key={todo.id} className="bg-black/20 rounded-xl p-4 border border-green-500/10 flex items-start gap-3 opacity-60"><button onClick={() => toggleTodo(todo.id, todo.termine)} className="mt-0.5 w-6 h-6 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-xs">✓</span></button><div className="flex-1 min-w-0"><p className="text-gray-400 text-sm line-through">{todo.texte}</p><p className="text-gray-600 text-xs mt-1">par {todo.auteur}</p></div>{(isAdmin || user?.uid === todo.auteurId) && (<button onClick={() => supprimerTodo(todo.id)} className="text-red-400/50 hover:text-red-400 text-sm flex-shrink-0">🗑️</button>)}</div>))}</div></div>)}
+          </div>)}
+        </div>)}
 
-        {activeTab === 'roster' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">👥 Roster</h2>
-            </div>
-            <div className="space-y-4">{joueurs.filter((j: any) => j.actif !== false).map((j: any) => (
-              <div key={j.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-bold text-2xl border border-[#D4AF37]/30 shadow-lg">{j.pseudo[0]?.toUpperCase()}</div>
-                <div className="flex-1"><p className="font-bold text-[#D4AF37] text-lg">{j.pseudo}</p><p className="text-sm text-gray-400">🎮 {j.role}</p></div>
-                {isAdmin && <button onClick={() => supprimerJoueur(j.id)} className="text-red-400 text-xl">🗑️</button>}
-              </div>
-            ))}</div>
-          </div>
-        )}
+        {activeTab === 'notes' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📊 Notes</h2></div>
+          {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📊 Aucun match</div>) : (<div className="space-y-4">{historique.map((m: any) => { const mn = notes.filter((n: any) => n.matchId === m.id); return (<div key={m.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl"><p className="font-bold text-[#D4AF37] mb-3 text-lg">{m.adversaire} - {formatDateFR(m.date)}</p>{mn.length > 0 ? (<div className="space-y-3">{mn.map((n: any) => (<div key={n.id} className="bg-black/60 rounded-xl p-4 border border-[#D4AF37]/20"><p className="text-[#D4AF37] font-bold mb-3">{n.joueur}</p><div className="grid grid-cols-3 gap-3"><div className="text-center bg-purple-500/20 rounded-xl p-3 border border-purple-500/30"><p className="text-xs text-gray-400 mb-1">🧠</p><p className="text-2xl font-bold text-purple-400">{n.mental}/10</p></div><div className="text-center bg-blue-500/20 rounded-xl p-3 border border-blue-500/30"><p className="text-xs text-gray-400 mb-1">💬</p><p className="text-2xl font-bold text-blue-400">{n.communication}/10</p></div><div className="text-center bg-green-500/20 rounded-xl p-3 border border-green-500/30"><p className="text-xs text-gray-400 mb-1">🎯</p><p className="text-2xl font-bold text-green-400">{n.gameplay}/10</p></div></div></div>))}</div>) : (<p className="text-gray-500 text-sm">Aucune note</p>)}</div>) })}</div>)}
+        </div>)}
 
-        {activeTab === 'stats' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📈 Stats</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-[#D4AF37]/20 rounded-2xl p-6 border border-[#D4AF37]/30 shadow-xl text-center"><p className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{winRate}%</p><p className="text-xs text-gray-400 mt-2">Win Rate</p></div>
-              <div className="bg-[#D4AF37]/20 rounded-2xl p-6 border border-[#D4AF37]/30 shadow-xl text-center"><p className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{totalMatchs}</p><p className="text-xs text-gray-400 mt-2">Matchs</p></div>
-            </div>
-            <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
-              <h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Répartition</h3>
-              <div className="space-y-4">
-                <div><div className="flex justify-between mb-2"><span className="text-gray-400">🏆 Victoires</span><span className="text-[#D4AF37] font-bold">{victoires}</span></div><div className="bg-gray-800 rounded-full h-3"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-3 rounded-full" style={{ width: `${totalMatchs > 0 ? (victoires / totalMatchs) * 100 : 0}%` }}></div></div></div>
-                <div><div className="flex justify-between mb-2"><span className="text-gray-400">❌ Défaites</span><span className="text-red-500 font-bold">{defaites}</span></div><div className="bg-gray-800 rounded-full h-3"><div className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full" style={{ width: `${totalMatchs > 0 ? (defaites / totalMatchs) * 100 : 0}%` }}></div></div></div>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === 'rec' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">🎬 Replays</h2><a href={YOUTUBE_CHANNEL} target="_blank" className="inline-block px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg">🔴 S'abonner</a></div>
+          {replays.length === 0 ? (<div className="text-center py-10 text-gray-500">📹 Aucun</div>) : (<div className="space-y-4">{replays.map((r: any) => (<div key={r.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl"><div className="flex items-center justify-between mb-3"><h3 className="font-bold text-[#D4AF37] text-lg">{r.titre}</h3>{isAdmin && <button onClick={() => supprimerReplay(r.id)} className="text-red-400 text-xs">🗑️</button>}</div>{getYouTubeId(r.lien) ? (<div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden shadow-2xl"><iframe src={`https://www.youtube.com/embed/${getYouTubeId(r.lien)}`} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen /></div>) : (<a href={r.lien} target="_blank" className="block py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-center shadow-lg">▶️ Voir</a>)}</div>))}</div>)}
+        </div>)}
 
-        {activeTab === 'admin' && (
-          <div>
-            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <img src={LOGO_URL} alt="DYNO" className="w-28 h-28 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">⚙️ Admin</h2>
-              {!isAdmin ? <p className="text-gray-400">Connecte-toi</p> : <p className="text-green-400 font-bold">👑 Connecté</p>}
-            </div>
-            {!isAdmin ? (
-              <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
-                <input type="password" placeholder="Mot de passe" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37]" />
-                <button onClick={handleAdminLogin} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">Se connecter</button>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">➕ Match</h3>
-                  <input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={(e) => setNouveauMatch({ ...nouveauMatch, adversaire: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-3 text-white focus:outline-none focus:border-[#D4AF37]" />
-                  <input type="date" value={nouveauMatch.date} onChange={(e) => setNouveauMatch({ ...nouveauMatch, date: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-3 text-white focus:outline-none focus:border-[#D4AF37]" />
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <input type="time" value={nouveauMatch.horaire1} onChange={(e) => setNouveauMatch({ ...nouveauMatch, horaire1: e.target.value })} className="bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]" />
-                    <input type="time" value={nouveauMatch.horaire2} onChange={(e) => setNouveauMatch({ ...nouveauMatch, horaire2: e.target.value })} className="bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <select value={nouveauMatch.arene} onChange={(e) => setNouveauMatch({ ...nouveauMatch, arene: e.target.value })} className="bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select>
-                    <select value={nouveauMatch.type} onChange={(e) => setNouveauMatch({ ...nouveauMatch, type: e.target.value })} className="bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select>
-                  </div>
-                  <button onClick={ajouterMatch} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">Ajouter + Discord</button>
-                </div>
-                <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🗑️ Matchs</h3>
-                  {matchs.length === 0 ? <p className="text-gray-500 text-center">Aucun</p> : <div className="space-y-2">{matchs.map((m: any) => (<div key={m.id} className="flex items-center justify-between bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20"><div><p className="text-[#D4AF37] font-bold text-sm">{m.adversaire}</p><p className="text-gray-500 text-xs">{formatDateFR(m.date)}</p></div><button onClick={() => supprimerMatch(m.id)} className="text-red-400 text-xl">🗑️</button></div>))}</div>}
-                </div>
-                <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Replay</h3>
-                  <input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={(e) => setNouveauReplay({ ...nouveauReplay, titre: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-3 text-white focus:outline-none focus:border-[#D4AF37]" />
-                  <input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={(e) => setNouveauReplay({ ...nouveauReplay, lien: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-3 text-white focus:outline-none focus:border-[#D4AF37]" />
-                  <button onClick={ajouterReplay} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">Ajouter</button>
-                </div>
-                <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl">
-                  <h3 className="text-lg font-bold text-[#D4AF37] mb-4">✏️ Scores</h3>
-                  {prochainsMatchs.map((m: any) => (<div key={m.id} className="bg-black/60 rounded-xl p-4 mb-3 border border-[#D4AF37]/20"><p className="font-bold text-[#D4AF37] mb-3">{m.adversaire}</p><button onClick={() => setScoreEdit({ id: m.id, scoreDyno: '', scoreAdv: '' })} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">📝 Score</button></div>))}
-                </div>
-                <button onClick={handleAdminLogout} className="w-full border-2 border-red-500 text-red-500 py-4 rounded-xl font-bold hover:bg-red-500/10">🚪 Déconnexion</button>
-              </div>
-            )}
-            {scoreEdit && (
-              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📝 Score</h3>
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div><label className="text-gray-400 text-sm mb-2 block">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={(e) => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
-                    <div><label className="text-gray-400 text-sm mb-2 block">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={(e) => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div>
-                  </div>
-                  <div className="flex gap-3"><button onClick={() => setScoreEdit(null)} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={updateScore} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === 'roster' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">👥 Roster</h2></div>
+          {user && (<div className="bg-black/40 rounded-2xl p-4 border border-pink-500/20 shadow-xl mb-6"><p className="text-xs text-pink-400 mb-2">🎂 Mon anniversaire</p><div className="flex gap-2"><input type="date" value={anniversaire} onChange={(e) => setAnniversaire(e.target.value)} className="flex-1 bg-black/60 border border-pink-500/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-pink-400" /><button onClick={sauvegarderAnniversaire} className="px-5 py-3 rounded-xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg text-sm">💾</button></div></div>)}
+          <div className="space-y-4">{joueurs.filter((j: any) => j.actif !== false).map((j: any) => (<div key={j.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl flex items-center gap-4"><div className="w-16 h-16 rounded-2xl bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-bold text-2xl border border-[#D4AF37]/30 shadow-lg">{j.pseudo[0]?.toUpperCase()}</div><div className="flex-1"><p className="font-bold text-[#D4AF37] text-lg">{j.pseudo}</p><p className="text-sm text-gray-400">🎮 {j.role}</p></div>{isAdmin && <button onClick={() => supprimerJoueur(j.id)} className="text-red-400 text-xl">🗑️</button>}</div>))}</div>
+        </div>)}
+
+        {activeTab === 'stats' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📈 Stats</h2></div>
+          <div className="grid grid-cols-2 gap-4 mb-6"><div className="bg-[#D4AF37]/20 rounded-2xl p-6 border border-[#D4AF37]/30 shadow-xl text-center"><p className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{winRate}%</p><p className="text-xs text-gray-400 mt-2">Win Rate</p></div><div className="bg-[#D4AF37]/20 rounded-2xl p-6 border border-[#D4AF37]/30 shadow-xl text-center"><p className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{totalMatchs}</p><p className="text-xs text-gray-400 mt-2">Matchs</p></div></div>
+          <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl"><h3 className="text-lg font-bold text-[#D4AF37] mb-4">📊 Répartition</h3><div className="space-y-4"><div><div className="flex justify-between mb-2"><span className="text-gray-400">🏆 Victoires</span><span className="text-[#D4AF37] font-bold">{victoires}</span></div><div className="bg-gray-800 rounded-full h-3"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-3 rounded-full" style={{ width: `${totalMatchs > 0 ? (victoires / totalMatchs) * 100 : 0}%` }}></div></div></div><div><div className="flex justify-between mb-2"><span className="text-gray-400">❌ Défaites</span><span className="text-red-500 font-bold">{defaites}</span></div><div className="bg-gray-800 rounded-full h-3"><div className="bg-gradient-to-r from-red-600 to-red-700 h-3 rounded-full" style={{ width: `${totalMatchs > 0 ? (defaites / totalMatchs) * 100 : 0}%` }}></div></div></div></div></div>
+        </div>)}
+
+        {activeTab === 'admin' && (<div>
+          <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl"><img src={LOGO_URL} alt="DYNO" className="w-28 h-28 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">⚙️ Admin</h2>{!isAdmin ? <p className="text-gray-400">Connecte-toi</p> : <p className="text-green-400 font-bold">👑 Connecté</p>}</div>
+          {!isAdmin ? (<div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl"><input type="password" placeholder="Mot de passe" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37]" /><button onClick={handleAdminLogin} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">Se connecter</button></div>) : (<div className="space-y-6">
+            <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl"><h3 className="text-lg font-bold text-[#D4AF37] mb-4">➕ Match</h3><input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={(e) => setNouveauMatch({ ...nouveauMatch, adversaire: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-3 text-white focus:outline-none focus:border-[#D4AF37]" /><input type="date" value={nouveauMatch.date} onChange={(e) => setNouveauMatch({ ...nouveauMatch, date: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-3 text-white focus:outline-none focus:border-[#D4AF37]" /><div className="grid grid-cols-2 gap-3 mb-3"><input type="time" value={nouveauMatch.horaire1} onChange={(e) => setNouveauMatch({ ...nouveauMatch, horaire1: e.target.value })} className="bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]" /><input type="time" value={nouveauMatch.horaire2} onChange={(e) => setNouveauMatch({ ...nouveauMatch, horaire2: e.target.value })} className="bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]" /></div><div className="grid grid-cols-2 gap-3 mb-3"><select value={nouveauMatch.arene} onChange={(e) => setNouveauMatch({ ...nouveauMatch, arene: e.target.value })} className="bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select><select value={nouveauMatch.type} onChange={(e) => setNouveauMatch({ ...nouveauMatch, type: e.target.value })} className="bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-[#D4AF37]"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div><button onClick={ajouterMatch} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">Ajouter + Discord</button></div>
+            <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl"><h3 className="text-lg font-bold text-[#D4AF37] mb-4">🗑️ Matchs</h3>{matchs.length === 0 ? <p className="text-gray-500 text-center">Aucun</p> : <div className="space-y-2">{matchs.map((m: any) => (<div key={m.id} className="flex items-center justify-between bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20"><div><p className="text-[#D4AF37] font-bold text-sm">{m.adversaire}</p><p className="text-gray-500 text-xs">{formatDateFR(m.date)}</p></div><button onClick={() => supprimerMatch(m.id)} className="text-red-400 text-xl">🗑️</button></div>))}</div>}</div>
+            <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl"><h3 className="text-lg font-bold text-[#D4AF37] mb-4">🎬 Replay</h3><input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={(e) => setNouveauReplay({ ...nouveauReplay, titre: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-3 text-white focus:outline-none focus:border-[#D4AF37]" /><input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={(e) => setNouveauReplay({ ...nouveauReplay, lien: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-3 text-white focus:outline-none focus:border-[#D4AF37]" /><button onClick={ajouterReplay} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">Ajouter</button></div>
+            <div className="bg-black/40 rounded-2xl p-6 border border-[#D4AF37]/20 shadow-xl"><h3 className="text-lg font-bold text-[#D4AF37] mb-4">✏️ Scores</h3>{prochainsMatchs.map((m: any) => (<div key={m.id} className="bg-black/60 rounded-xl p-4 mb-3 border border-[#D4AF37]/20"><p className="font-bold text-[#D4AF37] mb-3">{m.adversaire}</p><button onClick={() => setScoreEdit({ id: m.id, scoreDyno: '', scoreAdv: '' })} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">📝 Score</button></div>))}</div>
+            <button onClick={handleAdminLogout} className="w-full border-2 border-red-500 text-red-500 py-4 rounded-xl font-bold hover:bg-red-500/10">🚪 Déconnexion</button>
+          </div>)}
+          {scoreEdit && (<div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl"><h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">📝 Score</h3><div className="grid grid-cols-2 gap-4 mb-6"><div><label className="text-gray-400 text-sm mb-2 block">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={(e) => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div><div><label className="text-gray-400 text-sm mb-2 block">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={(e) => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]" /></div></div><div className="flex gap-3"><button onClick={() => setScoreEdit(null)} className="flex-1 py-4 rounded-xl font-bold border-2 border-gray-600 text-gray-400">Annuler</button><button onClick={updateScore} className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">✅ Valider</button></div></div></div>)}
+        </div>)}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 backdrop-blur-xl bg-black/60 border-t border-[#D4AF37]/20 shadow-2xl">
         <div className="max-w-lg mx-auto flex">
-          {[{ t: 'matchs', i: '📅' }, { t: 'historique', i: '📜' }, { t: 'strats', i: '🎯' }, { t: 'notes', i: '📊' }, { t: 'todos', i: '📝' }, { t: 'rec', i: '🎬' }, { t: 'roster', i: '👥' }, { t: 'stats', i: '📈' }, { t: 'admin', i: '⚙️' }].map(({ t, i }) => (
-            <button key={t} onClick={() => setActiveTab(t)} className={`flex-1 py-5 text-center transition-all ${activeTab === t ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}><span className="text-xl">{i}</span></button>
+          {[{ t: 'matchs', i: '📅' }, { t: 'historique', i: '📜' }, { t: 'strats', i: '🎯' }, { t: 'pronostics', i: '🎰' }, { t: 'compos', i: '📋' }, { t: 'todos', i: '📝' }, { t: 'notes', i: '📊' }, { t: 'rec', i: '🎬' }, { t: 'roster', i: '👥' }, { t: 'stats', i: '📈' }, { t: 'admin', i: '⚙️' }].map(({ t, i }) => (
+            <button key={t} onClick={() => setActiveTab(t)} className={`flex-1 py-4 text-center transition-all ${activeTab === t ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}><span className="text-base">{i}</span></button>
           ))}
         </div>
       </nav>
 
-      {!user && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">{isSignUp ? '📝 Créer' : '👤 Connexion'}</h3>
-            {isSignUp && <input type="text" placeholder="Pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37]" />}
-            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37]" />
-            <input type="password" placeholder="Mot de passe" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-6 text-white focus:outline-none focus:border-[#D4AF37]" />
-            <div className="flex items-center gap-2 mb-4"><input type="checkbox" id="rem" className="w-4 h-4 accent-[#D4AF37]" /><label htmlFor="rem" className="text-sm text-gray-400">📝 Se souvenir de moi</label></div>
-            {isSignUp ? <button onClick={handleSignUp} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg mb-4">✅ Créer</button> : <button onClick={handleSignIn} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg mb-4">🔐 Connexion</button>}
-            <div className="border-t border-gray-700 pt-4">{isSignUp ? <button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm hover:underline">Déjà un compte ?</button> : <button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm hover:underline">Pas de compte ?</button>}</div>
-          </div>
-        </div>
-      )}
+      {!user && (<div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl"><h3 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">{isSignUp ? '📝 Créer' : '👤 Connexion'}</h3>{isSignUp && <input type="text" placeholder="Pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37]" />}<input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-4 text-white focus:outline-none focus:border-[#D4AF37]" /><input type="password" placeholder="Mot de passe" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-4 mb-6 text-white focus:outline-none focus:border-[#D4AF37]" /><div className="flex items-center gap-2 mb-4"><input type="checkbox" id="rem" className="w-4 h-4 accent-[#D4AF37]" /><label htmlFor="rem" className="text-sm text-gray-400">Se souvenir de moi</label></div>{isSignUp ? <button onClick={handleSignUp} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg mb-4">✅ Créer</button> : <button onClick={handleSignIn} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg mb-4">🔐 Connexion</button>}<div className="border-t border-gray-700 pt-4">{isSignUp ? <button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-sm hover:underline">Déjà un compte ?</button> : <button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-sm hover:underline">Pas de compte ?</button>}</div></div></div>)}
     </div>
   )
 }
