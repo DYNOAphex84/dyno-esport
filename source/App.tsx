@@ -501,13 +501,17 @@ function App() {
         {activeTab === 'matchs' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
-              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2 relative z-10">Prochains Matchs</h2>
-              <p className="text-gray-400 text-sm relative z-10">Restez prêts pour la victoire</p>
-            </div>
+  <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
+  {user && (
+    <button onClick={requestNotificationPermission} className={`absolute top-4 right-4 z-20 w-10 h-10 rounded-full flex items-center justify-center transition-all ${notificationsEnabled ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40' : 'bg-gray-800/60 border border-gray-600'}`} title={notificationsEnabled ? 'Notifications activées' : 'Activer les notifications'}>
+      <span className="text-xl">{notificationsEnabled ? '🔔' : '🔕'}</span>
+    </button>
+  )}
+  <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+  <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2 relative z-10">Prochains Matchs</h2>
+  <p className="text-gray-400 text-sm relative z-10">Restez prêts pour la victoire</p>
+</div>
             {user && (
-  <div className="flex justify-end mb-4">
     <button onClick={requestNotificationPermission} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${notificationsEnabled ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40' : 'bg-gray-800 border border-gray-600'}`} title={notificationsEnabled ? 'Notifications activées' : 'Activer les notifications'}>
       <span className="text-xl">{notificationsEnabled ? '🔔' : '🔕'}</span>
     </button>
