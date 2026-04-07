@@ -40,6 +40,7 @@ function App() {
   const [notes, setNotes] = useState<any[]>([])
   const [strats, setStrats] = useState<any[]>([])
   const [commentaires, setCommentaires] = useState<any[]>([])
+  const [todos, setTodos] = useState<any[]>([])
   const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue' })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
@@ -54,10 +55,12 @@ function App() {
   const [selectedMatchForComment, setSelectedMatchForComment] = useState<any>(null)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [notifiedMatchs, setNotifiedMatchs] = useState<string[]>([])
+  const [nouveauTodo, setNouveauTodo] = useState('')
   const prevMatchCount = useRef(0)
   const prevNoteCount = useRef(0)
   const prevCommentCount = useRef(0)
   const prevStratCount = useRef(0)
+  const prevTodoCount = useRef(0)
 
   useEffect(() => { if (window.location.search.includes('reset=1')) { localStorage.clear(); window.location.href = window.location.pathname } }, [])
 
@@ -75,7 +78,7 @@ function App() {
       const p = await Notification.requestPermission()
       if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('✅ Notifications activées !') }
       else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false'); alert('❌ Notifications refusées') }
-    } catch (e) { alert('❌ Erreur notifications') }
+    } catch { alert('❌ Erreur notifications') }
   }
 
   const getMatchDateTime = useCallback((match: any): Date | null => {
@@ -136,11 +139,13 @@ function App() {
   useEffect(() => { const q = query(collection(db, 'strats'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setStrats(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'replays'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setReplays(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'players'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setJoueurs(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'todos'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setTodos(d) }); return () => u() }, [])
 
   useEffect(() => { if (!notificationsEnabled || prevMatchCount.current === 0) { prevMatchCount.current = matchs.length; return }; if (matchs.length > prevMatchCount.current) { const n = matchs[0]; if (n) sendNotification('📅 Nouveau Match !', `⚔️ VS ${n.adversaire}\n📅 ${n.date}\n🏟️ ${n.arene}`, 'new-match') }; prevMatchCount.current = matchs.length }, [matchs, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || prevNoteCount.current === 0) { prevNoteCount.current = notes.length; return }; if (notes.length > prevNoteCount.current) { const n = notes[0]; if (n) sendNotification('📊 Nouvelle Note !', `${n.joueur}: 🧠${n.mental} 💬${n.communication} 🎯${n.gameplay}`, 'new-note') }; prevNoteCount.current = notes.length }, [notes, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || prevCommentCount.current === 0) { prevCommentCount.current = commentaires.length; return }; if (commentaires.length > prevCommentCount.current) { const n = commentaires[0]; if (n) sendNotification('💬 Commentaire !', `${n.joueur}: "${n.texte.substring(0, 60)}"`, 'new-comment') }; prevCommentCount.current = commentaires.length }, [commentaires, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || prevStratCount.current === 0) { prevStratCount.current = strats.length; return }; if (strats.length > prevStratCount.current) { const n = strats[0]; if (n) sendNotification('🎯 Nouvelle Strat !', `VS ${n.adversaire}\n✅ ${n.picks?.join(', ')}\n❌ ${n.bans?.join(', ')}`, 'new-strat') }; prevStratCount.current = strats.length }, [strats, notificationsEnabled, sendNotification])
+  useEffect(() => { if (!notificationsEnabled || prevTodoCount.current === 0) { prevTodoCount.current = todos.length; return }; if (todos.length > prevTodoCount.current) { const n = todos[0]; if (n) sendNotification('📝 Nouvelle Tâche !', `${n.auteur}: "${n.texte.substring(0, 60)}"`, 'new-todo') }; prevTodoCount.current = todos.length }, [todos, notificationsEnabled, sendNotification])
 
   useEffect(() => { const t = setTimeout(() => setShowSplash(false), 2000); return () => clearTimeout(t) }, [])
   useEffect(() => { window.addEventListener('beforeinstallprompt', (e: any) => { e.preventDefault(); setDeferredPrompt(e); setShowInstall(true) }) }, [])
@@ -163,6 +168,8 @@ function App() {
   const ajouterNote = async () => { if (!user) { alert('⚠️ Connecte-toi !'); return }; await addDoc(collection(db, 'notes'), { matchId: selectedMatchForNotes?.id, joueur: pseudo, joueurId: user.uid, ...nouvelleNote, createdAt: Date.now() }); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }); setSelectedMatchForNotes(null); alert('✅ Note ajoutée !') }
   const ajouterCommentaire = async (matchId: string) => { if (!user) { alert('⚠️ Connecte-toi !'); return }; if (!nouveauCommentaire.trim()) { alert('⚠️ Écris un commentaire !'); return }; await addDoc(collection(db, 'commentaires'), { matchId, joueur: pseudo, joueurId: user.uid, texte: nouveauCommentaire.trim(), createdAt: Date.now() }); setNouveauCommentaire(''); setSelectedMatchForComment(null); alert('✅ Commentaire ajouté !') }
   const ajouterStrat = async () => { if (!nouvelleStrat.adversaire || nouvelleStrat.picks.length === 0 || nouvelleStrat.bans.length === 0) { alert('⚠️ Remplis tout !'); return }; await addDoc(collection(db, 'strats'), { adversaire: nouvelleStrat.adversaire, picks: nouvelleStrat.picks, bans: nouvelleStrat.bans, auteur: pseudo, auteurId: user?.uid, createdAt: Date.now() }); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }); setShowAddStrat(false); alert('✅ Stratégie ajoutée !') }
+  const ajouterTodo = async () => { if (!user || !nouveauTodo.trim()) { alert('⚠️ Écris une tâche !'); return }; await addDoc(collection(db, 'todos'), { texte: nouveauTodo.trim(), termine: false, auteur: pseudo, auteurId: user.uid, createdAt: Date.now() }); setNouveauTodo('') }
+  const toggleTodo = async (id: string, current: boolean) => { await updateDoc(doc(db, 'todos', id), { termine: !current }) }
 
   const supprimerMatch = async (id: string) => { await deleteDoc(doc(db, 'matchs', id)); alert('✅ Supprimé !') }
   const supprimerReplay = async (id: string) => { await deleteDoc(doc(db, 'replays', id)); alert('✅ Supprimé !') }
@@ -170,9 +177,9 @@ function App() {
   const supprimerStrat = async (id: string) => { await deleteDoc(doc(db, 'strats', id)); alert('✅ Supprimé !') }
   const supprimerNote = async (id: string) => { await deleteDoc(doc(db, 'notes', id)); alert('✅ Supprimé !') }
   const supprimerCommentaire = async (id: string) => { await deleteDoc(doc(db, 'commentaires', id)); alert('✅ Supprimé !') }
+  const supprimerTodo = async (id: string) => { await deleteDoc(doc(db, 'todos', id)) }
 
   const updateScore = async () => { if (!scoreEdit) return; await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true }); setScoreEdit(null); alert('✅ Score mis à jour !') }
-
   const toggleDisponibilite = async (matchId: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === matchId); if (!m) return; const d = m.disponibles || [], i = m.indisponibles || []; await updateDoc(doc(db, 'matchs', matchId), { disponibles: d.includes(pseudo) ? d.filter((p: string) => p !== pseudo) : [...d, pseudo], indisponibles: i.filter((p: string) => p !== pseudo) }) }
   const toggleIndisponibilite = async (matchId: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === matchId); if (!m) return; const d = m.disponibles || [], i = m.indisponibles || []; await updateDoc(doc(db, 'matchs', matchId), { indisponibles: i.includes(pseudo) ? i.filter((p: string) => p !== pseudo) : [...i, pseudo], disponibles: d.filter((p: string) => p !== pseudo) }) }
 
@@ -201,7 +208,6 @@ function App() {
   const prochainsMatchs = matchs.filter((m: any) => !m.termine).sort((a: any, b: any) => new Date(`${a.date}T${a.horaires?.[0] || a.horaire1 || '20:00'}`).getTime() - new Date(`${b.date}T${b.horaires?.[0] || b.horaire1 || '20:00'}`).getTime())
   const historique = matchs.filter((m: any) => m.termine)
   const getYouTubeId = (url: string) => { const m = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/); return m ? m[1] : null }
-
   const toggleMapSelection = (map: string, type: 'picks' | 'bans') => {
     if (type === 'picks') { if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) }); else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] }) }
     else { if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) }); else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] }) }
@@ -219,7 +225,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a] pb-24">
-      {/* HEADER */}
       <header className="backdrop-blur-xl bg-black/40 border-b border-[#D4AF37]/20 sticky top-0 z-50 shadow-2xl">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -227,11 +232,7 @@ function App() {
             <div><h1 className="text-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h1><p className="text-xs text-gray-400">Esport Team</p></div>
           </div>
           <div className="flex gap-2 items-center">
-            {user && (
-              <button onClick={requestNotificationPermission} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${notificationsEnabled ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40' : 'bg-gray-800 border border-gray-600'}`} title={notificationsEnabled ? 'Notifications activées' : 'Activer les notifications'}>
-                <span className="text-lg">{notificationsEnabled ? '🔔' : '🔕'}</span>
-              </button>
-            )}
+            {user && (<button onClick={requestNotificationPermission} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${notificationsEnabled ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40' : 'bg-gray-800 border border-gray-600'}`}><span className="text-lg">{notificationsEnabled ? '🔔' : '🔕'}</span></button>)}
             {showInstall && (<button onClick={handleInstall} className="px-3 py-2 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg text-sm">📲</button>)}
             {user ? (<button onClick={handleSignOut} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg text-sm">👋 {pseudo}</button>) : (<button onClick={() => setIsSignUp(false)} className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg text-sm">👤 Compte</button>)}
           </div>
@@ -239,7 +240,6 @@ function App() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
-        {/* MATCHS */}
         {activeTab === 'matchs' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -256,12 +256,7 @@ function App() {
                       <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg ${match.type === 'Ligue' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : match.type === 'Scrim' ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' : match.type === 'Tournoi' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white' : 'bg-gradient-to-r from-orange-600 to-orange-700 text-white'}`}>{match.type}</span>
                       <span className="text-[#D4AF37] font-bold">{formatDateFR(match.date)}</span>
                     </div>
-                    {countdowns[match.id] && (
-                      <div className={`rounded-xl p-3 mb-4 text-center border ${countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-600/20 border-red-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30'}`}>
-                        <p className="text-xs text-gray-400 mb-1">⏱️ Compte à rebours</p>
-                        <p className={`text-2xl font-bold font-mono ${countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent'}`}>{countdowns[match.id]}</p>
-                      </div>
-                    )}
+                    {countdowns[match.id] && (<div className={`rounded-xl p-3 mb-4 text-center border ${countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-600/20 border-red-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30'}`}><p className="text-xs text-gray-400 mb-1">⏱️ Compte à rebours</p><p className={`text-2xl font-bold font-mono ${countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent'}`}>{countdowns[match.id]}</p></div>)}
                     <div className="flex items-center gap-4 mb-4">
                       <img src={LOGO_URL} alt="DYNO" className="w-14 h-14 drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]" />
                       <span className="text-gray-500 text-xl">VS</span>
@@ -288,7 +283,6 @@ function App() {
           </div>
         )}
 
-        {/* HISTORIQUE */}
         {activeTab === 'historique' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -302,8 +296,7 @@ function App() {
             {historique.length === 0 ? (<div className="text-center py-10 text-gray-500">📜 Aucun match</div>) : (
               <div className="space-y-4">
                 {historique.map((match: any) => {
-                  const mn = notes.filter((n: any) => n.matchId === match.id)
-                  const mc = commentaires.filter((c: any) => c.matchId === match.id)
+                  const mn = notes.filter((n: any) => n.matchId === match.id); const mc = commentaires.filter((c: any) => c.matchId === match.id)
                   return (
                     <div key={match.id} className="bg-black/40 rounded-2xl p-5 border border-[#D4AF37]/20 shadow-xl">
                       <div className="flex items-center justify-between mb-4">
@@ -319,12 +312,7 @@ function App() {
                         <button onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg text-sm">📝 Notes</button>
                         <button onClick={() => setSelectedMatchForComment(selectedMatchForComment?.id === match.id ? null : match)} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg text-sm">💬 Commenter</button>
                       </div>
-                      {selectedMatchForComment?.id === match.id && user && (
-                        <div className="bg-black/60 rounded-xl p-4 mb-4 border border-cyan-500/20">
-                          <textarea placeholder="Ton analyse du match..." value={nouveauCommentaire} onChange={(e) => setNouveauCommentaire(e.target.value)} rows={3} className="w-full bg-black/60 border border-cyan-500/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-400 resize-none mb-3" />
-                          <button onClick={() => ajouterCommentaire(match.id)} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg text-sm">💬 Envoyer</button>
-                        </div>
-                      )}
+                      {selectedMatchForComment?.id === match.id && user && (<div className="bg-black/60 rounded-xl p-4 mb-4 border border-cyan-500/20"><textarea placeholder="Ton analyse du match..." value={nouveauCommentaire} onChange={(e) => setNouveauCommentaire(e.target.value)} rows={3} className="w-full bg-black/60 border border-cyan-500/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-400 resize-none mb-3" /><button onClick={() => ajouterCommentaire(match.id)} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg text-sm">💬 Envoyer</button></div>)}
                       {mc.length > 0 && (<div className="space-y-2 mb-4"><p className="text-xs text-cyan-400 mb-2">💬 Commentaires ({mc.length})</p>{mc.map((c: any) => (<div key={c.id} className="bg-black/60 rounded-xl p-3 border border-cyan-500/20"><div className="flex items-center justify-between mb-1"><p className="text-cyan-400 font-bold text-sm">{c.joueur}</p><div className="flex items-center gap-2"><p className="text-gray-500 text-xs">{formatTimestamp(c.createdAt)}</p>{(isAdmin || user?.uid === c.joueurId) && <button onClick={() => supprimerCommentaire(c.id)} className="text-red-400 text-xs">🗑️</button>}</div></div><p className="text-gray-300 text-sm">{c.texte}</p></div>))}</div>)}
                       {mn.length > 0 ? (<div className="space-y-2"><p className="text-xs text-gray-400 mb-2">📊 {mn.length} note(s)</p>{mn.map((n: any) => (<div key={n.id} className="bg-black/60 rounded-xl p-3 border border-[#D4AF37]/20"><div className="flex items-center justify-between mb-2"><p className="text-[#D4AF37] font-bold text-sm">{n.joueur}</p>{isAdmin && <button onClick={() => supprimerNote(n.id)} className="text-red-400 text-xs">🗑️</button>}</div><div className="grid grid-cols-3 gap-2 text-center text-xs"><div className="bg-purple-500/20 rounded-lg p-2"><p className="text-gray-400">🧠</p><p className="text-purple-400 font-bold">{n.mental}/10</p></div><div className="bg-blue-500/20 rounded-lg p-2"><p className="text-gray-400">💬</p><p className="text-blue-400 font-bold">{n.communication}/10</p></div><div className="bg-green-500/20 rounded-lg p-2"><p className="text-gray-400">🎯</p><p className="text-green-400 font-bold">{n.gameplay}/10</p></div></div></div>))}</div>) : (<p className="text-gray-500 text-sm text-center">Aucune note</p>)}
                     </div>
@@ -348,7 +336,6 @@ function App() {
           </div>
         )}
 
-        {/* STRATS */}
         {activeTab === 'strats' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -382,7 +369,6 @@ function App() {
           </div>
         )}
 
-        {/* NOTES */}
         {activeTab === 'notes' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -400,7 +386,60 @@ function App() {
           </div>
         )}
 
-        {/* REPLAYS */}
+        {activeTab === 'todos' && (
+          <div>
+            <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
+              <img src={LOGO_URL} alt="DYNO" className="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-2">📝 To-Do Équipe</h2>
+              <p className="text-gray-400 text-sm">Tâches partagées de l'équipe</p>
+            </div>
+            {user && (
+              <div className="flex gap-2 mb-6">
+                <input type="text" placeholder="Nouvelle tâche..." value={nouveauTodo} onChange={(e) => setNouveauTodo(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') ajouterTodo() }} className="flex-1 bg-black/60 border border-[#D4AF37]/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]" />
+                <button onClick={ajouterTodo} className="px-5 py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg">➕</button>
+              </div>
+            )}
+            {todos.length === 0 ? (<div className="text-center py-10 text-gray-500">✅ Aucune tâche</div>) : (
+              <div className="space-y-3">
+                {todos.filter((t: any) => !t.termine).length > 0 && (
+                  <div>
+                    <p className="text-xs text-[#D4AF37] mb-3 font-bold">🔄 En cours ({todos.filter((t: any) => !t.termine).length})</p>
+                    <div className="space-y-2">
+                      {todos.filter((t: any) => !t.termine).map((todo: any) => (
+                        <div key={todo.id} className="bg-black/40 rounded-xl p-4 border border-[#D4AF37]/20 flex items-start gap-3">
+                          <button onClick={() => toggleTodo(todo.id, todo.termine)} className="mt-0.5 w-6 h-6 rounded-lg border-2 border-[#D4AF37]/50 flex items-center justify-center hover:bg-[#D4AF37]/20 transition-all flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm">{todo.texte}</p>
+                            <p className="text-gray-500 text-xs mt-1">par {todo.auteur} • {new Date(todo.createdAt).toLocaleDateString('fr-FR')}</p>
+                          </div>
+                          {(isAdmin || user?.uid === todo.auteurId) && (<button onClick={() => supprimerTodo(todo.id)} className="text-red-400/50 hover:text-red-400 text-sm flex-shrink-0">🗑️</button>)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {todos.filter((t: any) => t.termine).length > 0 && (
+                  <div className="mt-6">
+                    <p className="text-xs text-green-400 mb-3 font-bold">✅ Terminées ({todos.filter((t: any) => t.termine).length})</p>
+                    <div className="space-y-2">
+                      {todos.filter((t: any) => t.termine).map((todo: any) => (
+                        <div key={todo.id} className="bg-black/20 rounded-xl p-4 border border-green-500/10 flex items-start gap-3 opacity-60">
+                          <button onClick={() => toggleTodo(todo.id, todo.termine)} className="mt-0.5 w-6 h-6 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-xs">✓</span></button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-gray-400 text-sm line-through">{todo.texte}</p>
+                            <p className="text-gray-600 text-xs mt-1">par {todo.auteur}</p>
+                          </div>
+                          {(isAdmin || user?.uid === todo.auteurId) && (<button onClick={() => supprimerTodo(todo.id)} className="text-red-400/50 hover:text-red-400 text-sm flex-shrink-0">🗑️</button>)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'rec' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -419,7 +458,6 @@ function App() {
           </div>
         )}
 
-        {/* ROSTER */}
         {activeTab === 'roster' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -436,7 +474,6 @@ function App() {
           </div>
         )}
 
-        {/* STATS */}
         {activeTab === 'stats' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -457,7 +494,6 @@ function App() {
           </div>
         )}
 
-        {/* ADMIN */}
         {activeTab === 'admin' && (
           <div>
             <div className="relative rounded-3xl p-8 mb-6 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 shadow-2xl">
@@ -519,16 +555,14 @@ function App() {
         )}
       </main>
 
-      {/* NAV */}
       <nav className="fixed bottom-0 left-0 right-0 backdrop-blur-xl bg-black/60 border-t border-[#D4AF37]/20 shadow-2xl">
         <div className="max-w-lg mx-auto flex">
-          {[{ t: 'matchs', i: '📅' }, { t: 'historique', i: '📜' }, { t: 'strats', i: '🎯' }, { t: 'notes', i: '📊' }, { t: 'rec', i: '🎬' }, { t: 'roster', i: '👥' }, { t: 'stats', i: '📈' }, { t: 'admin', i: '⚙️' }].map(({ t, i }) => (
-            <button key={t} onClick={() => setActiveTab(t)} className={`flex-1 py-5 text-center transition-all ${activeTab === t ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}><span className="text-2xl">{i}</span></button>
+          {[{ t: 'matchs', i: '📅' }, { t: 'historique', i: '📜' }, { t: 'strats', i: '🎯' }, { t: 'notes', i: '📊' }, { t: 'todos', i: '📝' }, { t: 'rec', i: '🎬' }, { t: 'roster', i: '👥' }, { t: 'stats', i: '📈' }, { t: 'admin', i: '⚙️' }].map(({ t, i }) => (
+            <button key={t} onClick={() => setActiveTab(t)} className={`flex-1 py-5 text-center transition-all ${activeTab === t ? 'text-[#D4AF37] bg-[#D4AF37]/10' : 'text-gray-500 hover:text-[#D4AF37]'}`}><span className="text-xl">{i}</span></button>
           ))}
         </div>
       </nav>
 
-      {/* LOGIN */}
       {!user && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-8 w-full max-w-sm border border-[#D4AF37]/30 shadow-2xl">
