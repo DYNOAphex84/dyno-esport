@@ -47,6 +47,16 @@ body {
   }
 }
 
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 15px rgba(212, 175, 55, 0.1); }
+  50% { box-shadow: 0 0 30px rgba(212, 175, 55, 0.25); }
+}
+
 .animate-pulse-gold {
   animation: pulse-gold 2s ease-in-out infinite;
 }
@@ -74,4 +84,23 @@ body {
   background: linear-gradient(135deg, #F4CF57, #D4AF37);
   box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
   transform: translateY(-2px);
+}
+
+.card-glow {
+  transition: all 0.3s ease;
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+.card-glow:hover {
+  box-shadow: 0 0 30px rgba(212, 175, 55, 0.15), 0 8px 32px rgba(0, 0, 0, 0.3);
+  border-color: rgba(212, 175, 55, 0.4) !important;
+  transform: translateY(-2px);
+}
+
+.tab-content {
+  animation: fadeInUp 0.4s ease forwards;
+}
+
+.glow-pulse {
+  animation: pulseGlow 3s ease-in-out infinite;
 }
