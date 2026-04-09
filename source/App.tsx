@@ -136,7 +136,10 @@ return(
 <div>
 <p className="font-bold text-[#D4AF37] text-sm mb-3">{match.adversaire}</p>
 <div className="space-y-1.5 mb-3">{match.sousMatchs.map((sm:any,i:number)=>(<div key={i} className={`flex items-center justify-between rounded-xl p-2.5 border ${parseInt(sm.scoreDyno)>parseInt(sm.scoreAdv)?'bg-[#D4AF37]/10 border-[#D4AF37]/15':'bg-red-500/10 border-red-500/15'}`}><div className="flex items-center gap-2"><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${parseInt(sm.scoreDyno)>parseInt(sm.scoreAdv)?'bg-[#D4AF37]/30 text-[#D4AF37]':'bg-red-500/30 text-red-400'}`}>{parseInt(sm.scoreDyno)>parseInt(sm.scoreAdv)?'W':'L'}</span><span className="text-white text-xs font-bold">vs {sm.adversaire}</span></div><span className="text-white text-sm font-bold">{sm.scoreDyno}-{sm.scoreAdv}</span></div>))}</div>
-<div className="flex items-center justify-center gap-3 bg-white/5 rounded-xl p-2 border border-white/5"><span className="text-[#D4AF37] font-bold text-sm">{match.scoreDyno}W</span><span className="text-gray-700">-</span><span className="text-red-400 font-bold text-sm">{match.scoreAdversaire}L</span></div>
+<div className="flex items-center justify-center gap-3 bg-white/5 rounded-xl p-2 border border-white/5">
+  <span className="text-[#D4AF37] font-bold text-sm">DYNO</span>
+  <span className="text-gray-700">-</span>
+  <span className="text-red-400 font-bold text-sm">{match.adversaire}</span></div>
 </div>
 ):(
 <div className="flex items-center justify-between"><div className="text-center"><p className="font-bold text-[#D4AF37] text-[10px] uppercase tracking-wider">DYNO</p><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent count-up">{match.scoreDyno}</p></div><span className="text-gray-800 text-lg">-</span><div className="text-center"><p className="font-bold text-gray-600 text-[10px] uppercase tracking-wider">{match.adversaire}</p><p className="text-3xl font-bold text-gray-500 count-up">{match.scoreAdversaire}</p></div></div>
