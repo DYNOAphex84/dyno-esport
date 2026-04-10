@@ -3,136 +3,481 @@ import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth'
 
-const firebaseConfig={apiKey:"AIzaSyDXwItLM0OZ0VmHj-DLZcH8OBy7wXiHBsM",authDomain:"dyno-esport.firebaseapp.com",projectId:"dyno-esport",storageBucket:"dyno-esport.firebasestorage.app",messagingSenderId:"808658404731",appId:"1:808658404731:web:f3cf29142d3038816f29de"}
-const app=initializeApp(firebaseConfig),db=getFirestore(app),auth=getAuth(app)
-setPersistence(auth,browserLocalPersistence).catch(()=>{})
+const firebaseConfig = {
+  apiKey: "AIzaSyDXwItLM0OZ0VmHj-DLZcH8OBy7wXiHBsM",
+  authDomain: "dyno-esport.firebaseapp.com",
+  projectId: "dyno-esport",
+  storageBucket: "dyno-esport.firebasestorage.app",
+  messagingSenderId: "808658404731",
+  appId: "1:808658404731:web:f3cf29142d3038816f29de"
+};
 
-const LG='https://i.imgur.com/gTLj57a.png',AE='thibaut.llorens@hotmail.com',YT='https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
-const AM=['Engine','Helios','Silva','The Cliff','Artefact','Outlaw','Atlantis','Horizon','Polaris','Lunar','Ceres']
-const P=()=><div className="particles">{Array.from({length:12}).map((_,i)=><div key={i} className="particle"/>)}</div>
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence).catch(() => {});
 
-function App(){
-const[activeTab,setActiveTab]=useState('matchs'),[isAdmin,setIsAdmin]=useState(false),[adminPassword,setAdminPassword]=useState(''),[showSplash,setShowSplash]=useState(true),[user,setUser]=useState<any>(null),[pseudo,setPseudo]=useState(''),[email,setEmail]=useState(''),[authPassword,setAuthPassword]=useState(''),[isSignUp,setIsSignUp]=useState(false)
-const[matchs,setMatchs]=useState<any[]>([]),[notes,setNotes]=useState<any[]>([]),[strats,setStrats]=useState<any[]>([]),[replays,setReplays]=useState<any[]>([]),[joueurs,setJoueurs]=useState<any[]>([]),[compos,setCompos]=useState<any[]>([]),[objectifs,setObjectifs]=useState<any[]>([]),[fichesAdversaires,setFichesAdversaires]=useState<any[]>([])
-const[nouveauMatch,setNouveauMatch]=useState({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[] as any[]})
-const[scoreEdit,setScoreEdit]=useState<any>(null),[nouvelleNote,setNouvelleNote]=useState({matchId:'',mental:'',communication:'',gameplay:''}),[selectedMatchForNotes,setSelectedMatchForNotes]=useState<any>(null),[nouvelleStrat,setNouvelleStrat]=useState({adversaire:'',picks:[] as string[],bans:[] as string[]}),[showAddStrat,setShowAddStrat]=useState(false)
-const[selectedMapCompo,setSelectedMapCompo]=useState('Arène 1'),[compoJoueurs,setCompoJoueurs]=useState<string[]>([]),[showAddCompo,setShowAddCompo]=useState(false),[pullDistance,setPullDistance]=useState(0),[nouvelObjectif,setNouvelObjectif]=useState(''),[showAddFiche,setShowAddFiche]=useState(false),[nouvelleFiche,setNouvelleFiche]=useState({adversaire:'',forces:'',faiblesses:''})
-const ty=useRef(0)
+const LG = 'https://i.imgur.com/gTLj57a.png';
+const AE = 'thibaut.llorens@hotmail.com';
+const YT = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC';
+const AM = ['Engine','Helios','Silva','The Cliff','Artefact','Outlaw','Atlantis','Horizon','Polaris','Lunar','Ceres'];
 
-useEffect(()=>{const unsub=onAuthStateChanged(auth,async(u)=>{setUser(u);if(u){const d=await getDoc(doc(db,'users',u.uid));if(d.exists()){const data=d.data();setPseudo(data.pseudo||'');if(u.email===AE||data.isAdmin)setIsAdmin(true)}}}) ;return()=>unsub()},[])
-useEffect(()=>{const unsub=onSnapshot(query(collection(db,'matchs'),orderBy('createdAt','desc')),(s)=>setMatchs(s.docs.map(x=>({id:x.id,...x.data()})))) ;return()=>unsub()},[])
-useEffect(()=>{const unsub=onSnapshot(query(collection(db,'notes'),orderBy('createdAt','desc')),(s)=>setNotes(s.docs.map(x=>({id:x.id,...x.data()})))) ;return()=>unsub()},[])
-useEffect(()=>{const unsub=onSnapshot(query(collection(db,'strats'),orderBy('createdAt','desc')),(s)=>setStrats(s.docs.map(x=>({id:x.id,...x.data()})))) ;return()=>unsub()},[])
-useEffect(()=>{const unsub=onSnapshot(query(collection(db,'players'),orderBy('createdAt','desc')),(s)=>setJoueurs(s.docs.map(x=>({id:x.id,...x.data()})))) ;return()=>unsub()},[])
-useEffect(()=>{const unsub=onSnapshot(query(collection(db,'replays'),orderBy('createdAt','desc')),(s)=>setReplays(s.docs.map(x=>({id:x.id,...x.data()})))) ;return()=>unsub()},[])
-useEffect(()=>{const unsub=onSnapshot(query(collection(db,'compos'),orderBy('createdAt','desc')),(s)=>setCompos(s.docs.map(x=>({id:x.id,...x.data()})))) ;return()=>unsub()},[])
-useEffect(()=>{const unsub=onSnapshot(query(collection(db,'objectifs'),orderBy('createdAt','desc')),(s)=>setObjectifs(s.docs.map(x=>({id:x.id,...x.data()})))) ;return()=>unsub()},[])
-useEffect(()=>{const unsub=onSnapshot(query(collection(db,'fichesAdversaires'),orderBy('createdAt','desc')),(s)=>setFichesAdversaires(s.docs.map(x=>({id:x.id,...x.data()})))) ;return()=>unsub()},[])
-useEffect(()=>{const t=setTimeout(()=>setShowSplash(false),2500);return()=>clearTimeout(t)},[])
+const P = () => (
+  <div className="particles">
+    {Array.from({ length: 12 }).map((_, i) => (
+      <div key={i} className="particle" />
+    ))}
+  </div>
+);
 
-const handleSignUp=async()=>{try{const r=await createUserWithEmailAndPassword(auth,email,authPassword);await setDoc(doc(db,'users',r.user.uid),{pseudo,email,createdAt:Date.now()});await addDoc(collection(db,'players'),{pseudo,role:'Joueur',userId:r.user.uid,createdAt:Date.now()});alert('✅')}catch(e:any){alert(e.message)}}
-const handleSignIn=async()=>{try{await signInWithEmailAndPassword(auth,email,authPassword);alert('✅')}catch(e:any){alert(e.message)}}
-const handleAdminLogin=()=>{if(adminPassword==='dyno2026'){setIsAdmin(true);setAdminPassword('')}else alert('❌')}
+function App() {
+  const [activeTab, setActiveTab] = useState('matchs');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showSplash, setShowSplash] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [pseudo, setPseudo] = useState('');
+  const [email, setEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
 
-const ajouterSousMatch=()=>{
-  const adv=prompt('Adversaire :');if(!adv)return;
-  const sd=prompt('Score DYNO :');if(sd===null)return;
-  const sa=prompt(`Score ${adv} :`);if(sa===null)return;
-  const nm={adversaire:adv,scoreDyno:sd,scoreAdv:sa};
-  if(scoreEdit)setScoreEdit({...scoreEdit,sousMatchs:[...(scoreEdit.sousMatchs||[]),nm]});
-  else setNouveauMatch({...nouveauMatch,sousMatchs:[...nouveauMatch.sousMatchs,nm]});
+  const [matchs, setMatchs] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [strats, setStrats] = useState<any[]>([]);
+  const [replays, setReplays] = useState<any[]>([]);
+  const [joueurs, setJoueurs] = useState<any[]>([]);
+  const [compos, setCompos] = useState<any[]>([]);
+  const [objectifs, setObjectifs] = useState<any[]>([]);
+  const [fichesAdversaires, setFichesAdversaires] = useState<any[]>([]);
+
+  const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', sousMatchs: [] as any[] });
+  const [scoreEdit, setScoreEdit] = useState<any>(null);
+  const [nouvelleNote, setNouvelleNote] = useState({ mental: '', communication: '', gameplay: '' });
+  const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null);
+  const [nouvelleStrat, setNouvelleStrat] = useState({ adversaire: '', picks: [] as string[], bans: [] as string[] });
+  const [showAddStrat, setShowAddStrat] = useState(false);
+  const [showAddCompo, setShowAddCompo] = useState(false);
+  const [selectedMapCompo, setSelectedMapCompo] = useState('Arène 1');
+  const [compoJoueurs, setCompoJoueurs] = useState<string[]>([]);
+  const [nouvelObjectif, setNouvelObjectif] = useState('');
+  const [showAddFiche, setShowAddFiche] = useState(false);
+  const [nouvelleFiche, setNouvelleFiche] = useState({ adversaire: '', forces: '' });
+
+  const ty = useRef(0);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (u) {
+        const d = await getDoc(doc(db, 'users', u.uid));
+        if (d.exists()) {
+          const data = d.data();
+          setPseudo(data.pseudo || '');
+          if (u.email === AE || data.isAdmin) setIsAdmin(true);
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const unsubMatchs = onSnapshot(query(collection(db, 'matchs'), orderBy('createdAt', 'desc')), (s) => setMatchs(s.docs.map(x => ({ id: x.id, ...x.data() }))));
+    const unsubNotes = onSnapshot(query(collection(db, 'notes'), orderBy('createdAt', 'desc')), (s) => setNotes(s.docs.map(x => ({ id: x.id, ...x.data() }))));
+    const unsubStrats = onSnapshot(query(collection(db, 'strats'), orderBy('createdAt', 'desc')), (s) => setStrats(s.docs.map(x => ({ id: x.id, ...x.data() }))));
+    const unsubPlayers = onSnapshot(query(collection(db, 'players'), orderBy('createdAt', 'desc')), (s) => setJoueurs(s.docs.map(x => ({ id: x.id, ...x.data() }))));
+    const unsubRecs = onSnapshot(query(collection(db, 'replays'), orderBy('createdAt', 'desc')), (s) => setReplays(s.docs.map(x => ({ id: x.id, ...x.data() }))));
+    const unsubCompos = onSnapshot(query(collection(db, 'compos'), orderBy('createdAt', 'desc')), (s) => setCompos(s.docs.map(x => ({ id: x.id, ...x.data() }))));
+    const unsubObj = onSnapshot(query(collection(db, 'objectifs'), orderBy('createdAt', 'desc')), (s) => setObjectifs(s.docs.map(x => ({ id: x.id, ...x.data() }))));
+    const unsubFiches = onSnapshot(query(collection(db, 'fichesAdversaires'), orderBy('createdAt', 'desc')), (s) => setFichesAdversaires(s.docs.map(x => ({ id: x.id, ...x.data() }))));
+    
+    return () => {
+      unsubMatchs(); unsubNotes(); unsubStrats(); unsubPlayers();
+      unsubRecs(); unsubCompos(); unsubObj(); unsubFiches();
+    };
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowSplash(false), 2500);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handleSignUp = async () => {
+    try {
+      const r = await createUserWithEmailAndPassword(auth, email, authPassword);
+      await setDoc(doc(db, 'users', r.user.uid), { pseudo, email, createdAt: Date.now() });
+      await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', userId: r.user.uid, createdAt: Date.now() });
+      alert('✅'); setIsSignUp(false);
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const handleSignIn = async () => {
+    try { await signInWithEmailAndPassword(auth, email, authPassword); alert('✅'); }
+    catch (e: any) { alert(e.message); }
+  };
+
+  const handleAdminLogin = () => {
+    if (adminPassword === 'dyno2026') { setIsAdmin(true); setAdminPassword(''); }
+    else alert('❌');
+  };
+
+  const ajouterSousMatch = () => {
+    const adv = prompt('Adversaire :'); if (!adv) return;
+    const sd = prompt('Score DYNO :'); if (sd === null) return;
+    const sa = prompt(`Score ${adv} :`); if (sa === null) return;
+    const nm = { adversaire: adv, scoreDyno: sd, scoreAdv: sa };
+    if (scoreEdit) setScoreEdit({ ...scoreEdit, sousMatchs: [...(scoreEdit.sousMatchs || []), nm] });
+    else setNouveauMatch({ ...nouveauMatch, sousMatchs: [...nouveauMatch.sousMatchs, nm] });
+  };
+
+  const supprimerSousMatch = (i: number) => {
+    if (scoreEdit) {
+      const s = [...(scoreEdit.sousMatchs || [])]; s.splice(i, 1);
+      setScoreEdit({ ...scoreEdit, sousMatchs: s });
+    } else {
+      const s = [...nouveauMatch.sousMatchs]; s.splice(i, 1);
+      setNouveauMatch({ ...nouveauMatch, sousMatchs: s });
+    }
+  };
+
+  const ajouterMatch = async () => {
+    const md: any = { ...nouveauMatch, termine: nouveauMatch.type === 'Division', createdAt: Date.now() };
+    if (nouveauMatch.type === 'Division') {
+      md.scoreDyno = nouveauMatch.sousMatchs.reduce((a: any, s: any) => a + parseInt(s.scoreDyno || '0'), 0);
+      md.scoreAdversaire = nouveauMatch.sousMatchs.reduce((a: any, s: any) => a + parseInt(s.scoreAdv || '0'), 0);
+    }
+    await addDoc(collection(db, 'matchs'), md);
+    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', sousMatchs: [] });
+    alert('✅');
+  };
+
+  const updateScore = async () => {
+    const up: any = { termine: true, scoreDyno: parseInt(scoreEdit.scoreDyno || '0'), scoreAdversaire: parseInt(scoreEdit.scoreAdversaire || '0') };
+    if (scoreEdit.type === 'Division') {
+      up.sousMatchs = scoreEdit.sousMatchs;
+      up.scoreDyno = scoreEdit.sousMatchs.reduce((a: any, s: any) => a + parseInt(s.scoreDyno || '0'), 0);
+      up.scoreAdversaire = scoreEdit.sousMatchs.reduce((a: any, s: any) => a + parseInt(s.scoreAdv || '0'), 0);
+    }
+    await updateDoc(doc(db, 'matchs', scoreEdit.id), up);
+    setScoreEdit(null); alert('✅');
+  };
+
+  const fdf = (s: string) => {
+    if (!s) return '';
+    if (s.includes('/')) return s;
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
+  const H = ({ t, i }: { t: string; i?: string }) => (
+    <div className="rounded-3xl p-6 mb-5 text-center bg-gradient-to-br from-gold/10 to-transparent border border-gold/15 shadow-xl">
+      <img src={LG} className="w-12 mx-auto mb-2" />
+      <h2 className="text-lg font-black text-gold">{i} {t}</h2>
+    </div>
+  );
+
+  if (showSplash) return (
+    <div className="min-h-screen flex items-center justify-center bg-black">
+      <P /><img src={LG} className="w-40 animate-pulse" />
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen pb-32 bg-[#050505] text-white font-sans">
+      <P />
+      <header className="p-4 flex justify-between items-center border-b border-white/5 bg-black/50 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex items-center gap-2"><img src={LG} className="w-9" /><h1 className="font-black text-gold tracking-tighter">DYNO</h1></div>
+        {user ? (
+          <button onClick={() => signOut(auth)} className="px-4 py-2 bg-red-600/10 text-red-500 rounded-xl text-[10px] font-bold uppercase">{pseudo}</button>
+        ) : (
+          <button onClick={() => setIsSignUp(false)} className="px-4 py-2 bg-gold text-black rounded-xl text-[10px] font-bold">LOGIN</button>
+        )}
+      </header>
+
+      <main className="max-w-lg mx-auto px-4 py-6">
+        {activeTab === 'matchs' && (
+          <div><H t="Next Games" />{matchs.filter(m => !m.termine).map(m => (
+            <div key={m.id} className="bg-black/40 p-6 rounded-[2.5rem] border border-gold/15 mb-4 shadow-xl">
+              <div className="flex justify-between mb-4"><span className="text-[9px] font-bold text-gold uppercase">{m.type}</span><span className="text-gray-500 text-xs font-mono">{fdf(m.date)}</span></div>
+              <div className="flex items-center justify-between mb-6"><img src={LG} className="w-12" /><span className="text-xs font-black text-gray-700">VS</span><div className="text-right"><p className="text-xl font-black">{m.adversaire}</p><p className="text-[10px] text-gold/50">{m.arene}</p></div></div>
+              <button onClick={async () => {
+                let d = m.disponibles || [];
+                await updateDoc(doc(db, 'matchs', m.id), { disponibles: d.includes(pseudo) ? d.filter((p: any) => p !== pseudo) : [...d, pseudo] });
+              }} className={`w-full py-3 rounded-2xl font-bold text-xs ${(m.disponibles || []).includes(pseudo) ? 'bg-gold text-black' : 'bg-white/5 text-gold border border-gold/10'}`}>READY</button>
+            </div>
+          ))}</div>
+        )}
+
+        {activeTab === 'historique' && (
+          <div><H t="Results" />{matchs.filter(m => m.termine).map(m => (
+            <div key={m.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 mb-4 shadow-xl">
+              <div className="flex justify-between items-center mb-4">
+                <span className={`px-3 py-1 rounded-full text-[9px] font-bold ${m.scoreDyno > m.scoreAdversaire ? 'bg-gold text-black' : 'bg-red-600 text-white'}`}>
+                  {m.scoreDyno > m.scoreAdversaire ? 'WIN' : 'LOSS'}
+                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-500 text-xs">{fdf(m.date)}</span>
+                  {isAdmin && <button onClick={() => setScoreEdit({ ...m, scoreDyno: m.scoreDyno.toString(), scoreAdversaire: m.scoreAdversaire.toString() })} className="text-gold">✏️</button>}
+                </div>
+              </div>
+              <div className="flex justify-around items-center">
+                <div className="text-center"><p className="text-[9px] text-gold font-bold uppercase">DYNO</p><p className="text-4xl font-black">{m.scoreDyno}</p></div>
+                <div className="text-center"><p className="text-[9px] text-gray-500 font-bold uppercase">{m.adversaire}</p><p className="text-4xl font-black text-gray-500">{m.scoreAdversaire}</p></div>
+              </div>
+              {m.sousMatchs?.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-white/5 space-y-1.5">
+                  {m.sousMatchs.map((sm: any, i: number) => (
+                    <div key={i} className="flex justify-between bg-white/5 p-3 rounded-xl text-[10px] font-bold">
+                      <span className="text-gray-400 uppercase">{sm.adversaire}</span><span className="text-gold">{sm.scoreDyno} - {sm.scoreAdv}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}</div>
+        )}
+
+        {activeTab === 'notes' && (
+          <div><H t="Feedback" i="📊" />{matchs.filter(m => m.termine).map(m => (
+            <div key={m.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 mb-4">
+              <div className="flex justify-between items-center mb-4">
+                <p className="font-bold text-gold text-sm uppercase">{m.adversaire}</p>
+                <button onClick={() => { setSelectedMatchForNotes(m); setNouvelleNote({ mental: '', communication: '', gameplay: '' }); }} className="px-3 py-1.5 bg-purple-600/20 text-purple-400 rounded-xl text-[9px] font-bold">RATE</button>
+              </div>
+              <div className="space-y-2">
+                {notes.filter(n => n.matchId === m.id).map(n => (
+                  <div key={n.id} className="bg-white/5 p-3 rounded-xl flex justify-between items-center text-[10px] font-black">
+                    <span className="text-gold">{n.joueur}</span>
+                    <div className="flex gap-2">
+                      <span className="text-purple-400">{n.mental}</span><span className="text-blue-400">{n.communication}</span><span className="text-green-400">{n.gameplay}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}</div>
+        )}
+
+        {activeTab === 'strats' && (
+          <div><H t="Playbook" i="🎯" />
+            <button onClick={() => setShowAddStrat(true)} className="w-full mb-6 py-4 bg-gold text-black rounded-3xl font-black text-sm shadow-xl">NEW STRATEGY</button>
+            {strats.map(s => (
+              <div key={s.id} className="bg-black/40 p-6 rounded-[2rem] border border-gold/15 mb-4">
+                <div className="flex justify-between mb-4"><p className="text-xl font-black uppercase">{s.adversaire}</p>{isAdmin && <button onClick={async () => await deleteDoc(doc(db, 'strats', s.id))} className="text-red-500/30">🗑️</button>}</div>
+                <div className="grid grid-cols-2 gap-4 text-[10px] font-bold">
+                  <div className="space-y-1 text-green-400">{s.picks?.map((p: any, i: number) => (<div key={i} className="bg-green-500/10 p-2 rounded-xl">{p}</div>))}</div>
+                  <div className="space-y-1 text-red-400">{s.bans?.map((b: any, i: number) => (<div key={i} className="bg-red-500/10 p-2 rounded-xl">{b}</div>))}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'admin' && (
+          <div><H t="Admin" i="⚙️" />
+            {!isAdmin ? (
+              <div className="bg-black/40 p-8 rounded-[2rem] border border-gold/20 shadow-2xl">
+                <input type="password" placeholder="Passkey" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-center outline-none mb-4" />
+                <button onClick={handleAdminLogin} className="w-full py-4 bg-gold text-black rounded-2xl font-black text-sm uppercase">Unlock Access</button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-black/40 p-6 rounded-[2.5rem] border border-gold/20 shadow-2xl">
+                  <h3 className="text-xs font-black text-gold uppercase tracking-widest mb-6">➕ Add Match</h3>
+                  <input type="text" placeholder="Enemy Name" value={nouveauMatch.adversaire} onChange={e => setNouveauMatch({ ...nouveauMatch, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm mb-3 outline-none" />
+                  <input type="date" value={nouveauMatch.date} onChange={e => setNouveauMatch({ ...nouveauMatch, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm mb-3 outline-none" />
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <input type="time" value={nouveauMatch.horaire1} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire1: e.target.value })} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none" />
+                    <select value={nouveauMatch.type} onChange={e => setNouveauMatch({ ...nouveauMatch, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none">
+                      <option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option>
+                    </select>
+                  </div>
+                  {nouveauMatch.type === 'Division' && (
+                    <div className="bg-white/5 rounded-3xl p-5 mb-4 border border-gold/10 flex justify-between items-center">
+                      <p className="text-[10px] text-gold font-black uppercase">Sub-matches: {nouveauMatch.sousMatchs.length}</p>
+                      <button onClick={ajouterSousMatch} className="px-4 py-2 bg-gold text-black rounded-xl text-[10px] font-black">+</button>
+                    </div>
+                  )}
+                  <button onClick={ajouterMatch} className="w-full py-4 bg-gold text-black rounded-2xl font-black text-sm uppercase">Publish</button>
+                </div>
+                <div className="bg-black/40 p-6 rounded-[2.5rem] border border-red-500/20 max-h-60 overflow-y-auto space-y-2">
+                  {matchs.map(m => (
+                    <div key={m.id} className="flex items-center justify-between bg-white/5 p-4 rounded-2xl">
+                      <div><p className="text-gold font-black text-xs uppercase">{m.adversaire}</p><p className="text-[9px] text-gray-600">{fdf(m.date)}</p></div>
+                      <button onClick={async () => { if (confirm('Del?')) await deleteDoc(doc(db, 'matchs', m.id)); }} className="p-3 text-red-500/30 text-xs uppercase">🗑️</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ONGLETS SECONDAIRES */}
+        {activeTab === 'compos' && (
+          <div><H t="Compos" i="📋" /><button onClick={() => setShowAddCompo(true)} className="w-full mb-6 py-4 bg-gold text-black rounded-3xl font-black text-sm uppercase">New Comp</button>
+            {compos.map(c => (
+              <div key={c.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 mb-4 flex justify-between items-center">
+                <p className="font-black text-gold uppercase">{c.map}</p><p className="text-[10px] text-gray-500">{(c.joueurs || []).join(' • ')}</p>
+                {isAdmin && <button onClick={async () => await deleteDoc(doc(db, 'compos', c.id))} className="text-red-500/30">🗑️</button>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'fiches' && (
+          <div><H t="Scouting" i="🔍" /><button onClick={() => setShowAddFiche(true)} className="w-full mb-6 py-4 bg-gold text-black rounded-3xl font-black text-sm uppercase">New Report</button>
+            {fichesAdversaires.map(f => (
+              <div key={f.id} className="bg-black/40 p-6 rounded-[2rem] border border-white/5 mb-4">
+                <div className="flex justify-between items-center mb-4"><p className="text-xl font-black text-gold uppercase">{f.adversaire}</p>{isAdmin && <button onClick={async () => await deleteDoc(doc(db, 'fichesAdversaires', f.id))} className="text-red-500/30">🗑️</button>}</div>
+                <p className="text-xs text-gray-400">{f.forces}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'objectifs' && (
+          <div><H t="Missions" i="🎯" />
+            <div className="flex gap-2 mb-6">
+              <input type="text" placeholder="Goal..." value={nouvelObjectif} onChange={e => setNouvelObjectif(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 text-sm outline-none" />
+              <button onClick={async () => { await addDoc(collection(db, 'objectifs'), { texte: nouvelObjectif, termine: false, joueurId: user.uid, createdAt: Date.now() }); setNouvelObjectif(''); }} className="p-4 bg-gold text-black rounded-2xl font-black">+</button>
+            </div>
+            <div className="space-y-3">{objectifs.filter(o => o.joueurId === user?.uid).map(o => (
+              <div key={o.id} className={`flex items-center gap-4 p-5 rounded-3xl border ${o.termine ? 'bg-green-600/5 border-green-500/10 opacity-50' : 'bg-black/40 border-white/5 shadow-xl'}`}>
+                <button onClick={async () => await updateDoc(doc(db, 'objectifs', o.id), { termine: !o.termine })} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center ${o.termine ? 'bg-green-500 text-white' : 'border-gold/30 text-transparent'}`}>✓</button>
+                <p className="flex-1 text-sm font-bold">{o.texte}</p>
+              </div>
+            ))}</div>
+          </div>
+        )}
+
+        {activeTab === 'rec' && (
+          <div><H t="Theater" i="🎬" /><a href={YT} target="_blank" className="block w-full mb-6 py-4 bg-red-600 text-white text-center rounded-3xl font-black text-sm uppercase">YouTube Channel</a>
+            {replays.map(r => (
+              <div key={r.id} className="bg-black/40 p-4 rounded-[2rem] border border-white/5 mb-6"><p className="font-black mb-3 text-sm">{r.titre}</p>
+                <div className="relative pt-[56%] rounded-2xl overflow-hidden shadow-2xl">
+                  <iframe src={`https://www.youtube.com/embed/${r.lien.split('v=')[1]?.split('&')[0] || r.lien.split('/').pop()}`} className="absolute inset-0 w-full h-full" frameBorder="0" allowFullScreen></iframe>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'roster' && (
+          <div><H t="Squad" i="👥" /><div className="grid grid-cols-2 gap-3">{joueurs.map(j => (
+            <div key={j.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 text-center">
+              <div className="w-16 h-16 bg-gold/10 rounded-[1.5rem] mx-auto mb-4 flex items-center justify-center text-3xl font-black text-gold border border-gold/10">{j.pseudo[0]}</div>
+              <p className="font-black text-lg">{j.pseudo}</p><p className="text-[10px] text-gold/60 uppercase font-black mt-1">{j.role}</p>
+            </div>
+          ))}</div></div>
+        )}
+
+        {activeTab === 'stats' && (
+          <div><H t="Analytics" i="📈" /><div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-gold/10 p-6 rounded-[2rem] border border-gold/20 text-center shadow-xl">
+              <p className="text-5xl font-black text-gold">{(matchs.filter(m => m.termine && m.scoreDyno > m.scoreAdversaire).length + matchs.filter(m => m.termine && m.scoreDyno < m.scoreAdversaire).length) > 0 ? Math.round((matchs.filter(m => m.termine && m.scoreDyno > m.scoreAdversaire).length / (matchs.filter(m => m.termine && m.scoreDyno > m.scoreAdversaire).length + matchs.filter(m => m.termine && m.scoreDyno < m.scoreAdversaire).length)) * 100) : 0}%</p>
+              <p className="text-[10px] text-gray-500 uppercase font-black mt-1">Win Rate</p>
+            </div>
+            <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10 text-center shadow-xl">
+              <p className="text-5xl font-black text-white">{matchs.filter(m => m.termine).length}</p>
+              <p className="text-[10px] text-gray-500 uppercase font-black mt-1">Games</p>
+            </div>
+          </div></div>
+        )}
+
+      </main>
+
+      {/* NAVIGATION CORRIGÉE */}
+      <nav className="fixed bottom-6 left-6 right-6 z-50 flex backdrop-blur-3xl bg-black/60 rounded-[2.5rem] border border-white/10 p-2 shadow-2xl overflow-x-auto no-scrollbar scroll-smooth">
+        {[
+          { t: 'matchs', i: '📅' }, { t: 'historique', i: '📜' }, { t: 'strats', i: '🎯' }, 
+          { t: 'compos', i: '📋' }, { t: 'fiches', i: '🔍' }, { t: 'notes', i: '📊' }, 
+          { t: 'objectifs', i: '🎯' }, { t: 'rec', i: '🎬' }, { t: 'roster', i: '👥' }, 
+          { t: 'stats', i: '📈' }, { t: 'admin', i: '⚙️' }
+        ].map(({ t, i }) => (
+          <button key={t} onClick={() => setActiveTab(t)} className={`flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-2xl transition-all ${activeTab === t ? 'bg-gold text-black scale-110 shadow-lg shadow-gold/20' : 'text-gray-700 hover:text-white'}`}>
+            <span className="text-lg">{i}</span>
+          </button>
+        ))}
+      </nav>
+
+      {/* MODALS CORRIGÉES */}
+      {scoreEdit && (
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4">
+          <div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm">
+            <h3 className="text-xl font-black text-gold text-center mb-8 uppercase tracking-widest">Update Score</h3>
+            {scoreEdit.type === 'Division' ? (
+              <div className="space-y-4 mb-8">
+                <div className="flex justify-between items-center"><p className="text-[10px] text-gray-500 font-black uppercase">Sub-Matches</p><button onClick={ajouterSousMatch} className="px-4 py-2 bg-gold text-black rounded-xl text-[10px] font-black">+</button></div>
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {scoreEdit.sousMatchs?.map((sm: any, i: number) => (
+                    <div key={i} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center"><p className="text-[9px] text-gray-500 font-bold uppercase">{sm.adversaire}</p><p className="text-lg font-black text-white">{sm.scoreDyno}-{sm.scoreAdv}</p><button onClick={() => supprimerSousMatch(i)} className="text-red-500/30 p-2">🗑️</button></div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <input type="number" value={scoreEdit.scoreDyno} onChange={e => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-2xl font-black text-center text-gold outline-none" />
+                <input type="number" value={scoreEdit.scoreAdversaire} onChange={e => setScoreEdit({ ...scoreEdit, scoreAdversaire: e.target.value })} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-2xl font-black text-center text-gray-500 outline-none" />
+              </div>
+            )}
+            <div className="flex gap-3"><button onClick={() => setScoreEdit(null)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-[10px] text-gray-500 uppercase">Cancel</button><button onClick={updateScore} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-[10px] uppercase shadow-xl">Save</button></div>
+          </div>
+        </div>
+      )}
+
+      {selectedMatchForNotes && (
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-purple-500/20 w-full max-w-sm text-center"><h3 className="text-xl font-black text-purple-400 mb-8 uppercase tracking-widest">Feedback</h3>
+          <div className="space-y-4 mb-8 text-left">
+            <input type="number" min="0" max="10" placeholder="Mental" value={nouvelleNote.mental} onChange={e => setNouvelleNote({ ...nouvelleNote, mental: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xl font-black outline-none" />
+            <input type="number" min="0" max="10" placeholder="Communication" value={nouvelleNote.communication} onChange={e => setNouvelleNote({ ...nouvelleNote, communication: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xl font-black outline-none" />
+            <input type="number" min="0" max="10" placeholder="Gameplay" value={nouvelleNote.gameplay} onChange={e => setNouvelleNote({ ...nouvelleNote, gameplay: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xl font-black outline-none" />
+          </div>
+          <div className="flex gap-3"><button onClick={() => setSelectedMatchForNotes(null)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500 uppercase">Cancel</button><button onClick={async () => { await addDoc(collection(db, 'notes'), { ...nouvelleNote, matchId: selectedMatchForNotes.id, joueur: pseudo, createdAt: Date.now() }); setSelectedMatchForNotes(null); alert('✅'); }} className="flex-1 py-4 bg-purple-600 text-white rounded-2xl font-black text-xs uppercase">Submit</button></div>
+        </div></div>
+      )}
+
+      {showAddStrat && (
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm"><h3 className="text-xl font-black text-gold text-center mb-6 uppercase tracking-widest">Brief</h3>
+          <input type="text" placeholder="Opponent" value={nouvelleStrat.adversaire} onChange={e => setNouvelleStrat({ ...nouvelleStrat, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 text-white outline-none" />
+          <div className="space-y-6 mb-8 text-[10px] font-black">
+            <div><p className="text-green-500 uppercase mb-2">Picks</p><div className="grid grid-cols-3 gap-2">{AM.map(m => (<button key={m} onClick={() => { let p = nouvelleStrat.picks.includes(m) ? nouvelleStrat.picks.filter(x => x !== m) : [...nouvelleStrat.picks, m].slice(0, 4); setNouvelleStrat({ ...nouvelleStrat, picks: p }); }} className={`p-2 rounded-xl border ${nouvelleStrat.picks.includes(m) ? 'bg-green-600 border-green-400 text-white' : 'bg-white/5 border-white/10 text-gray-600'}`}>{m}</button>))}</div></div>
+            <div><p className="text-red-500 uppercase mb-2">Bans</p><div className="grid grid-cols-3 gap-2">{AM.map(m => (<button key={m} onClick={() => { let b = nouvelleStrat.bans.includes(m) ? nouvelleStrat.bans.filter(x => x !== m) : [...nouvelleStrat.bans, m].slice(0, 4); setNouvelleStrat({ ...nouvelleStrat, bans: b }); }} className={`p-2 rounded-xl border ${nouvelleStrat.bans.includes(m) ? 'bg-red-600 border-red-400 text-white' : 'bg-white/5 border-white/10 text-gray-600'}`}>{m}</button>))}</div></div>
+          </div>
+          <div className="flex gap-3"><button onClick={() => setShowAddStrat(false)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500 uppercase">Back</button><button onClick={async () => { await addDoc(collection(db, 'strats'), { ...nouvelleStrat, auteur: pseudo, createdAt: Date.now() }); setShowAddStrat(false); alert('✅'); }} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-xs uppercase">Save</button></div>
+        </div></div>
+      )}
+
+      {showAddCompo && (
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm"><h3 className="text-xl font-black text-gold text-center mb-6 uppercase tracking-widest">Comp</h3>
+          <select value={selectedMapCompo} onChange={e => setSelectedMapCompo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white mb-6 outline-none">{AM.map(m => (<option key={m} value={m}>{m}</option>))}</select>
+          <div className="mb-8"><p className="text-[10px] text-gray-500 font-black uppercase mb-3 text-center">Select Squad</p><div className="grid grid-cols-2 gap-2">{joueurs.map(j => (<button key={j.id} onClick={() => { let c = compoJoueurs.includes(j.pseudo) ? compoJoueurs.filter(p => p !== j.pseudo) : [...compoJoueurs, j.pseudo]; setCompoJoueurs(c); }} className={`p-3 rounded-2xl text-[10px] font-black border ${compoJoueurs.includes(j.pseudo) ? 'bg-gold text-black border-gold' : 'bg-white/5 border-white/10 text-gray-600'}`}>{j.pseudo}</button>))}</div></div>
+          <div className="flex gap-3"><button onClick={() => setShowAddCompo(false)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500 uppercase">Cancel</button><button onClick={async () => { await addDoc(collection(db, 'compos'), { map: selectedMapCompo, joueurs: compoJoueurs, createdAt: Date.now() }); setShowAddCompo(false); alert('✅'); }} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-xs uppercase">Save</button></div>
+        </div></div>
+      )}
+
+      {showAddFiche && (
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm"><h3 className="text-xl font-black text-gold text-center mb-6 uppercase tracking-widest">Intel</h3>
+          <div className="space-y-4 mb-8"><input type="text" placeholder="Enemy" value={nouvelleFiche.adversaire} onChange={e => setNouvelleFiche({ ...nouvelleFiche, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none" /><textarea placeholder="Report Details" value={nouvelleFiche.forces} onChange={e => setNouvelleFiche({ ...nouvelleFiche, forces: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white h-32 text-xs resize-none outline-none" /></div>
+          <div className="flex gap-3"><button onClick={() => setShowAddFiche(false)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500 uppercase">Back</button><button onClick={async () => { await addDoc(collection(db, 'fichesAdversaires'), { ...nouvelleFiche, createdAt: Date.now() }); setShowAddFiche(false); alert('✅'); }} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-xs uppercase">Store</button></div>
+        </div></div>
+      )}
+
+      {/* LOGIN CORRIGÉ */}
+      {!user && (
+        <div className="fixed inset-0 bg-black flex items-center justify-center z-[200] p-6 text-center">
+          <div className="w-full max-w-sm bg-gradient-to-br from-[#111] to-black p-10 rounded-[3.5rem] border border-white/10 shadow-2xl">
+            <img src={LG} className="w-20 mx-auto mb-8" />
+            <h2 className="text-xl font-black text-white mb-8 tracking-widest uppercase">{isSignUp ? 'Join Dyno' : 'Login'}</h2>
+            {isSignUp && <input type="text" placeholder="Username" value={pseudo} onChange={e => setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 text-white outline-none focus:border-gold" />}
+            <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 text-white outline-none focus:border-gold" />
+            <input type="password" placeholder="Password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-8 text-white outline-none focus:border-gold" />
+            <button onClick={isSignUp ? handleSignUp : handleSignIn} className="w-full py-5 bg-gold text-black rounded-3xl font-black tracking-widest text-sm shadow-xl mb-6 uppercase">Authorize</button>
+            <button onClick={() => setIsSignUp(!isSignUp)} className="text-gold text-[10px] font-black uppercase tracking-widest">{isSignUp ? 'Login' : 'Create Account'}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
-const supprimerSousMatch=(i:number)=>{
-  if(scoreEdit){let s=[...(scoreEdit.sousMatchs||[])];s.splice(i,1);setScoreEdit({...scoreEdit,sousMatchs:s})}
-  else{let s=[...nouveauMatch.sousMatchs];s.splice(i,1);setNouveauMatch({...nouveauMatch,sousMatchs:s})}
-}
-const ajouterMatch=async()=>{
-  const md:any={...nouveauMatch,termine:nouveauMatch.type==='Division',createdAt:Date.now()};
-  if(nouveauMatch.type==='Division'){
-    md.scoreDyno=nouveauMatch.sousMatchs.reduce((a,s)=>a+parseInt(s.scoreDyno||'0'),0);
-    md.scoreAdversaire=nouveauMatch.sousMatchs.reduce((a,s)=>a+parseInt(s.scoreAdv||'0'),0);
-  }
-  await addDoc(collection(db,'matchs'),md);setNouveauMatch({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[]});alert('✅')
-}
-const updateScore=async()=>{
-  let up:any={termine:true,scoreDyno:parseInt(scoreEdit.scoreDyno||'0'),scoreAdversaire:parseInt(scoreEdit.scoreAdv||'0')};
-  if(scoreEdit.type==='Division'){
-    up.sousMatchs=scoreEdit.sousMatchs;
-    up.scoreDyno=scoreEdit.sousMatchs.reduce((a:any,s:any)=>a+parseInt(s.scoreDyno||'0'),0);
-    up.scoreAdversaire=scoreEdit.sousMatchs.reduce((a:any,s:any)=>a+parseInt(s.scoreAdv||'0'),0);
-  }
-  await updateDoc(doc(db,'matchs',scoreEdit.id),up);setScoreEdit(null);alert('✅')
-}
 
-const fdf=(s:string)=>{if(!s)return'';if(s.includes('/'))return s;const[y,m,d]=s.split('-');return`${d}/${m}/${y}`}
-const H=({t,i}:{t:string;i?:string})=>(<div className="rounded-3xl p-6 mb-5 text-center bg-gradient-to-br from-gold/10 to-transparent border border-gold/15 shadow-xl"><img src={LG} className="w-12 mx-auto mb-2"/><h2 className="text-lg font-black text-gold">{i} {t}</h2></div>)
-
-if(showSplash)return(<div className="min-h-screen flex items-center justify-center bg-black"><P/><img src={LG} className="w-40 animate-pulse"/></div>)
-
-return(
-<div className="min-h-screen pb-32 bg-[#050505] text-white font-sans">
-<P/>
-<header className="p-4 flex justify-between items-center border-b border-white/5 bg-black/50 backdrop-blur-md sticky top-0 z-50">
-  <div className="flex items-center gap-2"><img src={LG} className="w-9"/><h1 className="font-black text-gold tracking-tighter">DYNO</h1></div>
-  {user?(<button onClick={()=>signOut(auth)} className="px-4 py-2 bg-red-600/10 text-red-500 rounded-xl text-[10px] font-bold uppercase">{pseudo}</button>):(<button onClick={()=>setIsSignUp(false)} className="px-4 py-2 bg-gold text-black rounded-xl text-[10px] font-bold">LOGIN</button>)}
-</header>
-
-<main className="max-w-lg mx-auto px-4 py-6" onTouchStart={(e)=>ty.current=e.touches[0].clientY} onTouchMove={(e)=>{let d=e.touches[0].clientY-ty.current;if(window.scrollY===0&&d>0)setPullDistance(Math.min(d*0.4,80))}} onTouchEnd={()=>{if(pullDistance>60)window.location.reload();setPullDistance(0)}}>
-{pullDistance>0&&<div className="text-center text-gold text-xl pb-4">🔄</div>}
-
-{activeTab==='matchs'&&(<div><H t="Next Games"/>{matchs.filter(m=>!m.termine).map(m=>(<div key={m.id} className="bg-black/40 p-6 rounded-[2.5rem] border border-gold/15 mb-4 shadow-xl"><div className="flex justify-between mb-4"><span className="text-[9px] font-bold text-gold uppercase">{m.type}</span><span className="text-gray-500 text-xs font-mono">{fdf(m.date)}</span></div><div className="flex items-center justify-between mb-6"><img src={LG} className="w-12"/><span className="text-xs font-black text-gray-700">VS</span><div className="text-right"><p className="text-xl font-black">{m.adversaire}</p><p className="text-[10px] text-gold/50">{m.arene}</p></div></div><div className="flex gap-2"><button onClick={async()=>{let d=m.disponibles||[];await updateDoc(doc(db,'matchs',m.id),{disponibles:d.includes(pseudo)?d.filter((p:any)=>p!==pseudo):[...d,pseudo]})}} className={`flex-1 py-3 rounded-2xl font-bold text-xs ${(m.disponibles||[]).includes(pseudo)?'bg-gold text-black':'bg-white/5 text-gold'}`}>READY</button></div></div>))}</div>)}
-
-{activeTab==='historique'&&(<div><H t="Results"/><div className="grid grid-cols-2 gap-4 mb-6"><div className="bg-gold/10 p-5 rounded-3xl border border-gold/20 text-center"><p className="text-3xl font-black text-gold">{matchs.filter(m=>m.termine&&m.scoreDyno>m.scoreAdversaire).length}</p><p className="text-[9px] text-gray-500 uppercase">Wins</p></div><div className="bg-red-600/10 p-5 rounded-3xl border border-red-600/20 text-center"><p className="text-3xl font-black text-red-500">{matchs.filter(m=>m.termine&&m.scoreDyno<m.scoreAdversaire).length}</p><p className="text-[9px] text-gray-500 uppercase">Losses</p></div></div>{matchs.filter(m=>m.termine).map(m=>(<div key={m.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 mb-4 shadow-xl"><div className="flex justify-between mb-4"><span className={`px-3 py-1 rounded-full text-[9px] font-bold ${m.scoreDyno>m.scoreAdversaire?'bg-gold text-black':'bg-red-600 text-white'}`}>{m.scoreDyno>m.scoreAdversaire?'WIN':'LOSS'}</span><div className="flex items-center gap-3"><span className="text-gray-500 text-xs">{fdf(m.date)}</span>{isAdmin&&<button onClick={()=>setScoreEdit({...m,scoreDyno:m.scoreDyno.toString(),scoreAdv:m.scoreAdversaire.toString()})} className="text-gold">✏️</button>}</div></div><div className="flex justify-around items-center"><div className="text-center"><p className="text-[9px] text-gold font-bold">DYNO</p><p className="text-4xl font-black">{m.scoreDyno}</p></div><div className="text-center"><p className="text-[9px] text-gray-500 font-bold uppercase">{m.adversaire}</p><p className="text-4xl font-black text-gray-500">{m.scoreAdversaire}</p></div></div>{m.sousMatchs?.length>0&&(<div className="mt-4 pt-4 border-t border-white/5 space-y-1.5">{m.sousMatchs.map((sm:any,i:number)=>(<div key={i} className="flex justify-between bg-white/5 p-3 rounded-xl text-[10px] font-bold"><span className="text-gray-400">{sm.adversaire}</span><span className="text-gold">{sm.scoreDyno}-{sm.scoreAdv}</span></div>))}</div>)}</div>))}</div>)}
-
-{activeTab==='notes'&&(<div><H t="Feedback" i="📊"/>{matchs.filter(m=>m.termine).map(m=>(<div key={m.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 mb-4"><div className="flex justify-between items-center mb-4"><p className="font-bold text-gold text-sm">{m.adversaire}</p><button onClick={()=>{setSelectedMatchForNotes(m);setNouvelleNote({matchId:m.id,mental:'',communication:'',gameplay:''})}} className="px-3 py-1.5 bg-purple-600/20 text-purple-400 rounded-xl text-[9px] font-bold">RATE</button></div><div className="space-y-2">{notes.filter(n=>n.matchId===m.id).map(n=>(<div key={n.id} className="bg-white/5 p-3 rounded-xl flex justify-between items-center text-[10px] font-black"><span className="text-gold">{n.joueur}</span><div className="flex gap-2"><span className="text-purple-400">{n.mental}</span><span className="text-blue-400">{n.communication}</span><span className="text-green-400">{n.gameplay}</span></div></div>))}</div></div>))}</div>)}
-
-{activeTab==='strats'&&(<div><H t="Strats" i="🎯"/><button onClick={()=>setShowAddStrat(true)} className="w-full mb-6 py-4 bg-gold text-black rounded-3xl font-black text-sm shadow-xl">NEW STRATEGY</button>{strats.map(s=>(<div key={s.id} className="bg-black/40 p-6 rounded-[2rem] border border-gold/15 mb-4 shadow-lg"><div className="flex justify-between mb-4"><p className="text-xl font-black">{s.adversaire}</p>{isAdmin&&<button onClick={async()=>await deleteDoc(doc(db,'strats',s.id))} className="text-red-500/30">🗑️</button></div><div className="grid grid-cols-2 gap-4 text-[10px] font-bold"><div className="space-y-1 text-green-400">{s.picks?.map((p:any,i:number)=>(<div key={i} className="bg-green-500/10 p-2 rounded-xl">{p}</div>))}</div><div className="space-y-1 text-red-400">{s.bans?.map((b:any,i:number)=>(<div key={i} className="bg-red-500/10 p-2 rounded-xl">{b}</div>))}</div></div></div>))}</div>)}
-
-{activeTab==='compos'&&(<div><H t="Compos" i="📋"/><button onClick={()=>setShowAddCompo(true)} className="w-full mb-6 py-4 bg-gold text-black rounded-3xl font-black text-sm">NEW COMPO</button>{compos.map(c=>(<div key={c.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 mb-4 flex justify-between items-center"><p className="font-black text-gold">{c.map}</p><p className="text-[10px] text-gray-500">{(c.joueurs||[]).join(' • ')}</p>{isAdmin&&<button onClick={async()=>await deleteDoc(doc(db,'compos',c.id))} className="text-red-500/30">🗑️</button></div>))}</div>)}
-
-{activeTab==='fiches'&&(<div><H t="Intel" i="🔍"/><button onClick={()=>setShowAddFiche(true)} className="w-full mb-6 py-4 bg-gold text-black rounded-3xl font-black text-sm">NEW INTEL</button>{fichesAdversaires.map(f=>(<div key={f.id} className="bg-black/40 p-6 rounded-[2rem] border border-white/5 mb-4"><div className="flex justify-between items-center mb-4"><p className="text-xl font-black text-gold">{f.adversaire}</p>{isAdmin&&<button onClick={async()=>await deleteDoc(doc(db,'fichesAdversaires',f.id))} className="text-red-500/30">🗑️</button></div><p className="text-xs text-gray-400">{f.forces}</p></div>))}</div>)}
-
-{activeTab==='objectifs'&&(<div><H t="Goals" i="🎯"/><div className="flex gap-2 mb-6"><input type="text" placeholder="Goal..." value={nouvelObjectif} onChange={e=>setNouvelObjectif(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 text-sm outline-none"/><button onClick={async()=>{await addDoc(collection(db,'objectifs'),{texte:nouvelObjectif,termine:false,joueurId:user.uid,createdAt:Date.now()});setNouvelObjectif('')}} className="p-4 bg-gold text-black rounded-2xl font-black">+</button></div><div className="space-y-3">{objectifs.filter(o=>o.joueurId===user?.uid).map(o=>(<div key={o.id} className={`flex items-center gap-4 p-5 rounded-3xl border ${o.termine?'bg-green-600/5 border-green-500/10 opacity-50':'bg-black/40 border-white/5'}`}><button onClick={async()=>await updateDoc(doc(db,'objectifs',o.id),{termine:!o.termine})} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center ${o.termine?'bg-green-500 text-white':'border-gold/30 text-transparent'}`}>✓</button><p className="flex-1 text-sm font-bold">{o.texte}</p></div>))}</div></div>)}
-
-{activeTab==='rec'&&(<div><H t="Theater" i="🎬"/><a href={YT} target="_blank" className="block w-full mb-6 py-4 bg-red-600 text-white text-center rounded-3xl font-black text-sm">WATCH ON YOUTUBE</a>{replays.map(r=>(<div key={r.id} className="bg-black/40 p-4 rounded-[2rem] border border-white/5 mb-6"><p className="font-black mb-3 text-sm">{r.titre}</p><div className="relative pt-[56%] rounded-2xl overflow-hidden"><iframe src={`https://www.youtube.com/embed/${r.lien.split('v=')[1]?.split('&')[0]||r.lien.split('/').pop()}`} className="absolute inset-0 w-full h-full" frameBorder="0" allowFullScreen></iframe></div></div>))}</div>)}
-
-{activeTab==='roster'&&(<div><H t="Roster" i="👥"/><div className="grid grid-cols-2 gap-3">{joueurs.map(j=>(<div key={j.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 text-center"><div className="w-16 h-16 bg-gold/10 rounded-[1.5rem] mx-auto mb-4 flex items-center justify-center text-3xl font-black text-gold">{j.pseudo[0]}</div><p className="font-black text-lg">{j.pseudo}</p><p className="text-[10px] text-gold/60 uppercase font-black mt-1">{j.role}</p></div>))}</div></div>)}
-
-{activeTab==='admin'&&(<div><H t="Admin" i="⚙️"/>{!isAdmin?(<div className="bg-black/40 p-8 rounded-[2rem] border border-gold/20 shadow-2xl"><input type="password" placeholder="Passkey" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-center outline-none mb-4"/><button onClick={handleAdminLogin} className="w-full py-4 bg-gold text-black rounded-2xl font-black text-sm">UNLOCK</button></div>):(
-<div className="space-y-6"><div className="bg-black/40 p-6 rounded-[2.5rem] border border-gold/20 shadow-2xl"><h3 className="text-xs font-black text-gold uppercase tracking-widest mb-6">➕ Add Match</h3><input type="text" placeholder="Enemy Name" value={nouveauMatch.adversaire} onChange={e=>setNouveauMatch({...nouveauMatch,adversaire:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm mb-3 outline-none"/><input type="date" value={nouveauMatch.date} onChange={e=>setNouveauMatch({...nouveauMatch,date:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm mb-3 outline-none"/><div className="grid grid-cols-2 gap-3 mb-4"><input type="time" value={nouveauMatch.horaire1} onChange={e=>setNouveauMatch({...nouveauMatch,horaire1:e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none"/><select value={nouveauMatch.type} onChange={e=>setNouveauMatch({...nouveauMatch,type:e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>{nouveauMatch.type==='Division'&&(
-<div className="bg-white/5 rounded-3xl p-5 mb-4 border border-gold/10 flex justify-between items-center"><p className="text-[10px] text-gold font-black uppercase">Sub-matches: {nouveauMatch.sousMatchs.length}</p><button onClick={ajouterSousMatch} className="px-4 py-2 bg-gold text-black rounded-xl text-[10px] font-black">+</button></div>
-)}<button onClick={ajouterMatch} className="w-full py-4 bg-gold text-black rounded-2xl font-black text-sm">PUBLISH</button></div>
-<div className="bg-black/40 p-6 rounded-[2.5rem] border border-red-500/20 max-h-60 overflow-y-auto space-y-2">{matchs.map(m=>(<div key={m.id} className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5"><div><p className="text-gold font-black text-xs">{m.adversaire}</p><p className="text-[9px] text-gray-600">{fdf(m.date)}</p></div><button onClick={async()=>await deleteDoc(doc(db,'matchs',m.id))} className="p-3 text-red-500/30 text-xs">🗑️</button></div>))}</div></div>)}</div>)}
-</main>
-
-<nav className="fixed bottom-6 left-6 right-6 z-50 flex backdrop-blur-3xl bg-black/60 rounded-[2.5rem] border border-white/10 p-2 shadow-2xl overflow-x-auto no-scrollbar">
-{[{t:'matchs',i:'📅'},{t:'historique',i:'📜'},{t:'strats',i:'🎯'},{t:'compos',i:'📋'},{t:'fiches',i:'🔍'},{t:'notes',i:'📊'},{t:'objectifs',i:'🎯'},{t:'rec',i:'🎬'},{t:'roster',i:'👥'},{t:'admin',i:'⚙️'}].map(({t,i})=>(
-<button key={t} onClick={()=>setActiveTab(t)} className={`flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-2xl transition-all ${activeTab===t?'bg-gold text-black scale-110':'text-gray-700'}`}><span className="text-lg">{i}</span></button>
-))}
-</nav>
-
-{scoreEdit&&(<div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm"><h3 className="text-xl font-black text-gold text-center mb-8 uppercase tracking-widest">Update Score</h3>
-{scoreEdit.type==='Division'?(<div className="space-y-4 mb-8"><div className="flex justify-between items-center"><p className="text-[10px] text-gray-500 font-black uppercase">Sub-Matches</p><button onClick={ajouterSousMatch} className="px-4 py-2 bg-gold text-black rounded-xl text-[10px] font-black">+</button></div><div className="max-h-60 overflow-y-auto space-y-2">{scoreEdit.sousMatchs?.map((sm:any,i:number)=>(<div key={i} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center"><p className="text-[9px] text-gray-500 font-bold">{sm.adversaire}</p><p className="text-lg font-black text-white">{sm.scoreDyno}-{sm.scoreAdv}</p><button onClick={()=>supprimerSousMatch(i)} className="text-red-500/30 p-2">🗑️</button></div>))}</div></div>):(
-<div className="grid grid-cols-2 gap-4 mb-8"><input type="number" value={scoreEdit.scoreDyno} onChange={e=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-2xl font-black text-center text-gold outline-none"/><input type="number" value={scoreEdit.scoreAdv} onChange={e=>setScoreEdit({...scoreEdit,scoreAdversaire:e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-2xl font-black text-center text-gray-500 outline-none"/></div>
-)}<div className="flex gap-3"><button onClick={()=>setScoreEdit(null)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-[10px] text-gray-500">CANCEL</button><button onClick={updateScore} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-[10px] shadow-xl">SAVE</button></div></div></div>)}
-
-{selectedMatchForNotes&&(<div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-purple-500/20 w-full max-w-sm text-center"><h3 className="text-xl font-black text-purple-400 mb-8 uppercase tracking-widest">Feedback</h3><div className="space-y-4 mb-8 text-left">
-  <input type="number" min="0" max="10" placeholder="Mental" value={nouvelleNote.mental} onChange={e=>setNouvelleNote({...nouvelleNote,mental:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xl font-black outline-none"/>
-  <input type="number" min="0" max="10" placeholder="Comm" value={nouvelleNote.communication} onChange={e=>setNouvelleNote({...nouvelleNote,communication:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xl font-black outline-none"/>
-  <input type="number" min="0" max="10" placeholder="Skill" value={nouvelleNote.gameplay} onChange={e=>setNouvelleNote({...nouvelleNote,gameplay:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xl font-black outline-none"/>
-</div><div className="flex gap-3"><button onClick={()=>setSelectedMatchForNotes(null)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500 uppercase">Cancel</button><button onClick={async()=>{await addDoc(collection(db,'notes'),{...nouvelleNote, matchId:selectedMatchForNotes.id, joueur:pseudo, createdAt:Date.now()});setSelectedMatchForNotes(null);alert('✅');}} className="flex-1 py-4 bg-purple-600 text-white rounded-2xl font-black text-xs uppercase">Submit</button></div></div></div>)}
-
-{showAddStrat&&(<div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm shadow-2xl"><h3 className="text-xl font-black text-gold text-center mb-6 uppercase tracking-widest">Brief</h3><input type="text" placeholder="Opponent" value={nouvelleStrat.adversaire} onChange={e=>setNouvelleStrat({...nouvelleStrat,adversaire:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 text-white outline-none"/><div className="space-y-4 mb-8">
-<div><p className="text-[10px] text-green-500 font-black uppercase mb-2">Picks</p><div className="grid grid-cols-3 gap-2">{AM.map(m=>(<button key={m} onClick={()=>{let p=nouvelleStrat.picks.includes(m)?nouvelleStrat.picks.filter(x=>x!==m):[...nouvelleStrat.picks,m].slice(0,4);setNouvelleStrat({...nouvelleStrat,picks:p})}} className={`p-2 rounded-xl text-[8px] font-black border ${nouvelleStrat.picks.includes(m)?'bg-green-600 border-green-400 text-white':'bg-white/5 border-white/10 text-gray-600'}`}>{m}</button>))}</div></div>
-<div><p className="text-[10px] text-red-500 font-black uppercase mb-2">Bans</p><div className="grid grid-cols-3 gap-2">{AM.map(m=>(<button key={m} onClick={()=>{let b=nouvelleStrat.bans.includes(m)?nouvelleStrat.bans.filter(x=>x!==m):[...nouvelleStrat.bans,m].slice(0,4);setNouvelleStrat({...nouvelleStrat,bans:b})}} className={`p-2 rounded-xl text-[8px] font-black border ${nouvelleStrat.bans.includes(m)?'bg-red-600 border-red-400 text-white':'bg-white/5 border-white/10 text-gray-600'}`}>{m}</button>))}</div></div>
-</div><div className="flex gap-3"><button onClick={()=>setShowAddStrat(false)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500">BACK</button><button onClick={async()=>{await addDoc(collection(db,'strats'),{...nouvelleStrat, auteur:pseudo, createdAt:Date.now()});setShowAddStrat(false);alert('✅');}} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-xs uppercase">Save</button></div></div></div>)}
-
-{showAddCompo&&(<div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm"><h3 className="text-xl font-black text-gold text-center mb-6 uppercase tracking-widest">Comp</h3><select value={selectedMapCompo} onChange={e=>setSelectedMapCompo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white mb-6 outline-none">{AM.map(m=>(<option key={m} value={m}>{m}</option>))}</select><div className="mb-8"><p className="text-[10px] text-gray-500 font-black uppercase mb-3">Squad</p><div className="grid grid-cols-2 gap-2">{joueurs.map(j=>(<button key={j.id} onClick={()=>{let c=compoJoueurs.includes(j.pseudo)?compoJoueurs.filter(p=>p!==j.pseudo):[...compoJoueurs,j.pseudo];setCompoJoueurs(c)}} className={`p-3 rounded-2xl text-[10px] font-black border ${compoJoueurs.includes(j.pseudo)?'bg-gold text-black border-gold':'bg-white/5 border-white/10 text-gray-600'}`}>{j.pseudo}</button>))}</div></div><div className="flex gap-3"><button onClick={()=>setShowAddCompo(false)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500">CANCEL</button><button onClick={async()=>{await addDoc(collection(db,'compos'),{map:selectedMapCompo,joueurs:compoJoueurs,createdAt:Date.now()});setShowAddCompo(false);alert('✅');}} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-xs">SAVE</button></div></div></div>)}
-
-{showAddFiche&&(<div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm"><h3 className="text-xl font-black text-gold text-center mb-6 uppercase tracking-widest">Intel</h3><div className="space-y-4 mb-8"><input type="text" placeholder="Enemy" value={nouvelleFiche.adversaire} onChange={e=>setNouvelleFiche({...nouvelleFiche,adversaire:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none"/><textarea placeholder="Details" value={nouvelleFiche.forces} onChange={e=>setNouvelleFiche({...nouvelleFiche,forces:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white h-32 text-xs resize-none outline-none"/></div><div className="flex gap-3"><button onClick={()=>setShowAddFiche(false)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500">BACK</button><button onClick={async()=>{await addDoc(collection(db,'fichesAdversaires'),{...nouvelleFiche,createdAt:Date.now()});setShowAddFiche(false);alert('✅');}} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-xs">STORE</button></div></div></div>)}
-
-{!user&&(<div className="fixed inset-0 bg-black flex items-center justify-center z-[200] p-6 text-center"><div className="w-full max-w-sm bg-gradient-to-br from-[#111] to-black p-10 rounded-[3.5rem] border border-white/10 shadow-2xl"><img src={LG} className="w-20 mx-auto mb-8"/><h2 className="text-xl font-black text-white mb-8 tracking-widest uppercase">{isSignUp?'Join Dyno':'Login'}</h2>{isSignUp&&<input type="text" placeholder="Username" value={pseudo} onChange={e=>setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 text-white outline-none focus:border-gold"/>}<input type="email" placeholder="E-mail" value={email} onChange={e=>setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 text-white outline-none focus:border-gold"/><input type="password" placeholder="Password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-8 text-white outline-none focus:border-gold"/><button onClick={isSignUp?handleSignUp:handleSignIn} className="w-full py-5 bg-gold text-black rounded-3xl font-black tracking-widest text-sm shadow-xl mb-6 uppercase">Authorize</button><button onClick={()=>setIsSignUp(!isSignUp)} className="text-gold text-[10px] font-black uppercase tracking-widest">{isSignUp?'Back to login':'Create Account'}</button></div></div>)}
-
-</div>)}
-
-export default App
+export default App;
