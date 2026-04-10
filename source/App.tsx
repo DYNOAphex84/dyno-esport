@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
 import { Calendar, History, FileText, Target, Settings, Bell, BellOff } from 'lucide-react'
 import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore'
+import { getFirestore, collection, onSnapshot, query, orderBy, updateDoc, doc } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: "AIzaSyDXwItLM0OZ0VmHj-DLZcH8OBy7wXiHBsM",
@@ -22,7 +22,7 @@ const TiltCard = ({ children }: { children: React.ReactNode }) => {
   const rotateY = useTransform(x, [-100, 100], [-5, 5]);
   return (
     <motion.div style={{ x, y, rotateX, rotateY, transformStyle: "preserve-3d" }}
-      className="bg-black/40 p-5 rounded-3xl border border-[#D4AF37]/20 shadow-2xl mb-4"
+      className="bg-black/40 p-5 rounded-3xl border border-[#D4AF37]/20 shadow-2xl mb-4 relative"
     >{children}</motion.div>
   );
 };
