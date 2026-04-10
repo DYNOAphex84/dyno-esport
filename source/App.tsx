@@ -15,10 +15,15 @@ function App(){
 const[activeTab,setActiveTab]=useState('matchs'),[isAdmin,setIsAdmin]=useState(false),[adminPassword,setAdminPassword]=useState(''),[showSplash,setShowSplash]=useState(true),[loading,setLoading]=useState(true),[user,setUser]=useState<any>(null),[pseudo,setPseudo]=useState(''),[email,setEmail]=useState(''),[authPassword,setAuthPassword]=useState(''),[isSignUp,setIsSignUp]=useState(false)
 const[matchs,setMatchs]=useState<any[]>([]),[replays,setReplays]=useState<any[]>([]),[joueurs,setJoueurs]=useState<any[]>([]),[notes,setNotes]=useState<any[]>([]),[strats,setStrats]=useState<any[]>([]),[commentaires,setCommentaires]=useState<any[]>([]),[compos,setCompos]=useState<any[]>([]),[objectifs,setObjectifs]=useState<any[]>([]),[analyses,setAnalyses]=useState<any[]>([]),[fichesAdversaires,setFichesAdversaires]=useState<any[]>([])
 const[nouveauMatch,setNouveauMatch]=useState({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[] as {adversaire:string,scoreDyno:string,scoreAdv:string}[]})
+
+// ✅ MODIFICATION 1 : scoreEdit étendu pour supporter les sous-matchs de division
 const[scoreEdit,setScoreEdit]=useState<any>(null),[nouveauReplay,setNouveauReplay]=useState({titre:'',lien:''}),[nouvelleNote,setNouvelleNote]=useState({matchId:'',mental:'',communication:'',gameplay:''}),[selectedMatchForNotes,setSelectedMatchForNotes]=useState<any>(null),[nouvelleStrat,setNouvelleStrat]=useState({adversaire:'',picks:[] as string[],bans:[] as string[]}),[showAddStrat,setShowAddStrat]=useState(false)
 const[deferredPrompt,setDeferredPrompt]=useState<any>(null),[showInstall,setShowInstall]=useState(false),[countdowns,setCountdowns]=useState<Record<string,string>>({}),[nouveauCommentaire,setNouveauCommentaire]=useState(''),[selectedMatchForComment,setSelectedMatchForComment]=useState<any>(null),[notificationsEnabled,setNotificationsEnabled]=useState(false),[notifiedMatchs,setNotifiedMatchs]=useState<string[]>([])
 const[selectedMapCompo,setSelectedMapCompo]=useState(''),[compoJoueurs,setCompoJoueurs]=useState<string[]>([]),[showAddCompo,setShowAddCompo]=useState(false),[anniversaire,setAnniversaire]=useState(''),[viewMode,setViewMode]=useState<'list'|'grid'>('list'),[pullDistance,setPullDistance]=useState(0),[isRefreshing,setIsRefreshing]=useState(false)
 const[nouvelObjectif,setNouvelObjectif]=useState(''),[showBilan,setShowBilan]=useState(false),[selectedMatchForAnalyse,setSelectedMatchForAnalyse]=useState<any>(null),[nouvelleAnalyse,setNouvelleAnalyse]=useState({bien:'',mal:'',plan:''}),[showAddFiche,setShowAddFiche]=useState(false),[nouvelleFiche,setNouvelleFiche]=useState({adversaire:'',forces:'',faiblesses:'',notes:''})
+
+// ✅ MODIFICATION 2 : State pour le formulaire inline d'ajout de sous-match
+const[newSubAdv,setNewSubAdv]=useState(''),[newSubScoreDyno,setNewSubScoreDyno]=useState(''),[newSubScoreAdv,setNewSubScoreAdv]=useState('')
 const pm=useRef(0),pn=useRef(0),pc=useRef(0),ps=useRef(0),ty=useRef(0)
 
 useEffect(()=>{if(window.location.search.includes('reset=1')){localStorage.clear();window.location.href=window.location.pathname}},[])
@@ -58,10 +63,29 @@ const handleSignOut=async()=>{await signOut(auth);setPseudo('');setIsAdmin(false
 const handleAdminLogin=()=>{if(adminPassword==='dyno2026'){setIsAdmin(true);localStorage.setItem('dyno-admin','true');setAdminPassword('')}else alert('❌!')}
 const handleAdminLogout=()=>{setIsAdmin(false);localStorage.removeItem('dyno-admin')}
 
-const ajouterSousMatch=()=>{const adv=prompt('Adversaire :');if(!adv)return;const sd=prompt('Score DYNO :');if(!sd)return;const sa=prompt(`Score ${adv} :`);if(!sa)return;setNouveauMatch({...nouveauMatch,sousMatchs:[...nouveauMatch.sousMatchs,{adversaire:adv,scoreDyno:sd,scoreAdv:sa}]})}
+// ✅ MODIFICATION 3 : ajouterSousMatch utilise le formulaire inline (plus de prompt)
+const ajouterSousMatch=()=>{
+  if(!newSubAdv.trim()||newSubScoreDyno===''||newSubScoreAdv===''){alert('⚠️ Remplis tous les champs !');return}
+  setNouveauMatch({...nouveauMatch,sousMatchs:[...nouveauMatch.sousMatchs,{adversaire:newSubAdv.trim(),scoreDyno:newSubScoreDyno,scoreAdv:newSubScoreAdv}]})
+  setNewSubAdv('');setNewSubScoreDyno('');setNewSubScoreAdv('')
+}
 const supprimerSousMatch=(i:number)=>{const sm=[...nouveauMatch.sousMatchs];sm.splice(i,1);setNouveauMatch({...nouveauMatch,sousMatchs:sm})}
 
-const ajouterMatch=async()=>{if(!nouveauMatch.adversaire||!nouveauMatch.date||!nouveauMatch.horaire1){alert('⚠️!');return};const md:any={...nouveauMatch,termine:false,disponibles:[],indisponibles:[],createdAt:Date.now()};if(nouveauMatch.type==='Division'&&nouveauMatch.sousMatchs.length>0){md.termine=true;md.sousMatchs=nouveauMatch.sousMatchs;md.scoreDyno=nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0);md.scoreAdversaire=nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)};await addDoc(collection(db,'matchs'),md);const h=[nouveauMatch.horaire1];if(nouveauMatch.horaire2)h.push(nouveauMatch.horaire2);try{await fetch(DW,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({embeds:[{title:'🎮 DYNO vs '+nouveauMatch.adversaire,color:13934871,fields:[{name:'⚔️',value:nouveauMatch.adversaire,inline:true},{name:'📅',value:nouveauMatch.date,inline:true},{name:'⏰',value:h.join(' / '),inline:true},{name:'🏟️',value:nouveauMatch.arene,inline:true},{name:'📊',value:nouveauMatch.type,inline:true}],footer:{text:'DYNO',icon_url:LG}}]})})}catch{};setNouveauMatch({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[]});alert('✅!')}
+// ✅ MODIFICATION 4 : ajouterSousMatchEdit pour scoreEdit (division déjà terminée)
+const ajouterSousMatchEdit=()=>{
+  if(!scoreEdit)return
+  const adv=scoreEdit._newSubAdv||'',sd=scoreEdit._newSubScoreDyno||'',sa=scoreEdit._newSubScoreAdv||''
+  if(!adv.trim()||sd===''||sa===''){alert('⚠️ Remplis tous les champs !');return}
+  const sousMatchs=[...(scoreEdit.sousMatchs||[]),{adversaire:adv.trim(),scoreDyno:sd,scoreAdv:sa}]
+  setScoreEdit({...scoreEdit,sousMatchs,_newSubAdv:'',_newSubScoreDyno:'',_newSubScoreAdv:''})
+}
+const supprimerSousMatchEdit=(i:number)=>{
+  if(!scoreEdit)return
+  const sm=[...(scoreEdit.sousMatchs||[])];sm.splice(i,1)
+  setScoreEdit({...scoreEdit,sousMatchs:sm})
+}
+
+const ajouterMatch=async()=>{if(!nouveauMatch.adversaire||!nouveauMatch.date||!nouveauMatch.horaire1){alert('⚠️!');return};const md:any={...nouveauMatch,termine:false,disponibles:[],indisponibles:[],createdAt:Date.now()};if(nouveauMatch.type==='Division'&&nouveauMatch.sousMatchs.length>0){md.termine=true;md.sousMatchs=nouveauMatch.sousMatchs;md.scoreDyno=nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0);md.scoreAdversaire=nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)};await addDoc(collection(db,'matchs'),md);const h=[nouveauMatch.horaire1];if(nouveauMatch.horaire2)h.push(nouveauMatch.horaire2);try{await fetch(DW,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({embeds:[{title:'🎮 DYNO vs '+nouveauMatch.adversaire,color:13934871,fields:[{name:'⚔️',value:nouveauMatch.adversaire,inline:true},{name:'📅',value:nouveauMatch.date,inline:true},{name:'⏰',value:h.join(' / '),inline:true},{name:'🏟️',value:nouveauMatch.arene,inline:true},{name:'📊',value:nouveauMatch.type,inline:true}],footer:{text:'DYNO',icon_url:LG}}]})})}catch{};setNouveauMatch({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[]});setNewSubAdv('');setNewSubScoreDyno('');setNewSubScoreAdv('');alert('✅!')}
 const ajouterReplay=async()=>{if(!nouveauReplay.titre||!nouveauReplay.lien){alert('⚠️!');return};await addDoc(collection(db,'replays'),{...nouveauReplay,createdAt:Date.now()});setNouveauReplay({titre:'',lien:''});alert('✅!')}
 const ajouterNote=async()=>{if(!user)return;await addDoc(collection(db,'notes'),{matchId:selectedMatchForNotes?.id,joueur:pseudo,joueurId:user.uid,...nouvelleNote,createdAt:Date.now()});setNouvelleNote({matchId:'',mental:'',communication:'',gameplay:''});setSelectedMatchForNotes(null);alert('✅!')}
 const ajouterCommentaire=async(id:string)=>{if(!user||!nouveauCommentaire.trim())return;await addDoc(collection(db,'commentaires'),{matchId:id,joueur:pseudo,joueurId:user.uid,texte:nouveauCommentaire.trim(),createdAt:Date.now()});setNouveauCommentaire('');setSelectedMatchForComment(null);alert('✅!')}
@@ -75,7 +99,27 @@ const ajouterAnalyse=async(mid:string)=>{if(!user)return;await addDoc(collection
 const ajouterFiche=async()=>{if(!nouvelleFiche.adversaire.trim())return;await addDoc(collection(db,'fichesAdversaires'),{...nouvelleFiche,auteur:pseudo,auteurId:user?.uid,createdAt:Date.now()});setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''});setShowAddFiche(false);alert('✅!')}
 
 const del=async(col:string,id:string)=>{await deleteDoc(doc(db,col,id))}
-const updateScore=async()=>{if(!scoreEdit)return;await updateDoc(doc(db,'matchs',scoreEdit.id),{scoreDyno:parseInt(scoreEdit.scoreDyno),scoreAdversaire:parseInt(scoreEdit.scoreAdv),termine:true});setScoreEdit(null);alert('✅!')}
+
+// ✅ MODIFICATION 5 : updateScore gère aussi les sous-matchs de division
+const updateScore=async()=>{
+  if(!scoreEdit)return
+  const isDivision=scoreEdit.type==='Division'
+  if(isDivision){
+    const sm=scoreEdit.sousMatchs||[]
+    const totalDyno=sm.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0)
+    const totalAdv=sm.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)
+    await updateDoc(doc(db,'matchs',scoreEdit.id),{
+      sousMatchs:sm,
+      scoreDyno:sm.length>0?totalDyno:parseInt(scoreEdit.scoreDyno||0),
+      scoreAdversaire:sm.length>0?totalAdv:parseInt(scoreEdit.scoreAdv||0),
+      termine:true
+    })
+  }else{
+    await updateDoc(doc(db,'matchs',scoreEdit.id),{scoreDyno:parseInt(scoreEdit.scoreDyno),scoreAdversaire:parseInt(scoreEdit.scoreAdv),termine:true})
+  }
+  setScoreEdit(null);alert('✅!')
+}
+
 const toggleDispo=async(mid:string)=>{if(!user)return;const m=matchs.find((x:any)=>x.id===mid);if(!m)return;const d=m.disponibles||[],i=m.indisponibles||[];await updateDoc(doc(db,'matchs',mid),{disponibles:d.includes(pseudo)?d.filter((p:string)=>p!==pseudo):[...d,pseudo],indisponibles:i.filter((p:string)=>p!==pseudo)})}
 const toggleIndispo=async(mid:string)=>{if(!user)return;const m=matchs.find((x:any)=>x.id===mid);if(!m)return;const d=m.disponibles||[],i=m.indisponibles||[];await updateDoc(doc(db,'matchs',mid),{indisponibles:i.includes(pseudo)?i.filter((p:string)=>p!==pseudo):[...i,pseudo],disponibles:d.filter((p:string)=>p!==pseudo)})}
 const fdf=(s:string)=>{if(!s)return'';if(s.includes('/'))return s;const[y,m,d]=s.split('-');return`${d}/${m}/${y}`}
@@ -131,9 +175,16 @@ return(
 <H title="Historique"/>
 <div className="grid grid-cols-2 gap-3 mb-5"><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold text-[#D4AF37] count-up">{victoires}</p><p className="text-[9px] text-gray-600 mt-1 uppercase tracking-wider">Victoires</p></div><div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15 text-center"><p className="text-3xl font-bold text-red-500 count-up">{defaites}</p><p className="text-[9px] text-gray-600 mt-1 uppercase tracking-wider">Défaites</p></div></div>
 {historique.length===0?(<div className="text-center py-10 text-gray-600">📜 Aucun</div>):(<div className="space-y-3">{historique.map((match:any,idx:number)=>(<div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15" style={{animationDelay:`${idx*0.1}s`}}>
-<div className="flex items-center justify-between mb-3"><span className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${(match.scoreDyno||0)>(match.scoreAdversaire||0)?'bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/20':'bg-red-500/20 text-red-400 border border-red-500/20'}`}>{(match.scoreDyno||0)>(match.scoreAdversaire||0)?'🏆 VICTOIRE':'❌ DÉFAITE'}</span><span className="text-gray-600 text-xs">{fdf(match.date)}</span></div>
+<div className="flex items-center justify-between mb-3">
+  <span className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${(match.scoreDyno||0)>(match.scoreAdversaire||0)?'bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/20':'bg-red-500/20 text-red-400 border border-red-500/20'}`}>{(match.scoreDyno||0)>(match.scoreAdversaire||0)?'🏆 VICTOIRE':'❌ DÉFAITE'}</span>
+  <div className="flex items-center gap-2">
+    {/* ✅ MODIFICATION 6 : Bouton modifier le résultat dans l'historique */}
+    {isAdmin&&(<button onClick={()=>setScoreEdit({id:match.id,adversaire:match.adversaire,type:match.type,scoreDyno:String(match.scoreDyno||0),scoreAdv:String(match.scoreAdversaire||0),sousMatchs:match.sousMatchs?[...match.sousMatchs]:[],_newSubAdv:'',_newSubScoreDyno:'',_newSubScoreAdv:''})} className="px-2 py-0.5 rounded-lg bg-[#D4AF37]/15 text-[#D4AF37] text-[9px] font-bold border border-[#D4AF37]/15">✏️</button>)}
+    <span className="text-gray-600 text-xs">{fdf(match.date)}</span>
+  </div>
+</div>
 <div className="flex items-center justify-between mb-2"><div className="text-center"><p className="font-bold text-[#D4AF37] text-[10px] uppercase tracking-wider">DYNO</p><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent count-up">{match.scoreDyno}</p></div><span className="text-gray-800 text-lg">-</span><div className="text-center"><p className="font-bold text-gray-600 text-[10px] uppercase tracking-wider">{match.adversaire}</p><p className="text-3xl font-bold text-gray-500 count-up">{match.scoreAdversaire}</p></div></div>
-{match.sousMatchs?.length>0&&(<div className="space-y-1 mb-2 pt-2 border-t border-white/5"><p className="text-[9px] text-gray-600 uppercase tracking-wider mb-1"> Sous-matchs</p>{match.sousMatchs.map((sm:any,i:number)=>(<div key={i} className="flex items-center justify-between bg-white/5 rounded-lg px-2 py-1"><span className="text-[10px] text-gray-400">{sm.adversaire}</span><span className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></span></div>))}</div>)}
+{match.sousMatchs?.length>0&&(<div className="space-y-1 mb-2 pt-2 border-t border-white/5"><p className="text-[9px] text-gray-600 uppercase tracking-wider mb-1"> Sous-matchs</p>{match.sousMatchs.map((sm:any,i:number)=>(<div key={i} className="flex items-center justify-between bg-white/5 rounded-lg px-2 py-1"><span className="text-[10px] text-gray-400">DYNO vs {sm.adversaire}</span><span className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></span></div>))}</div>)}
 {match.type&&<p className="text-center text-gray-700 text-[9px] mt-2 uppercase tracking-wider">{match.type} • {match.arene}</p>}
 </div>))}</div>)}
 </div>)}
@@ -194,16 +245,69 @@ return(
 
 {activeTab==='admin'&&(<div className="tab-content"><H title="Admin" icon="⚙️"/>{!isAdmin?(<div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><input type="password" placeholder="Mot de passe" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/><button onClick={handleAdminLogin} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Connexion</button></div>):(<div className="space-y-5">
 <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">➕ Match</h3><input type="text" placeholder="Adversaire / Nom soirée" value={nouveauMatch.adversaire} onChange={e=>setNouveauMatch({...nouveauMatch,adversaire:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/><input type="date" value={nouveauMatch.date} onChange={e=>setNouveauMatch({...nouveauMatch,date:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/><div className="grid grid-cols-2 gap-2 mb-2"><input type="time" value={nouveauMatch.horaire1} onChange={e=>setNouveauMatch({...nouveauMatch,horaire1:e.target.value})} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/><input type="time" value={nouveauMatch.horaire2} onChange={e=>setNouveauMatch({...nouveauMatch,horaire2:e.target.value})} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/></div><div className="grid grid-cols-2 gap-2 mb-2"><select value={nouveauMatch.arene} onChange={e=>setNouveauMatch({...nouveauMatch,arene:e.target.value})} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select><select value={nouveauMatch.type} onChange={e=>setNouveauMatch({...nouveauMatch,type:e.target.value})} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
-{nouveauMatch.type==='Division'&&(<div className="bg-white/5 rounded-xl p-3 mb-2 border border-white/5"><div className="flex items-center justify-between mb-2"><p className="text-[10px] text-[#D4AF37] font-bold uppercase">🏆 Sous-matchs (BO3)</p><button onClick={ajouterSousMatch} className="px-2 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">➕</button></div>{nouveauMatch.sousMatchs.length>0&&(<div className="space-y-1">{nouveauMatch.sousMatchs.map((sm:any,i:number)=>(<div key={i} className="flex items-center justify-between bg-black/30 rounded-lg px-2 py-1.5"><div className="flex-1"><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={()=>supprimerSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>))}</div>)}
-{nouveauMatch.sousMatchs.length===0&&<p className="text-[9px] text-gray-600 text-center">Aucun sous-match ajouté</p>}
+
+{/* ✅ MODIFICATION 7 : Section Division avec formulaire inline (plus de prompt) */}
+{nouveauMatch.type==='Division'&&(<div className="bg-white/5 rounded-xl p-3 mb-2 border border-orange-500/15">
+  <p className="text-[10px] text-orange-400 font-bold uppercase mb-2">🏆 Matchs de Division (BO3)</p>
+  {nouveauMatch.sousMatchs.length>0&&(<div className="space-y-1 mb-3">{nouveauMatch.sousMatchs.map((sm:any,i:number)=>(<div key={i} className="flex items-center justify-between bg-black/30 rounded-lg px-2 py-1.5 border border-white/5"><div className="flex-1"><p className="text-[9px] text-gray-300 font-bold">DYNO vs {sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span><span className="text-gray-600"> - </span><span className="text-gray-400">{sm.scoreAdv}</span></p></div><button onClick={()=>supprimerSousMatch(i)} className="text-red-400/60 text-xs ml-2">🗑️</button></div>))}</div>)}
+  <div className="space-y-1.5 mb-2">
+    <input type="text" placeholder="Adversaire (ex: EY)" value={newSubAdv} onChange={e=>setNewSubAdv(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-400/50"/>
+    <div className="grid grid-cols-2 gap-1.5">
+      <input type="number" placeholder="Score DYNO" value={newSubScoreDyno} onChange={e=>setNewSubScoreDyno(e.target.value)} className="bg-black/30 border border-[#D4AF37]/20 rounded-lg px-3 py-2 text-[#D4AF37] text-xs font-bold focus:outline-none text-center"/>
+      <input type="number" placeholder={`Score Adv`} value={newSubScoreAdv} onChange={e=>setNewSubScoreAdv(e.target.value)} className="bg-black/30 border border-gray-500/20 rounded-lg px-3 py-2 text-gray-400 text-xs font-bold focus:outline-none text-center"/>
+    </div>
+    <button onClick={ajouterSousMatch} className="w-full py-1.5 rounded-lg font-bold bg-orange-500/20 text-orange-400 border border-orange-500/20 text-xs">➕ Ajouter ce match</button>
+  </div>
+  {nouveauMatch.sousMatchs.length===0&&<p className="text-[9px] text-gray-600 text-center">Aucun match ajouté</p>}
 </div>)}
+
 <button onClick={ajouterMatch} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Ajouter + Discord</button></div>
+
 <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">🗑️ Matchs</h3>{matchs.length===0?<p className="text-gray-700 text-center text-xs">Aucun</p>:<div className="space-y-1.5">{matchs.map((m:any)=>(<div key={m.id} className="flex items-center justify-between bg-white/5 rounded-lg p-2.5 border border-white/5"><div><p className="text-[#D4AF37] font-bold text-[10px]">{m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)}</p></div><button onClick={()=>del('matchs',m.id)} className="text-red-400/40">🗑️</button></div>))}</div>}</div>
 <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">🎬 Replay</h3><input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={e=>setNouveauReplay({...nouveauReplay,titre:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/><input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={e=>setNouveauReplay({...nouveauReplay,lien:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/><button onClick={ajouterReplay} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Ajouter</button></div>
-<div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">✏️ Scores</h3>{prochainsMatchs.map((m:any)=>(<div key={m.id} className="bg-white/5 rounded-lg p-3 mb-2 border border-white/5"><p className="font-bold text-[#D4AF37] mb-2 text-xs">DYNO vs {m.adversaire}</p><button onClick={()=>setScoreEdit({id:m.id,scoreDyno:'',scoreAdv:''})} className="w-full py-2 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-xs">📝</button></div>))}</div>
+
+{/* ✅ MODIFICATION 8 : Section scores étendue à TOUS les matchs (historique + prochains) */}
+<div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">✏️ Scores</h3>
+{matchs.length===0?<p className="text-gray-700 text-center text-xs">Aucun</p>:<div className="space-y-2">{matchs.map((m:any)=>(<div key={m.id} className="bg-white/5 rounded-lg p-3 mb-1 border border-white/5"><div className="flex items-center justify-between mb-2"><div><p className="font-bold text-[#D4AF37] text-[10px]">DYNO vs {m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)} • {m.type}</p>{m.termine&&<p className="text-[9px] text-green-400">Score actuel : {m.scoreDyno} - {m.scoreAdversaire}</p>}</div><button onClick={()=>setScoreEdit({id:m.id,adversaire:m.adversaire,type:m.type,scoreDyno:String(m.scoreDyno||0),scoreAdv:String(m.scoreAdversaire||0),sousMatchs:m.sousMatchs?[...m.sousMatchs]:[],_newSubAdv:'',_newSubScoreDyno:'',_newSubScoreAdv:''})} className="px-2.5 py-1.5 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-[9px]">✏️</button></div></div>))}</div>}
+</div>
+
 <button onClick={handleAdminLogout} className="w-full bg-white/5 border border-red-500/15 text-red-400 py-2.5 rounded-xl font-bold text-sm">🚪 Déconnexion</button>
 </div>)}
-{scoreEdit&&(<div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📝 Score - DYNO vs {scoreEdit.adversaire}</h3><div className="grid grid-cols-2 gap-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none focus:border-[#D4AF37]/50"/></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none focus:border-[#D4AF37]/50"/></div></div><div className="flex gap-2"><button onClick={()=>setScoreEdit(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div></div></div>)}
+
+{/* ✅ MODIFICATION 9 : Modale scoreEdit améliorée pour la Division avec sous-matchs inline */}
+{scoreEdit&&(<div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[90vh] overflow-y-auto">
+<h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">✏️ DYNO vs {scoreEdit.adversaire}</h3>
+
+{scoreEdit.type==='Division'?(
+  <div className="space-y-3 mb-5">
+    <p className="text-[10px] text-orange-400 font-bold uppercase">🏆 Matchs de Division</p>
+    {(scoreEdit.sousMatchs||[]).length>0&&(<div className="space-y-1.5 mb-3">{(scoreEdit.sousMatchs||[]).map((sm:any,i:number)=>(<div key={i} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 border border-white/5"><div><p className="text-[10px] text-gray-300 font-bold">DYNO vs {sm.adversaire}</p><p className="text-[11px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span><span className="text-gray-600"> - </span><span className="text-gray-400">{sm.scoreAdv}</span></p></div><button onClick={()=>supprimerSousMatchEdit(i)} className="text-red-400/60 text-xs">🗑️</button></div>))}</div>)}
+    <div className="bg-white/5 rounded-xl p-3 border border-orange-500/15">
+      <p className="text-[9px] text-orange-400 uppercase font-bold mb-2">➕ Ajouter un match</p>
+      <input type="text" placeholder="Adversaire" value={scoreEdit._newSubAdv||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubAdv:e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-400/50 mb-1.5"/>
+      <div className="grid grid-cols-2 gap-1.5 mb-2">
+        <input type="number" placeholder="Score DYNO" value={scoreEdit._newSubScoreDyno||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubScoreDyno:e.target.value})} className="bg-black/30 border border-[#D4AF37]/20 rounded-lg px-3 py-2 text-[#D4AF37] text-xs font-bold focus:outline-none text-center"/>
+        <input type="number" placeholder="Score Adv" value={scoreEdit._newSubScoreAdv||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubScoreAdv:e.target.value})} className="bg-black/30 border border-gray-500/20 rounded-lg px-3 py-2 text-gray-400 text-xs font-bold focus:outline-none text-center"/>
+      </div>
+      <button onClick={ajouterSousMatchEdit} className="w-full py-1.5 rounded-lg font-bold bg-orange-500/20 text-orange-400 border border-orange-500/20 text-xs">➕ Ajouter</button>
+    </div>
+    {(scoreEdit.sousMatchs||[]).length>0&&(
+      <div className="bg-[#D4AF37]/10 rounded-xl p-3 border border-[#D4AF37]/15 text-center">
+        <p className="text-[9px] text-gray-500 uppercase mb-1">Total calculé</p>
+        <p className="text-lg font-bold"><span className="text-[#D4AF37]">{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0)}</span><span className="text-gray-600"> - </span><span className="text-gray-400">{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)}</span></p>
+      </div>
+    )}
+  </div>
+):(
+  <div className="grid grid-cols-2 gap-3 mb-5">
+    <div><label className="text-gray-600 text-[10px] mb-1 block uppercase">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none focus:border-[#D4AF37]/50"/></div>
+    <div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none focus:border-[#D4AF37]/50"/></div>
+  </div>
+)}
+
+<div className="flex gap-2"><button onClick={()=>setScoreEdit(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅ Sauvegarder</button></div>
+</div></div>)}
+
 </div>)}
 </main>
 
