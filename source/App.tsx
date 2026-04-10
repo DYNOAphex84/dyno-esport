@@ -44,226 +44,224 @@ useEffect(()=>{const q=query(collection(db,'analyses'),orderBy('createdAt','desc
 useEffect(()=>{const q=query(collection(db,'fichesAdversaires'),orderBy('createdAt','desc'));const u=onSnapshot(q,(s:any)=>{const d:any[]=[];s.forEach((x:any)=>d.push({id:x.id,...x.data()}));setFichesAdversaires(d)});return()=>u()},[])
 
 useEffect(()=>{if(!notificationsEnabled||pm.current===0){pm.current=matchs.length;return};if(matchs.length>pm.current){const n=matchs[0];if(n)sendNotification('📅 Match !',`DYNO vs ${n.adversaire}`,'nm')};pm.current=matchs.length},[matchs,notificationsEnabled,sendNotification])
-useEffect(()=>{if(!notificationsEnabled||pn.current===0){pn.current=notes.length;return};if(notes.length>pn.current){const n=notes[0];if(n)sendNotification('📊 Note !',`${n.joueur}`,'nn')};pn.current=notes.length},[notes,notificationsEnabled,sendNotification])
-useEffect(()=>{if(!notificationsEnabled||pc.current===0){pc.current=commentaires.length;return};if(commentaires.length>pc.current){const n=commentaires[0];if(n)sendNotification('💬 !',`${n.joueur}: ${n.texte.substring(0,50)}`,'nc')};pc.current=commentaires.length},[commentaires,notificationsEnabled,sendNotification])
-useEffect(()=>{if(!notificationsEnabled||ps.current===0){ps.current=strats.length;return};if(strats.length>ps.current){const n=strats[0];if(n)sendNotification('🎯 Strat !',`DYNO vs ${n.adversaire}`,'ns')};ps.current=strats.length},[strats,notificationsEnabled,sendNotification])
 
-useEffect(()=>{const t=setTimeout(()=>setShowSplash(false),2500);return()=>clearTimeout(t)},[])
-useEffect(()=>{window.addEventListener('beforeinstallprompt',(e:any)=>{e.preventDefault();setDeferredPrompt(e);setShowInstall(true)})},[])
-const handleInstall=()=>{if(deferredPrompt){deferredPrompt.prompt();setDeferredPrompt(null);setShowInstall(false)}}
-const handleSignUp=async()=>{if(!email||!authPassword||!pseudo){alert('⚠️ Remplis tout !');return};try{const r=await createUserWithEmailAndPassword(auth,email,authPassword);await setDoc(doc(db,'users',r.user.uid),{pseudo,email,createdAt:Date.now(),isAdmin:email===AE});await addDoc(collection(db,'players'),{pseudo,role:'Joueur',rang:'Nouveau',userId:r.user.uid,createdAt:Date.now()});alert('✅!');setIsSignUp(false);setEmail('');setAuthPassword('')}catch(e:any){alert('❌ '+e.message)}}
-const handleSignIn=async()=>{if(!email||!authPassword){alert('⚠️!');return};try{await setPersistence(auth,browserLocalPersistence);await signInWithEmailAndPassword(auth,email,authPassword);localStorage.setItem('user-email',email);alert('✅!');setEmail('');setAuthPassword('')}catch(e:any){alert('❌ '+e.message)}}
-const handleSignOut=async()=>{await signOut(auth);setPseudo('');setIsAdmin(false);localStorage.removeItem('dyno-admin');localStorage.removeItem('user-email');alert('✅!')}
+const handleSignUp=async()=>{if(!email||!authPassword||!pseudo){alert('⚠️ Remplis tout !');return};try{const r=await createUserWithEmailAndPassword(auth,email,authPassword);await setDoc(doc(db,'users',r.user.uid),{pseudo,email,createdAt:Date.now(),isAdmin:email===AE});await addDoc(collection(db,'players'),{pseudo,role:'Joueur',rang:'Nouveau',userId:r.user.uid,createdAt:Date.now()});alert('✅!');setIsSignUp(false)}catch(e:any){alert('❌ '+e.message)}}
+const handleSignIn=async()=>{if(!email||!authPassword){alert('⚠️!');return};try{await signInWithEmailAndPassword(auth,email,authPassword);alert('✅!')}catch(e:any){alert('❌ '+e.message)}}
+const handleSignOut=async()=>{await signOut(auth);setPseudo('');setIsAdmin(false);localStorage.removeItem('dyno-admin')}
 const handleAdminLogin=()=>{if(adminPassword==='dyno2026'){setIsAdmin(true);localStorage.setItem('dyno-admin','true');setAdminPassword('')}else alert('❌!')}
-const handleAdminLogout=()=>{setIsAdmin(false);localStorage.removeItem('dyno-admin')}
 
 const ajouterSousMatch=()=>{
-  const adv=prompt('Adversaire :');if(!adv)return;
-  const sd=prompt('Score DYNO :');if(!sd)return;
-  const sa=prompt(`Score ${adv} :`);if(!sa)return;
-  if(scoreEdit){
-    setScoreEdit({...scoreEdit, sousMatchs: [...(scoreEdit.sousMatchs||[]), {adversaire:adv, scoreDyno:sd, scoreAdv:sa}]});
-  } else {
-    setNouveauMatch({...nouveauMatch,sousMatchs:[...nouveauMatch.sousMatchs,{adversaire:adv,scoreDyno:sd,scoreAdv:sa}]});
-  }
+  const adv=prompt('Nom de l\'adversaire :'); if(!adv) return;
+  const sd=prompt('Score DYNO :'); if(sd===null) return;
+  const sa=prompt(`Score ${adv} :`); if(sa===null) return;
+  const nm = {adversaire:adv, scoreDyno:sd, scoreAdv:sa};
+  if(scoreEdit) setScoreEdit({...scoreEdit, sousMatchs:[...(scoreEdit.sousMatchs||[]), nm]});
+  else setNouveauMatch({...nouveauMatch, sousMatchs:[...nouveauMatch.sousMatchs, nm]});
 }
 const supprimerSousMatch=(i:number)=>{
   if(scoreEdit){
-    const sm=[...(scoreEdit.sousMatchs||[])];sm.splice(i,1);
+    const sm=[...(scoreEdit.sousMatchs||[])]; sm.splice(i,1);
     setScoreEdit({...scoreEdit, sousMatchs:sm});
   } else {
-    const sm=[...nouveauMatch.sousMatchs];sm.splice(i,1);
-    setNouveauMatch({...nouveauMatch,sousMatchs:sm});
+    const sm=[...nouveauMatch.sousMatchs]; sm.splice(i,1);
+    setNouveauMatch({...nouveauMatch, sousMatchs:sm});
   }
 }
 
-const ajouterMatch=async()=>{if(!nouveauMatch.adversaire||!nouveauMatch.date||!nouveauMatch.horaire1){alert('⚠️!');return};const md:any={...nouveauMatch,termine:false,disponibles:[],indisponibles:[],createdAt:Date.now()};if(nouveauMatch.type==='Division'&&nouveauMatch.sousMatchs.length>0){md.termine=true;md.sousMatchs=nouveauMatch.sousMatchs;md.scoreDyno=nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0);md.scoreAdversaire=nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)};await addDoc(collection(db,'matchs'),md);const h=[nouveauMatch.horaire1];if(nouveauMatch.horaire2)h.push(nouveauMatch.horaire2);try{await fetch(DW,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({embeds:[{title:'🎮 DYNO vs '+nouveauMatch.adversaire,color:13934871,fields:[{name:'⚔️',value:nouveauMatch.adversaire,inline:true},{name:'📅',value:nouveauMatch.date,inline:true},{name:'⏰',value:h.join(' / '),inline:true},{name:'🏟️',value:nouveauMatch.arene,inline:true},{name:'📊',value:nouveauMatch.type,inline:true}],footer:{text:'DYNO',icon_url:LG}}]})})}catch{};setNouveauMatch({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[]});alert('✅!')}
-const ajouterReplay=async()=>{if(!nouveauReplay.titre||!nouveauReplay.lien){alert('⚠️!');return};await addDoc(collection(db,'replays'),{...nouveauReplay,createdAt:Date.now()});setNouveauReplay({titre:'',lien:''});alert('✅!')}
-const ajouterNote=async()=>{if(!user)return;await addDoc(collection(db,'notes'),{matchId:selectedMatchForNotes?.id,joueur:pseudo,joueurId:user.uid,...nouvelleNote,createdAt:Date.now()});setNouvelleNote({matchId:'',mental:'',communication:'',gameplay:''});setSelectedMatchForNotes(null);alert('✅!')}
-const ajouterCommentaire=async(id:string)=>{if(!user||!nouveauCommentaire.trim())return;await addDoc(collection(db,'commentaires'),{matchId:id,joueur:pseudo,joueurId:user.uid,texte:nouveauCommentaire.trim(),createdAt:Date.now()});setNouveauCommentaire('');setSelectedMatchForComment(null);alert('✅!')}
-const ajouterStrat=async()=>{if(!nouvelleStrat.adversaire||nouvelleStrat.picks.length===0||nouvelleStrat.bans.length===0){alert('⚠️!');return};await addDoc(collection(db,'strats'),{adversaire:nouvelleStrat.adversaire,picks:nouvelleStrat.picks,bans:nouvelleStrat.bans,auteur:pseudo,auteurId:user?.uid,createdAt:Date.now()});setNouvelleStrat({adversaire:'',picks:[],bans:[]});setShowAddStrat(false);alert('✅!')}
-const ajouterCompo=async()=>{if(!selectedMapCompo||compoJoueurs.length===0){alert('⚠️!');return};const ex=compos.find((c:any)=>c.map===selectedMapCompo);if(ex){await updateDoc(doc(db,'compos',ex.id),{joueurs:compoJoueurs,updatedAt:Date.now()})}else{await addDoc(collection(db,'compos'),{map:selectedMapCompo,joueurs:compoJoueurs,auteur:pseudo,createdAt:Date.now()})};setShowAddCompo(false);setSelectedMapCompo('');setCompoJoueurs([]);alert('✅!')}
-const ajouterObjectif=async()=>{if(!user||!nouvelObjectif.trim())return;await addDoc(collection(db,'objectifs'),{texte:nouvelObjectif.trim(),termine:false,joueur:pseudo,joueurId:user.uid,createdAt:Date.now()});setNouvelObjectif('')}
-const toggleObjectif=async(id:string,c:boolean)=>{await updateDoc(doc(db,'objectifs',id),{termine:!c})}
-const ajouterAnalyse=async(mid:string)=>{if(!user)return;await addDoc(collection(db,'analyses'),{matchId:mid,joueur:pseudo,joueurId:user.uid,...nouvelleAnalyse,createdAt:Date.now()});setNouvelleAnalyse({bien:'',mal:'',plan:''});setSelectedMatchForAnalyse(null);alert('✅!')}
-const ajouterFiche=async()=>{if(!nouvelleFiche.adversaire.trim())return;await addDoc(collection(db,'fichesAdversaires'),{...nouvelleFiche,auteur:pseudo,auteurId:user?.uid,createdAt:Date.now()});setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''});setShowAddFiche(false);alert('✅!')}
+const ajouterMatch=async()=>{
+  if(!nouveauMatch.adversaire||!nouveauMatch.date||!nouveauMatch.horaire1) return alert('⚠️!');
+  const md:any={...nouveauMatch,termine:nouveauMatch.type==='Division',disponibles:[],indisponibles:[],createdAt:Date.now()};
+  if(nouveauMatch.type==='Division'){
+    md.scoreDyno = nouveauMatch.sousMatchs.reduce((a,s)=>a+parseInt(s.scoreDyno||'0'),0);
+    md.scoreAdversaire = nouveauMatch.sousMatchs.reduce((a,s)=>a+parseInt(s.scoreAdv||'0'),0);
+  }
+  await addDoc(collection(db,'matchs'),md);
+  setNouveauMatch({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[]});
+  alert('✅!');
+}
 
-const del=async(col:string,id:string)=>{if(confirm('Supprimer ?')) await deleteDoc(doc(db,col,id))}
 const updateScore=async()=>{
   if(!scoreEdit)return;
-  const updateData:any = {
-    scoreDyno: parseInt(scoreEdit.scoreDyno || '0'),
-    scoreAdversaire: parseInt(scoreEdit.scoreAdv || '0'),
-    termine: true
-  };
-  if(scoreEdit.type === 'Division' && scoreEdit.sousMatchs?.length > 0){
-    updateData.sousMatchs = scoreEdit.sousMatchs;
-    updateData.scoreDyno = scoreEdit.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0);
-    updateData.scoreAdversaire = scoreEdit.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0);
+  const up:any={termine:true, scoreDyno:parseInt(scoreEdit.scoreDyno||'0'), scoreAdversaire:parseInt(scoreEdit.scoreAdv||'0')};
+  if(scoreEdit.type==='Division'){
+    up.sousMatchs = scoreEdit.sousMatchs;
+    up.scoreDyno = scoreEdit.sousMatchs.reduce((a:any,s:any)=>a+parseInt(s.scoreDyno||'0'),0);
+    up.scoreAdversaire = scoreEdit.sousMatchs.reduce((a:any,s:any)=>a+parseInt(s.scoreAdv||'0'),0);
   }
-  await updateDoc(doc(db,'matchs',scoreEdit.id), updateData);
+  await updateDoc(doc(db,'matchs',scoreEdit.id),up);
   setScoreEdit(null);
-  alert('✅ Mis à jour !');
+  alert('✅!');
 }
-const toggleDispo=async(mid:string)=>{if(!user)return;const m=matchs.find((x:any)=>x.id===mid);if(!m)return;const d=m.disponibles||[],i=m.indisponibles||[];await updateDoc(doc(db,'matchs',mid),{disponibles:d.includes(pseudo)?d.filter((p:string)=>p!==pseudo):[...d,pseudo],indisponibles:i.filter((p:string)=>p!==pseudo)})}
-const toggleIndispo=async(mid:string)=>{if(!user)return;const m=matchs.find((x:any)=>x.id===mid);if(!m)return;const d=m.disponibles||[],i=m.indisponibles||[];await updateDoc(doc(db,'matchs',mid),{indisponibles:i.includes(pseudo)?i.filter((p:string)=>p!==pseudo):[...i,pseudo],disponibles:d.filter((p:string)=>p!==pseudo)})}
+
+const del=async(col:string,id:string)=>{if(confirm('Supprimer ?')) await deleteDoc(doc(db,col,id))}
+const toggleDispo=async(mid:string)=>{if(!user)return;const m=matchs.find(x=>x.id===mid);const d=m.disponibles||[],i=m.indisponibles||[];await updateDoc(doc(db,'matchs',mid),{disponibles:d.includes(pseudo)?d.filter((p:any)=>p!==pseudo):[...d,pseudo],indisponibles:i.filter((p:any)=>p!==pseudo)})}
+const toggleIndispo=async(mid:string)=>{if(!user)return;const m=matchs.find(x=>x.id===mid);const d=m.disponibles||[],i=m.indisponibles||[];await updateDoc(doc(db,'matchs',mid),{indisponibles:i.includes(pseudo)?i.filter((p:any)=>p!==pseudo):[...i,pseudo],disponibles:d.filter((p:any)=>p!==pseudo)})}
+
 const fdf=(s:string)=>{if(!s)return'';if(s.includes('/'))return s;const[y,m,d]=s.split('-');return`${d}/${m}/${y}`}
-const fts=(t:number)=>{const d=new Date(t);return`${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`}
-const atc=(m:any)=>{try{if(!m?.date)return;let y:string,mo:string,d:string;if(m.date.includes('/')){const[dd,mm,yy]=m.date.split('/');d=dd;mo=mm;y=yy}else{const[yy,mm,dd]=m.date.split('-');y=yy;mo=mm;d=dd};const md=`${y}${mo}${d}`;let h='20',mi='00';if(m.horaires?.length>0){const[hh,mm]=m.horaires[0].split(':');h=hh;mi=mm||'00'}else if(m.horaire1){const[hh,mm]=m.horaire1.split(':');h=hh;mi=mm||'00'};const st=`${h}${mi}00`,et=`${(parseInt(h)+2).toString().padStart(2,'0')}${mi}00`;if(/iPad|iPhone|iPod/.test(navigator.userAgent)){const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:${m.id}@d\nDTSTAMP:${new Date().toISOString().replace(/[-:]/g,'').split('.')[0]}Z\nDTSTART:${md}T${st}\nDTEND:${md}T${et}\nSUMMARY:DYNO vs ${m.adversaire}\nLOCATION:${m.arene}\nEND:VEVENT\nEND:VCALENDAR`;const b=new Blob([ics],{type:'text/calendar'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`D_${m.adversaire}.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)}else{window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`DYNO vs ${m.adversaire}`)}&dates=${md}T${st}/${md}T${et}&location=${encodeURIComponent(m.arene)}`,'_blank')}}catch(e:any){alert('❌ '+e.message)}}
-const toggleMap=(map:string,type:'picks'|'bans')=>{if(type==='picks'){if(nouvelleStrat.picks.includes(map))setNouvelleStrat({...nouvelleStrat,picks:nouvelleStrat.picks.filter(m=>m!==map)});else if(nouvelleStrat.picks.length<4)setNouvelleStrat({...nouvelleStrat,picks:[...nouvelleStrat.picks,map]})}else{if(nouvelleStrat.bans.includes(map))setNouvelleStrat({...nouvelleStrat,bans:nouvelleStrat.bans.filter(m=>m!==map)});else if(nouvelleStrat.bans.length<4)setNouvelleStrat({...nouvelleStrat,bans:[...nouvelleStrat.bans,map]})}}
-const genBilan=()=>{const now=new Date();const mm=historique.filter((m:any)=>{const d=new Date(m.createdAt);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()});const w=mm.filter((m:any)=>(m.scoreDyno||0)>(m.scoreAdversaire||0)).length,l=mm.filter((m:any)=>(m.scoreDyno||0)<(m.scoreAdversaire||0)).length;const mn=notes.filter((n:any)=>{const d=new Date(n.createdAt);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()});const am=mn.length>0?Math.round(mn.reduce((a:number,n:any)=>a+parseInt(n.mental||0),0)/mn.length):0,ac=mn.length>0?Math.round(mn.reduce((a:number,n:any)=>a+parseInt(n.communication||0),0)/mn.length):0,ap=mn.length>0?Math.round(mn.reduce((a:number,n:any)=>a+parseInt(n.gameplay||0),0)/mn.length):0;return{nom:['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][now.getMonth()],m:mm.length,w,l,wr:mm.length>0?Math.round((w/(w+l||1))*100):0,am,ac,ap}}
+const hts=(e:any)=>ty.current=e.touches[0].clientY;
+const htm=(e:any)=>{if(window.scrollY>0)return;const d=e.touches[0].clientY-ty.current;if(d>0)setPullDistance(Math.min(d*0.4,80))};
+const hte=()=>{if(pullDistance>60)window.location.reload();setPullDistance(0)};
 
-const victoires=matchs.filter((m:any)=>m.termine&&(m.scoreDyno||0)>(m.scoreAdversaire||0)).length
-const defaites=matchs.filter((m:any)=>m.termine&&(m.scoreDyno||0)<(m.scoreAdversaire||0)).length
-const totalMatchs=victoires+defaites,winRate=totalMatchs>0?Math.round((victoires/totalMatchs)*100):0
-const prochainsMatchs=matchs.filter((m:any)=>!m.termine).sort((a:any,b:any)=>new Date(`${a.date}T${a.horaires?.[0]||a.horaire1||'20:00'}`).getTime()-new Date(`${b.date}T${b.horaires?.[0]||b.horaire1||'20:00'}`).getTime())
-const historique=matchs.filter((m:any)=>m.termine).sort((a,b)=> (b.createdAt || 0) - (a.createdAt || 0));
-const ytId=(url:string)=>{const m=url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);return m?m[1]:null}
-const H=({title,icon}:{title:string;icon?:string})=>(<div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 shadow-[0_8px_32px_rgba(212,175,55,0.1)] glow-pulse"><div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent"/><img src={LG} alt="D" className="w-14 h-14 mx-auto mb-2 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]"/><h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent relative z-10">{icon} {title}</h2></div>)
+const victoires=matchs.filter(m=>m.termine&&m.scoreDyno>m.scoreAdversaire).length;
+const defaites=matchs.filter(m=>m.termine&&m.scoreDyno<m.scoreAdversaire).length;
+const winRate=(victoires+defaites)>0?Math.round((victoires/(victoires+defaites))*100):0;
+const historiques=matchs.filter(m=>m.termine).sort((a,b)=>b.createdAt-a.createdAt);
+const prochains=matchs.filter(m=>!m.termine).sort((a,b)=>new Date(a.date).getTime()-new Date(b.date).getTime());
 
-if(showSplash)return(<div className="min-h-screen flex items-center justify-center relative overflow-hidden"><P/><div className="text-center relative z-10"><img src={LG} alt="D" className="w-48 h-48 mx-auto splash-logo drop-shadow-[0_0_40px_rgba(212,175,55,0.6)]"/><h1 className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 splash-text">DYNO</h1><p className="text-gray-400 mt-3 splash-sub tracking-[0.3em] uppercase text-sm">Esport Team</p></div></div>)
+const H=({title,icon}:{title:string;icon?:string})=>(<div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 shadow-[0_8px_32px_rgba(212,175,55,0.1)]"><img src={LG} alt="D" className="w-14 h-14 mx-auto mb-2 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]"/><h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent relative z-10">{icon} {title}</h2></div>)
+
+if(showSplash)return(<div className="min-h-screen flex items-center justify-center bg-black"><P/><div className="text-center splash-logo"><img src={LG} className="w-48 mx-auto drop-shadow-[0_0_40px_gold]"/><h1 className="text-5xl font-bold text-gold mt-6">DYNO</h1></div></div>)
 
 return(
-<div className="min-h-screen pb-28 relative">
+<div className="min-h-screen pb-32 text-white">
 <P/>
-<header className="backdrop-blur-2xl bg-black/30 border-b border-white/5 sticky top-0 z-50 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-<div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-<div className="flex items-center gap-2.5"><img src={LG} alt="D" className="w-10 h-10 drop-shadow-[0_0_12px_rgba(212,175,55,0.5)]"/><div><h1 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent leading-tight">DYNO</h1><p className="text-[9px] text-gray-600 uppercase tracking-widest">Esport</p></div></div>
-<div className="flex gap-1.5 items-center">
-{user&&(<button onClick={requestNotificationPermission} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${notificationsEnabled?'bg-[#D4AF37]/20 border border-[#D4AF37]/40 shadow-[0_0_10px_rgba(212,175,55,0.3)]':'bg-white/5 border border-white/10'}`}><span className="text-sm">{notificationsEnabled?'🔔':''}</span></button>)}
-{user?(<button onClick={handleSignOut} className="px-3 py-1.5 rounded-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/20 text-[11px] hover:scale-105 transition-transform">👋 {pseudo}</button>):(<button onClick={()=>setIsSignUp(false)} className="px-3 py-1.5 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/20 text-[11px] hover:scale-105 transition-transform">👤 Compte</button>)}
-</div></div></header>
-
-<main className="max-w-lg mx-auto px-4 py-6 relative z-10" onTouchStart={(e)=>ty.current=e.touches[0].clientY} onTouchMove={(e)=>{if(window.scrollY>0)return;const d=e.touches[0].clientY-ty.current;if(d>0)setPullDistance(Math.min(d*0.4,80))}} onTouchEnd={()=>{if(pullDistance>60){setIsRefreshing(true);setTimeout(()=>window.location.reload(),500)};setPullDistance(0)}}>
-{pullDistance>0&&(<div className="flex justify-center mb-4" style={{height:pullDistance}}><span className={`text-[#D4AF37] text-2xl ${pullDistance>60?'animate-spin':''}`}>{isRefreshing?'⏳':pullDistance>60?'🔄':'️'}</span></div>)}
-
-{activeTab==='matchs'&&(<div className="tab-content">
-<H title="Prochains Matchs"/>
-<div className="flex justify-end mb-3"><div className="flex bg-white/5 rounded-xl border border-white/10 overflow-hidden"><button onClick={()=>setViewMode('list')} className={`px-3 py-1.5 text-xs transition-all ${viewMode==='list'?'bg-[#D4AF37]/20 text-[#D4AF37]':'text-gray-600'}`}>☰</button><button onClick={()=>setViewMode('grid')} className={`px-3 py-1.5 text-xs transition-all ${viewMode==='grid'?'bg-[#D4AF37]/20 text-[#D4AF37]':'text-gray-600'}`}>⊞</button></div></div>
-{loading?(<div className="space-y-4"><div className="skeleton h-48 w-full"/><div className="skeleton h-48 w-full"/></div>):prochainsMatchs.length===0?(<div className="text-center py-10 text-gray-600">📭 Aucun match</div>):(<div className={viewMode==='grid'?'grid grid-cols-2 gap-3':'space-y-4'}>{prochainsMatchs.map((match:any,idx:number)=>(<div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]" style={{animationDelay:`${idx*0.1}s`}}>
-<div className="flex items-center justify-between mb-3"><span className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${match.type==='Ligue'?'bg-blue-500/20 text-blue-400 border border-blue-500/20':match.type==='Scrim'?'bg-green-500/20 text-green-400 border border-green-500/20':match.type==='Tournoi'?'bg-purple-500/20 text-purple-400 border border-purple-500/20':match.type==='Division'?'bg-orange-500/20 text-orange-400 border border-orange-500/20':'bg-gray-500/20 text-gray-400 border border-gray-500/20'}`}>{match.type}</span><span className="text-[#D4AF37] font-bold text-xs">{fdf(match.date)}</span></div>
-{countdowns[match.id]&&(<div className={`rounded-2xl p-2.5 mb-3 text-center border ${countdowns[match.id]==='🔴 EN COURS'?'bg-red-500/10 border-red-500/15':'bg-[#D4AF37]/10 border-[#D4AF37]/15'}`}><p className="text-[9px] text-gray-600 uppercase tracking-wider">Countdown</p><p className={`text-lg font-bold font-mono tracking-wider ${countdowns[match.id]==='🔴 EN COURS'?'text-red-400 animate-pulse':'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent'}`}>{countdowns[match.id]}</p></div>)}
-<div className="flex items-center gap-3 mb-3"><img src={LG} alt="D" className="w-10 h-10 drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]"/><span className="text-gray-700 font-light">VS</span><div className="flex-1 text-right"><p className="font-bold text-white text-sm">{match.adversaire}</p><p className="text-[10px] text-[#D4AF37]/60">🏟️ {match.arene}</p></div></div>
-<div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 uppercase tracking-wider">⏰</p><p className="text-[#D4AF37] font-bold text-xs">{match.horaires?.join(' / ')||match.horaire1||'20:00'}</p></div>
-<div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 mb-1.5 uppercase tracking-wider">👥 Dispo ({(match.disponibles||[]).length})</p>{(match.disponibles||[]).length>0&&(<div className="flex flex-wrap gap-1">{(match.disponibles||[]).map((p:string,i:number)=>(<span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[9px] font-bold border border-[#D4AF37]/15">{p}</span>))}</div>)}</div>
-<div className="flex gap-2"><button onClick={()=>toggleDispo(match.id)} disabled={!user} className={`flex-1 py-2.5 rounded-xl font-bold transition-all duration-300 text-xs ${!user?'bg-white/5 text-gray-700':(match.disponibles||[]).includes(pseudo)?'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 scale-[1.02]':'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]'}`}>{!user?'🔐':(match.disponibles||[]).includes(pseudo)?'✅ Dispo':'📅 Dispo'}</button><button onClick={()=>toggleIndispo(match.id)} disabled={!user} className={`flex-1 py-2.5 rounded-xl font-bold transition-all duration-300 text-xs ${!user?'bg-white/5 text-gray-700':(match.indisponibles||[]).includes(pseudo)?'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30 scale-[1.02]':'bg-white/5 border border-red-500/15 text-red-400'}`}>{!user?'🔐':(match.indisponibles||[]).includes(pseudo)?'❌ Indispo':'🚫 Indispo'}</button></div>
-</div>))}</div>)}
-</div>)}
-
-{activeTab==='historique'&&(<div className="tab-content">
-<H title="Historique"/>
-<div className="grid grid-cols-2 gap-3 mb-5"><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold text-[#D4AF37]">{victoires}</p><p className="text-[9px] text-gray-600 mt-1 uppercase tracking-wider">Victoires</p></div><div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15 text-center"><p className="text-3xl font-bold text-red-500">{defaites}</p><p className="text-[9px] text-gray-600 mt-1 uppercase tracking-wider">Défaites</p></div></div>
-{historique.length===0?(<div className="text-center py-10 text-gray-600">📜 Aucun</div>):(<div className="space-y-3">{historique.map((match:any,idx:number)=>(<div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15" style={{animationDelay:`${idx*0.1}s`}}>
-<div className="flex items-center justify-between mb-3">
-  <span className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${(match.scoreDyno||0)>(match.scoreAdversaire||0)?'bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/20':'bg-red-500/20 text-red-400 border border-red-500/20'}`}>{(match.scoreDyno||0)>(match.scoreAdversaire||0)?'🏆 VICTOIRE':'❌ DÉFAITE'}</span>
-  <div className="flex items-center gap-3">
-    <span className="text-gray-600 text-[10px] font-mono">{fdf(match.date)}</span>
-    {isAdmin && <button onClick={()=>setScoreEdit({...match, scoreDyno:match.scoreDyno.toString(), scoreAdv:match.scoreAdversaire.toString()})} className="p-1.5 bg-white/5 rounded-lg border border-white/10 text-xs">✏️</button>}
+<header className="backdrop-blur-xl bg-black/40 border-b border-white/5 sticky top-0 z-50 p-4 flex justify-between items-center shadow-lg">
+  <div className="flex items-center gap-2"><img src={LG} className="w-10 h-10 drop-shadow-md"/><div><h1 className="text-lg font-black text-gold">DYNO</h1><p className="text-[8px] tracking-[.3em] text-gray-500">ESPORT</p></div></div>
+  <div className="flex gap-2">
+    {user?(<button onClick={handleSignOut} className="px-4 py-2 bg-red-600/20 text-red-500 rounded-2xl text-[10px] font-bold border border-red-500/20">👋 {pseudo}</button>):(<button onClick={()=>setIsSignUp(false)} className="px-4 py-2 bg-gold text-black rounded-2xl text-[10px] font-bold shadow-lg">👤 LOGIN</button>)}
   </div>
-</div>
-<div className="flex items-center justify-between mb-2">
-  <div className="text-center"><p className="font-bold text-[#D4AF37] text-[10px] uppercase tracking-wider">DYNO</p><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{match.scoreDyno}</p></div>
-  <span className="text-gray-800 text-lg">-</span>
-  <div className="text-center"><p className="font-bold text-gray-600 text-[10px] uppercase tracking-wider">{match.adversaire}</p><p className="text-3xl font-bold text-gray-500">{match.scoreAdversaire}</p></div>
-</div>
-{match.sousMatchs?.length>0&&(<div className="space-y-1 mb-2 pt-2 border-t border-white/5">
-  <p className="text-[9px] text-gray-600 uppercase tracking-wider mb-1"> Sous-matchs (Division)</p>
-  {match.sousMatchs.map((sm:any,i:number)=>(<div key={i} className="flex items-center justify-between bg-white/5 rounded-lg px-2.5 py-1.5 border border-white/5"><span className="text-[10px] text-gray-400 font-bold">{sm.adversaire}</span><span className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span> - <span className="text-gray-500">{sm.scoreAdv}</span></span></div>))}
-</div>)}
-<p className="text-center text-gray-700 text-[9px] mt-2 uppercase tracking-wider">{match.type} • {match.arene}</p>
-</div>))}</div>)}
-</div>)}
+</header>
 
-{activeTab==='admin'&&(
-  <div className="tab-content"><H title="Admin" icon="⚙️"/>{!isAdmin?(<div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><input type="password" placeholder="Mot de passe" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/><button onClick={handleAdminLogin} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Connexion</button></div>):(<div className="space-y-5">
-<div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
-<h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">➕ Créer Match / Division</h3>
-<input type="text" placeholder="Adversaire (ex: DIV 5)" value={nouveauMatch.adversaire} onChange={e=>setNouveauMatch({...nouveauMatch,adversaire:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/>
-<input type="date" value={nouveauMatch.date} onChange={e=>setNouveauMatch({...nouveauMatch,date:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/>
-<div className="grid grid-cols-2 gap-2 mb-2"><input type="time" value={nouveauMatch.horaire1} onChange={e=>setNouveauMatch({...nouveauMatch,horaire1:e.target.value})} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"/><select value={nouveauMatch.type} onChange={e=>setNouveauMatch({...nouveauMatch,type:e.target.value})} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
-{nouveauMatch.type==='Division'&&(
-  <div className="bg-white/5 rounded-xl p-3 mb-2 border border-white/5">
-    <div className="flex items-center justify-between mb-2"><p className="text-[10px] text-[#D4AF37] font-bold uppercase">🏆 Liste des Matchs</p><button onClick={ajouterSousMatch} className="px-2 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">➕ Ajouter Match</button></div>
-    <div className="space-y-1">{nouveauMatch.sousMatchs.map((sm,i)=>(<div key={i} className="flex items-center justify-between bg-black/30 rounded-lg px-2 py-1.5 border border-white/5"><div className="flex-1"><p className="text-[9px] text-gray-500">{sm.adversaire}</p><p className="text-[10px] font-bold text-white">{sm.scoreDyno} - {sm.scoreAdv}</p></div><button onClick={()=>supprimerSousMatch(i)} className="text-red-400/40 text-xs px-2">🗑️</button></div>))}</div>
-  </div>
-)}
-<button onClick={ajouterMatch} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Enregistrer</button></div>
-<div className="card-glow bg-black/30 rounded-3xl p-5 border border-red-500/15">
-<h3 className="text-xs font-bold text-red-500 mb-3 uppercase tracking-wider">🗑️ Supprimer Matchs</h3>
-<div className="max-h-48 overflow-y-auto space-y-1.5">{matchs.map((m:any)=>(<div key={m.id} className="flex items-center justify-between bg-white/5 rounded-lg p-2.5 border border-white/5"><div><p className="text-[#D4AF37] font-bold text-[10px]">{m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)}</p></div><button onClick={()=>del('matchs',m.id)} className="text-red-400/40 p-2">🗑️</button></div>))}</div>
-</div>
-<button onClick={handleAdminLogout} className="w-full bg-white/5 border border-red-500/15 text-red-400 py-2.5 rounded-xl font-bold text-sm">🚪 Déconnexion</button></div>)}</div>
-)}
+<main className="max-w-lg mx-auto px-4 py-6" onTouchStart={hts} onTouchMove={htm} onTouchEnd={hte}>
+{pullDistance>0&&<div className="text-center text-gold text-2xl" style={{height:pullDistance}}>🔄</div>}
 
-{/* MODAL EDITION SCORE & DIVISION */}
-{scoreEdit&&(<div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center z-[100] p-4">
-  <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 shadow-2xl">
-    <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">✏️ Modifier {scoreEdit.adversaire}</h3>
-    
-    {scoreEdit.type === 'Division' ? (
-      <div className="space-y-4 mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">🏆 Liste des Matchs</p>
-          <button onClick={ajouterSousMatch} className="px-3 py-1.5 bg-[#D4AF37] text-black rounded-lg text-[10px] font-bold">➕ Ajouter</button>
-        </div>
-        <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-          {scoreEdit.sousMatchs?.length > 0 ? scoreEdit.sousMatchs.map((sm:any, i:number) => (
-            <div key={i} className="bg-white/5 rounded-xl p-3 border border-white/10 flex items-center justify-between">
-              <div><p className="text-gray-500 text-[9px] font-bold uppercase">{sm.adversaire}</p><p className="text-xl font-bold text-[#D4AF37]">{sm.scoreDyno} - {sm.scoreAdv}</p></div>
-              <button onClick={()=>supprimerSousMatch(i)} className="text-red-400/50 hover:text-red-400 text-sm p-2">🗑️</button>
-            </div>
-          )) : <p className="text-center text-gray-700 text-xs py-4">Aucun sous-match</p>}
-        </div>
-        <div className="pt-4 border-t border-white/5">
-          <p className="text-center text-[10px] text-gray-600 mb-1 uppercase">Score Total Automatique</p>
-          <p className="text-center text-2xl font-bold text-white">
-            {scoreEdit.sousMatchs?.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0)} - {scoreEdit.sousMatchs?.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)}
-          </p>
-        </div>
-      </div>
-    ) : (
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        <div><label className="text-gray-600 text-[10px] mb-1 block uppercase">DYNO</label><input type="number" value={scoreEdit.scoreDyno} onChange={e=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none"/></div>
-        <div><label className="text-gray-600 text-[10px] mb-1 block uppercase">ADV</label><input type="number" value={scoreEdit.scoreAdv} onChange={e=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none"/></div>
-      </div>
-    )}
-
-    <div className="flex gap-2">
-      <button onClick={()=>setScoreEdit(null)} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button>
-      <button onClick={updateScore} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Sauvegarder</button>
+{activeTab==='matchs'&&(<div>
+  <H title="Matchs à venir"/>
+  {prochains.length===0?<p className="text-center text-gray-600 py-10">Aucun match programmé</p>:prochains.map(m=>(
+    <div key={m.id} className="card-glow bg-black/40 p-5 rounded-[2rem] border border-gold/15 mb-4 shadow-xl">
+      <div className="flex justify-between items-center mb-4"><span className="px-3 py-1 bg-gold/10 text-gold rounded-full text-[9px] font-bold border border-gold/20 uppercase tracking-widest">{m.type}</span><span className="text-gray-400 text-xs font-mono">{fdf(m.date)}</span></div>
+      <div className="flex items-center justify-between mb-4"><img src={LG} className="w-12 drop-shadow-lg"/><span className="text-gray-700 text-sm font-bold">VS</span><div className="text-right"><p className="text-xl font-black text-white">{m.adversaire}</p><p className="text-[10px] text-gold/60">Stadium: {m.arene}</p></div></div>
+      <div className="bg-white/5 rounded-2xl p-4 mb-4 flex justify-between items-center border border-white/5"><div><p className="text-[8px] text-gray-500 uppercase mb-1">Schedule</p><p className="text-gold font-bold text-sm">{m.horaire1} {m.horaire2?` / ${m.horaire2}`:''}</p></div><div className="text-right"><p className="text-[8px] text-gray-500 uppercase mb-1">Roster Ready</p><p className="text-white font-bold text-sm">{(m.disponibles||[]).length} Players</p></div></div>
+      <div className="flex gap-2"><button onClick={()=>toggleDispo(m.id)} className={`flex-1 py-3 rounded-2xl font-bold text-xs transition-all ${(m.disponibles||[]).includes(pseudo)?'bg-gold text-black shadow-gold/20 shadow-xl':'bg-white/5 border border-gold/20 text-gold'}`}>DISPONIBLE</button><button onClick={()=>toggleIndispo(m.id)} className={`flex-1 py-3 rounded-2xl font-bold text-xs transition-all ${(m.indisponibles||[]).includes(pseudo)?'bg-red-600 text-white shadow-red-600/20 shadow-xl':'bg-white/5 border border-red-600/20 text-red-500'}`}>ABSENT</button></div>
     </div>
-  </div>
+  ))}
 </div>)}
 
-{activeTab==='strats'&&(
-  <div className="tab-content"><H title="Strats" icon="🎯"/>
-    {user&&(<button onClick={()=>setShowAddStrat(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm shadow-lg shadow-[#D4AF37]/20">➕ Nouvelle Strat</button>)}
-    {strats.map(s=>(<div key={s.id} className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15 mb-3"><p className="font-bold text-[#D4AF37]">{s.adversaire}</p><div className="flex gap-1 mt-2 flex-wrap">{s.picks?.map((p:any,i:any)=>(<span key={i} className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded-lg border border-green-500/20">{p}</span>))}</div></div>))}
-  </div>
-)}
+{activeTab==='historique'&&(<div>
+  <H title="Historique"/>
+  <div className="grid grid-cols-2 gap-4 mb-6"><div className="bg-gold/10 p-5 rounded-3xl border border-gold/20 text-center shadow-lg"><p className="text-4xl font-black text-gold">{victoires}</p><p className="text-[10px] text-gray-500 uppercase mt-1">Wins</p></div><div className="bg-red-600/10 p-5 rounded-3xl border border-red-600/20 text-center shadow-lg"><p className="text-4xl font-black text-red-500">{defaites}</p><p className="text-[10px] text-gray-500 uppercase mt-1">Losses</p></div></div>
+  {historiques.map(m=>(
+    <div key={m.id} className="card-glow bg-black/40 p-5 rounded-[2rem] border border-gold/10 mb-4 shadow-xl">
+      <div className="flex justify-between items-center mb-4"><span className={`px-3 py-1 rounded-full text-[9px] font-bold ${m.scoreDyno>m.scoreAdversaire?'bg-gold text-black':'bg-red-600 text-white'}`}>{m.scoreDyno>m.scoreAdversaire?'VICTOIRE':'DÉFAITE'}</span><div className="flex items-center gap-3"><span className="text-gray-500 text-xs">{fdf(m.date)}</span>{isAdmin&&<button onClick={()=>setScoreEdit({...m, scoreDyno:m.scoreDyno.toString(), scoreAdv:m.scoreAdversaire.toString()})} className="text-gold text-lg">✏️</button>}</div></div>
+      <div className="flex items-center justify-between mb-2"><div className="text-center w-24"><p className="text-[10px] text-gold uppercase font-bold mb-1">DYNO</p><p className="text-4xl font-black text-white">{m.scoreDyno}</p></div><div className="h-0.5 flex-1 bg-white/5 mx-4"/><div className="text-center w-24"><p className="text-[10px] text-gray-500 uppercase font-bold mb-1">{m.adversaire}</p><p className="text-4xl font-black text-gray-400">{m.scoreAdversaire}</p></div></div>
+      {m.sousMatchs?.length>0&&(<div className="mt-4 pt-4 border-t border-white/5 space-y-2">
+        {m.sousMatchs.map((sm:any,i:number)=>(<div key={i} className="flex justify-between bg-white/5 p-3 rounded-xl border border-white/5 text-[10px]"><span className="font-bold text-gray-400">{sm.adversaire}</span><span className="font-black text-gold">{sm.scoreDyno} - {sm.scoreAdv}</span></div>))}
+      </div>)}
+      <p className="text-center text-[8px] text-gray-700 mt-4 uppercase tracking-[.3em] font-bold">{m.type} • {m.arene}</p>
+    </div>
+  ))}
+</div>)}
 
-{activeTab==='roster'&&(
-  <div className="tab-content"><H title="Roster" icon="👥"/>
-    {joueurs.map(j=>(<div key={j.id} className="card-glow bg-black/30 rounded-2xl p-4 border border-white/5 mb-2 flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center text-[#D4AF37] font-bold">{j.pseudo[0]}</div><p className="font-bold text-white">{j.pseudo}</p></div><p className="text-[10px] text-gray-600 uppercase font-bold tracking-widest">{j.role}</p></div>))}
-  </div>
-)}
+{activeTab==='notes'&&(<div>
+  <H title="Feedbacks" icon="📊"/>
+  {historiques.map(m=>(
+    <div key={m.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 mb-4">
+      <div className="flex justify-between items-center mb-4"><p className="font-bold text-gold text-sm">{m.adversaire}</p><button onClick={()=>{setSelectedMatchForNotes(m);setNouvelleNote({matchId:m.id,mental:'',communication:'',gameplay:''})}} className="px-4 py-2 bg-purple-600/20 text-purple-400 rounded-xl text-[10px] font-bold border border-purple-500/20">NOTER</button></div>
+      <div className="space-y-3">
+        {notes.filter(n=>n.matchId===m.id).map(n=>(<div key={n.id} className="bg-white/5 p-4 rounded-2xl border border-white/5"><div className="flex justify-between mb-3"><p className="text-xs font-bold text-gold">{n.joueur}</p>{isAdmin&&<button onClick={()=>del('notes',n.id)} className="text-red-500/30 text-xs">🗑️</button></div><div className="grid grid-cols-3 gap-2 text-center"><div className="bg-white/5 p-2 rounded-xl"><p className="text-[10px] text-purple-400 font-black">{n.mental}/10</p><p className="text-[8px] text-gray-500 uppercase mt-1">Mind</p></div><div className="bg-white/5 p-2 rounded-xl"><p className="text-[10px] text-blue-400 font-black">{n.communication}/10</p><p className="text-[8px] text-gray-500 uppercase mt-1">Comm</p></div><div className="bg-white/5 p-2 rounded-xl"><p className="text-[10px] text-green-400 font-black">{n.gameplay}/10</p><p className="text-[8px] text-gray-500 uppercase mt-1">Skill</p></div></div></div>))}
+      </div>
+    </div>
+  ))}
+</div>)}
 
-{activeTab==='rec'&&(
-  <div className="tab-content"><H title="Replays" icon="🎬"/>
-    <a href={YT} target="_blank" className="block w-full mb-5 py-3 rounded-2xl bg-red-600 text-white text-center font-bold text-sm">VOIR SUR YOUTUBE</a>
-    {replays.map(r=>(<div key={r.id} className="card-glow bg-black/30 rounded-2xl p-3 border border-white/5 mb-3"><p className="font-bold text-[#D4AF37] mb-2">{r.titre}</p><div className="relative pt-[56%] rounded-xl overflow-hidden"><iframe src={`https://www.youtube.com/embed/${ytId(r.lien)}`} className="absolute inset-0 w-full h-full" frameBorder="0" allowFullScreen></iframe></div></div>))}
-  </div>
-)}
+{activeTab==='strats'&&(<div>
+  <H title="Playbook" icon="🎯"/>
+  {user&&<button onClick={()=>setShowAddStrat(true)} className="w-full mb-6 py-4 bg-gold text-black rounded-3xl font-black text-sm shadow-xl">NOUVELLE STRATÉGIE</button>}
+  {strats.map(s=>(<div key={s.id} className="bg-black/40 p-5 rounded-[2rem] border border-gold/15 mb-4 shadow-lg"><div className="flex justify-between mb-4"><p className="text-xl font-black text-white">{s.adversaire}</p>{(isAdmin||user?.uid===s.auteurId)&&<button onClick={()=>del('strats',s.id)} className="text-red-500/30">🗑️</button></div><div className="grid grid-cols-2 gap-4"><div className="space-y-2"><p className="text-[9px] text-green-500 font-black uppercase tracking-widest">✅ MUST PICK</p>{s.picks?.map((p:any,i:number)=>(<div key={i} className="bg-green-500/10 p-2 rounded-xl border border-green-500/20 text-[10px] font-bold text-green-400">{p}</div>))}</div><div className="space-y-2"><p className="text-[9px] text-red-500 font-black uppercase tracking-widest">❌ MUST BAN</p>{s.bans?.map((b:any,i:number)=>(<div key={i} className="bg-red-500/10 p-2 rounded-xl border border-red-500/20 text-[10px] font-bold text-red-400">{b}</div>))}</div></div></div>)}
+</div>)}
+
+{activeTab==='compos'&&(<div>
+  <H title="Tactiques" icon="📋"/>
+  {user&&<button onClick={()=>setShowAddCompo(true)} className="w-full mb-6 py-4 bg-gold text-black rounded-3xl font-black text-sm">CRÉER UNE COMPO</button>}
+  {compos.map(c=>(<div key={c.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 mb-4 flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-12 h-12 bg-gold/10 rounded-2xl flex items-center justify-center border border-gold/20 text-gold font-black">M</div><div><p className="font-black text-lg text-white">{c.map}</p><p className="text-[9px] text-gray-500 font-bold">{(c.joueurs||[]).join(' • ')}</p></div></div>{(isAdmin||user?.uid===c.auteurId)&&<button onClick={()=>del('compos',c.id)} className="text-red-500/30">🗑️</button></div>))}
+</div>)}
+
+{activeTab==='fiches'&&(<div>
+  <H title="Scouting" icon="🔍"/>
+  {user&&<button onClick={()=>setShowAddFiche(true)} className="w-full mb-6 py-4 bg-gold text-black rounded-3xl font-black text-sm">NOUVELLE FICHE</button>}
+  {fichesAdversaires.map(f=>(<div key={f.id} className="bg-black/40 p-6 rounded-[2rem] border border-white/5 mb-4 shadow-lg"><div className="flex justify-between items-center mb-4"><p className="text-2xl font-black text-gold">{f.adversaire}</p>{(isAdmin||user?.uid===f.auteurId)&&<button onClick={()=>del('fichesAdversaires',f.id)} className="text-red-500/30">🗑️</button></div><div className="space-y-4"><div><p className="text-[9px] text-green-500 font-black uppercase mb-1">Forces</p><p className="text-xs text-gray-300 leading-relaxed">{f.forces}</p></div><div><p className="text-[9px] text-red-500 font-black uppercase mb-1">Faiblesses</p><p className="text-xs text-gray-300 leading-relaxed">{f.faiblesses}</p></div></div></div>)}
+</div>)}
+
+{activeTab==='objectifs'&&(<div>
+  <H title="Mes Défis" icon="🎯"/>
+  <div className="flex gap-2 mb-6"><input type="text" placeholder="Ajouter un défi personnel..." value={nouvelObjectif} onChange={e=>setNouvelObjectif(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 text-sm outline-none focus:border-gold"/><button onClick={ajouterObjectif} className="p-4 bg-gold text-black rounded-2xl font-black">+</button></div>
+  <div className="space-y-3">{objectifs.filter(o=>o.joueurId===user?.uid).map(o=>(<div key={o.id} className={`flex items-center gap-4 p-5 rounded-3xl border ${o.termine?'bg-green-600/5 border-green-500/10 opacity-50':'bg-black/40 border-white/5 shadow-xl'}`}><button onClick={()=>toggleObjectif(o.id,o.termine)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 ${o.termine?'bg-green-500 border-green-500 text-white':'border-gold/30 text-transparent'}`}>✓</button><p className={`flex-1 text-sm font-bold ${o.termine?'line-through text-gray-500':'text-white'}`}>{o.texte}</p><button onClick={()=>del('objectifs',o.id)} className="text-red-500/30">🗑️</button></div>))}</div>
+</div>)}
+
+{activeTab==='rec'&&(<div>
+  <H title="Cinematics" icon="🎬"/>
+  <a href={YT} target="_blank" className="block w-full mb-6 py-4 bg-red-600 text-white text-center rounded-3xl font-black text-sm shadow-xl shadow-red-600/20">VOIR SUR YOUTUBE</a>
+  {replays.map(r=>(<div key={r.id} className="bg-black/40 p-4 rounded-[2rem] border border-white/5 mb-6"><p className="font-black text-white mb-3 text-sm">{r.titre}</p><div className="relative pt-[56%] rounded-2xl overflow-hidden shadow-2xl"><iframe src={`https://www.youtube.com/embed/${r.lien.split('v=')[1]?.split('&')[0]||r.lien.split('/').pop()}`} className="absolute inset-0 w-full h-full" frameBorder="0" allowFullScreen></iframe></div></div>))}
+</div>)}
+
+{activeTab==='roster'&&(<div>
+  <H title="L'Équipe" icon="👥"/>
+  <div className="grid grid-cols-2 gap-3">{joueurs.map(j=>(<div key={j.id} className="bg-black/40 p-5 rounded-[2rem] border border-white/5 text-center shadow-lg"><div className="w-16 h-16 bg-gradient-to-br from-gold/20 to-gold/5 rounded-[1.5rem] mx-auto mb-4 flex items-center justify-center text-3xl font-black text-gold border border-gold/10 shadow-inner">{j.pseudo[0]}</div><p className="font-black text-white text-lg">{j.pseudo}</p><p className="text-[10px] text-gold/60 uppercase font-black tracking-widest mt-1">{j.role}</p></div>))}</div>
+</div>)}
+
+{activeTab==='stats'&&(<div>
+  <H title="Data Analytics" icon="📈"/>
+  <div className="grid grid-cols-2 gap-4 mb-6"><div className="bg-gold/10 p-6 rounded-[2rem] border border-gold/20 text-center shadow-xl"><p className="text-5xl font-black text-gold">{winRate}%</p><p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-1">Win Rate</p></div><div className="bg-white/5 p-6 rounded-[2rem] border border-white/10 text-center shadow-xl"><p className="text-5xl font-black text-white">{victoires+defaites}</p><p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-1">Total Games</p></div></div>
+  <div className="bg-black/40 p-8 rounded-[3rem] border border-white/5 shadow-2xl"><h3 className="text-xs font-black text-gold uppercase tracking-[.3em] mb-6 text-center">Performance Chart</h3><div className="space-y-6"><div><div className="flex justify-between text-[10px] font-black uppercase mb-2"><span>Victory Points</span><span className="text-gold">{victoires}</span></div><div className="h-2 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-gold to-yellow-300 shadow-[0_0_15px_gold] transition-all duration-1000" style={{width:`${(victoires/(victoires+defaites||1))*100}%`}}/></div></div><div><div className="flex justify-between text-[10px] font-black uppercase mb-2"><span>Defeat Count</span><span className="text-red-500">{defaites}</span></div><div className="h-2 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-red-600 to-red-400 shadow-[0_0_15px_red] transition-all duration-1000" style={{width:`${(defaites/(victoires+defaites||1))*100}%`}}/></div></div></div></div>
+</div>)}
+
+{activeTab==='admin'&&(<div>
+  <H title="Command Center" icon="⚙️"/>
+  {!isAdmin?(<div className="bg-black/40 p-8 rounded-[2rem] border border-gold/20 shadow-2xl"><input type="password" placeholder="Admin Key" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-center outline-none focus:border-gold mb-4"/><button onClick={handleAdminLogin} className="w-full py-4 bg-gold text-black rounded-2xl font-black text-sm">ACCESS GRANTED</button></div>):(
+    <div className="space-y-6">
+      <div className="bg-black/40 p-6 rounded-[2.5rem] border border-gold/20 shadow-2xl">
+        <h3 className="text-xs font-black text-gold uppercase tracking-widest mb-6">➕ Add Encounter</h3>
+        <input type="text" placeholder="Enemy Name / DIV 5" value={nouveauMatch.adversaire} onChange={e=>setNouveauMatch({...nouveauMatch,adversaire:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm mb-3 outline-none focus:border-gold"/>
+        <input type="date" value={nouveauMatch.date} onChange={e=>setNouveauMatch({...nouveauMatch,date:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm mb-3 outline-none focus:border-gold"/>
+        <div className="grid grid-cols-2 gap-3 mb-4"><input type="time" value={nouveauMatch.horaire1} onChange={e=>setNouveauMatch({...nouveauMatch,horaire1:e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none"/><select value={nouveauMatch.type} onChange={e=>setNouveauMatch({...nouveauMatch,type:e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
+        {nouveauMatch.type==='Division'&&(
+          <div className="bg-white/5 rounded-3xl p-5 mb-4 border border-gold/10">
+            <div className="flex justify-between items-center mb-4"><p className="text-[10px] text-gold font-black uppercase">🏆 Sub-matches List</p><button onClick={ajouterSousMatch} className="px-4 py-2 bg-gold text-black rounded-xl text-[10px] font-black">ADD GAME</button></div>
+            <div className="space-y-2">{nouveauMatch.sousMatchs.map((sm,i)=>(<div key={i} className="flex justify-between bg-black/40 p-3 rounded-2xl border border-white/5"><div className="flex-1"><p className="text-[9px] text-gray-500 font-bold">{sm.adversaire}</p><p className="text-sm font-black text-white">{sm.scoreDyno} - {sm.scoreAdv}</p></div><button onClick={()=>supprimerSousMatch(i)} className="text-red-500/40 p-2">🗑️</button></div>))}</div>
+          </div>
+        )}
+        <button onClick={ajouterMatch} className="w-full py-4 bg-gold text-black rounded-2xl font-black text-sm">PUBLISH ENCOUNTER</button>
+      </div>
+      <div className="bg-black/40 p-6 rounded-[2.5rem] border border-red-500/20 shadow-2xl">
+        <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-6">🗑️ Wipe Data</h3>
+        <div className="max-h-60 overflow-y-auto space-y-2 pr-2">{matchs.map(m=>(<div key={m.id} className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5"><div><p className="text-gold font-black text-xs">{m.adversaire}</p><p className="text-[9px] text-gray-600">{fdf(m.date)}</p></div><button onClick={()=>del('matchs',m.id)} className="p-3 text-red-500/30">🗑️</button></div>))}</div>
+      </div>
+    </div>
+  )}
+</div>)}
 
 </main>
 
-<nav className="fixed bottom-4 left-4 right-4 z-50"><div className="max-w-lg mx-auto flex backdrop-blur-2xl bg-black/60 rounded-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-hidden">
-{[{t:'matchs',i:'📅'},{t:'historique',i:'📜'},{t:'strats',i:'🎯'},{t:'rec',i:'🎬'},{t:'roster',i:'👥'},{t:'admin',i:'⚙️'}].map(({t,i})=>(
-<button key={t} onClick={()=>setActiveTab(t)} className={`flex-1 py-4 text-center transition-all ${activeTab===t?'text-[#D4AF37] scale-110':'text-gray-700'}`}><span className="text-lg">{i}</span></button>
+<nav className="fixed bottom-6 left-6 right-6 z-50"><div className="max-w-xl mx-auto flex backdrop-blur-3xl bg-black/50 rounded-[2.5rem] border border-white/10 p-2 shadow-[0_16px_48px_rgba(0,0,0,0.8)] overflow-x-auto no-scrollbar scroll-smooth">
+{[{t:'matchs',i:'📅'},{t:'historique',i:'📜'},{t:'strats',i:'🎯'},{t:'compos',i:'📋'},{t:'fiches',i:'🔍'},{t:'notes',i:'📊'},{t:'objectifs',i:'🎯'},{t:'rec',i:'🎬'},{t:'roster',i:'👥'},{t:'stats',i:'📈'},{t:'admin',i:'⚙️'}].map(({t,i})=>(
+<button key={t} onClick={()=>setActiveTab(t)} className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-300 ${activeTab===t?'bg-gold text-black shadow-lg shadow-gold/20 scale-110':'text-gray-600 hover:text-white'}`}><span className="text-lg">{i}</span></button>
 ))}
 </div></nav>
 
-{!user&&(<div className="fixed inset-0 bg-black/95 backdrop-blur-xl flex items-center justify-center z-[200] p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-7 w-full max-w-sm border border-white/10 shadow-[0_16px_64px_rgba(0,0,0,0.5)]"><img src={LG} className="w-20 h-20 mx-auto mb-6"/><h3 className="text-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center">{isSignUp?'Créer un Compte':'Connexion'}</h3>{isSignUp&&<input type="text" placeholder="Pseudo" value={pseudo} onChange={e=>setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"/>}<input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white focus:outline-none focus:border-[#D4AF37]"/><input type="password" placeholder="Mot de passe" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-6 text-white focus:outline-none focus:border-[#D4AF37]"/>{isSignUp?<button onClick={handleSignUp} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black">C'EST PARTI !</button>:<button onClick={handleSignIn} className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black">SE CONNECTER</button>}<button onClick={()=>setIsSignUp(!isSignUp)} className="w-full mt-4 text-[#D4AF37] text-xs font-bold">{isSignUp?'Déjà inscrit ? Connecte-toi':'Nouveau ? Crée un compte'}</button></div></div>)}
+{/* MODALS */}
+{scoreEdit&&(<div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm shadow-2xl"><h3 className="text-xl font-black text-gold text-center mb-8 uppercase tracking-widest">Update Score</h3>
+{scoreEdit.type==='Division'?(<div className="space-y-4 mb-8">
+  <div className="flex justify-between items-center"><p className="text-[10px] text-gray-500 font-black uppercase">Sub-Matches</p><button onClick={ajouterSousMatch} className="px-4 py-2 bg-gold text-black rounded-xl text-[10px] font-black">ADD</button></div>
+  <div className="max-h-60 overflow-y-auto space-y-2">{scoreEdit.sousMatchs?.map((sm:any,i:number)=>(<div key={i} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center"><div className="flex-1"><p className="text-[9px] text-gray-500 font-bold">{sm.adversaire}</p><p className="text-lg font-black text-white">{sm.scoreDyno} - {sm.scoreAdv}</p></div><button onClick={()=>supprimerSousMatch(i)} className="text-red-500/30 p-2">🗑️</button></div>))}</div>
+  <div className="pt-4 border-t border-white/5 text-center"><p className="text-[8px] text-gray-500 uppercase mb-1">Live Calculated Score</p><p className="text-3xl font-black text-white">{scoreEdit.sousMatchs?.reduce((a:any,s:any)=>a+parseInt(s.scoreDyno||'0'),0)} - {scoreEdit.sousMatchs?.reduce((a:any,s:any)=>a+parseInt(s.scoreAdv||'0'),0)}</p></div>
+</div>):(
+  <div className="grid grid-cols-2 gap-4 mb-8"><div><label className="text-[9px] text-gray-500 font-black uppercase block mb-2 text-center">DYNO</label><input type="number" value={scoreEdit.scoreDyno} onChange={e=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-2xl font-black text-center text-gold outline-none focus:border-gold"/></div><div><label className="text-[9px] text-gray-500 font-black uppercase block mb-2 text-center">ADV</label><input type="number" value={scoreEdit.scoreAdv} onChange={e=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-2xl font-black text-center text-gray-400 outline-none focus:border-gold"/></div></div>
+)}
+<div className="flex gap-3"><button onClick={()=>setScoreEdit(null)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500 border border-white/10">CANCEL</button><button onClick={updateScore} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-xs shadow-xl shadow-gold/20">CONFIRM</button></div></div></div>)}
+
+{selectedMatchForNotes&&(<div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-purple-500/20 w-full max-w-sm shadow-2xl text-center"><h3 className="text-xl font-black text-purple-400 mb-8 uppercase tracking-widest">Enregistrer Note</h3><div className="space-y-6 mb-8 text-left">
+  <div><label className="text-[10px] text-gray-500 font-black uppercase mb-2 block">🧠 Mindset Performance</label><input type="number" min="0" max="10" value={nouvelleNote.mental} onChange={e=>setNouvelleNote({...nouvelleNote,mental:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xl font-black focus:border-purple-500 outline-none"/></div>
+  <div><label className="text-[10px] text-gray-500 font-black uppercase mb-2 block">💬 Communication Clear</label><input type="number" min="0" max="10" value={nouvelleNote.communication} onChange={e=>setNouvelleNote({...nouvelleNote,communication:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xl font-black focus:border-purple-500 outline-none"/></div>
+  <div><label className="text-[10px] text-gray-500 font-black uppercase mb-2 block">🎯 Mechanical Skill</label><input type="number" min="0" max="10" value={nouvelleNote.gameplay} onChange={e=>setNouvelleNote({...nouvelleNote,gameplay:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-xl font-black focus:border-purple-500 outline-none"/></div>
+</div><div className="flex gap-3"><button onClick={()=>setSelectedMatchForNotes(null)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500">CANCEL</button><button onClick={async()=>{await addDoc(collection(db,'notes'),{...nouvelleNote, matchId:selectedMatchForNotes.id, joueur:pseudo, joueurId:user.uid, createdAt:Date.now()});setSelectedMatchForNotes(null);alert('✅!');}} className="flex-1 py-4 bg-purple-600 text-white rounded-2xl font-black text-xs">SUBMIT</button></div></div></div>)}
+
+{showAddStrat&&(<div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm"><h3 className="text-xl font-black text-gold text-center mb-6 uppercase tracking-widest">New Playbook</h3><input type="text" placeholder="Enemy / Tournament Name" value={nouvelleStrat.adversaire} onChange={e=>setNouvelleStrat({...nouvelleStrat,adversaire:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 text-white outline-none focus:border-gold"/><div className="space-y-6 mb-8">
+<div><p className="text-[10px] text-green-500 font-black uppercase mb-3">✅ Select 4 Picks</p><div className="grid grid-cols-3 gap-2">{AM.map(m=>(<button key={m} onClick={()=>{const p=nouvelleStrat.picks.includes(m)?nouvelleStrat.picks.filter(x=>x!==m):[...nouvelleStrat.picks,m].slice(0,4);setNouvelleStrat({...nouvelleStrat,picks:p})}} className={`p-2 rounded-xl text-[8px] font-black border transition-all ${nouvelleStrat.picks.includes(m)?'bg-green-600 border-green-400 text-white':'bg-white/5 border-white/10 text-gray-600'}`}>{m}</button>))}</div></div>
+<div><p className="text-[10px] text-red-500 font-black uppercase mb-3">❌ Select 4 Bans</p><div className="grid grid-cols-3 gap-2">{AM.map(m=>(<button key={m} onClick={()=>{const b=nouvelleStrat.bans.includes(m)?nouvelleStrat.bans.filter(x=>x!==m):[...nouvelleStrat.bans,m].slice(0,4);setNouvelleStrat({...nouvelleStrat,bans:b})}} className={`p-2 rounded-xl text-[8px] font-black border transition-all ${nouvelleStrat.bans.includes(m)?'bg-red-600 border-red-400 text-white':'bg-white/5 border-white/10 text-gray-600'}`}>{m}</button>))}</div></div>
+</div><div className="flex gap-3"><button onClick={()=>setShowAddStrat(false)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black text-xs text-gray-500">CANCEL</button><button onClick={async()=>{await addDoc(collection(db,'strats'),{...nouvelleStrat, auteur:pseudo, auteurId:user.uid, createdAt:Date.now()});setShowAddStrat(false);alert('✅!');}} className="flex-1 py-4 bg-gold text-black rounded-2xl font-black text-xs">CREATE</button></div></div></div>)}
+
+{!user&&(<div className="fixed inset-0 bg-black/95 backdrop-blur-3xl flex items-center justify-center z-[200] p-6 text-center"><div className="w-full max-w-sm bg-gradient-to-br from-[#111] to-black p-10 rounded-[3.5rem] border border-white/10 shadow-2xl"><img src={LG} className="w-24 mx-auto mb-8 drop-shadow-[0_0_20px_gold]"/><h2 className="text-2xl font-black text-white mb-8 tracking-widest">{isSignUp?'JOIN DYNO':'SYSTEM LOGIN'}</h2>{isSignUp&&<input type="text" placeholder="Gamer ID" value={pseudo} onChange={e=>setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 text-white focus:border-gold outline-none"/>}<input type="email" placeholder="E-mail" value={email} onChange={e=>setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 text-white focus:border-gold outline-none"/><input type="password" placeholder="Passphrase" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-8 text-white focus:border-gold outline-none"/><button onClick={isSignUp?handleSignUp:handleSignIn} className="w-full py-5 bg-gold text-black rounded-3xl font-black tracking-widest text-sm shadow-xl shadow-gold/20 mb-6">EXECUTE</button><button onClick={()=>setIsSignUp(!isSignUp)} className="text-gold text-[10px] font-black tracking-[.2em] uppercase">{isSignUp?'Return to login':'Create New Agent'}</button></div></div>)}
+
 </div>)}
 
 export default App
