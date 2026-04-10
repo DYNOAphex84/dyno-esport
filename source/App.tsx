@@ -16,20 +16,103 @@ const[activeTab,setActiveTab]=useState('matchs'),[isAdmin,setIsAdmin]=useState(f
 const[matchs,setMatchs]=useState<any[]>([]),[replays,setReplays]=useState<any[]>([]),[joueurs,setJoueurs]=useState<any[]>([]),[notes,setNotes]=useState<any[]>([]),[strats,setStrats]=useState<any[]>([]),[commentaires,setCommentaires]=useState<any[]>([]),[compos,setCompos]=useState<any[]>([]),[objectifs,setObjectifs]=useState<any[]>([]),[analyses,setAnalyses]=useState<any[]>([]),[fichesAdversaires,setFichesAdversaires]=useState<any[]>([])
 const[nouveauMatch,setNouveauMatch]=useState({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[] as any[]})
 const[scoreEdit,setScoreEdit]=useState<any>(null),[nouveauReplay,setNouveauReplay]=useState({titre:'',lien:''}),[nouvelleNote,setNouvelleNote]=useState({matchId:'',mental:'',communication:'',gameplay:''}),[selectedMatchForNotes,setSelectedMatchForNotes]=useState<any>(null),[nouvelleStrat,setNouvelleStrat]=useState({adversaire:'',picks:[] as string[],bans:[] as string[]}),[showAddStrat,setShowAddStrat]=useState(false)
-const[deferredPrompt,setDeferredPrompt]=useState<any>(null),[showInstall,setShowInstall]=useState(false),[countdowns,setCountdowns]=useState<Record<string,string>>({}),[nouveauCommentaire,setNouveauCommentaire]=useState(''),[selectedMatchForComment,setSelectedMatchForComment]=useState<any>(null),[notificationsEnabled,setNotificationsEnabled]=useState(false),[notifiedMatchs,setNotifiedMatchs]=useState<string[]>([])
-const[selectedMapCompo,setSelectedMapCompo]=useState(''),[compoJoueurs,setCompoJoueurs]=useState<string[]>([]),[showAddCompo,setShowAddCompo]=useState(false),[anniversaire,setAnniversaire]=useState(''),[viewMode,setViewMode]=useState<'list'|'grid'>('list'),[pullDistance,setPullDistance]=useState(0),[isRefreshing,setIsRefreshing]=useState(false)
-const[nouvelObjectif,setNouvelObjectif]=useState(''),[showBilan,setShowBilan]=useState(false),[selectedMatchForAnalyse,setSelectedMatchForAnalyse]=useState<any>(null),[nouvelleAnalyse,setNouvelleAnalyse]=useState({bien:'',mal:'',plan:''}),[showAddFiche,setShowAddFiche]=useState(false),[nouvelleFiche,setNouvelleFiche]=useState({adversaire:'',forces:'',faiblesses:'',notes:''})
-const pm=useRef(0),ty=useRef(0)
+const[deferredPrompt,setDeferredPrompt]=useState<any>(null),[showInstall,setShowInstall]=useState(false),[nouveauCommentaire,setNouveauCommentaire]=useState(''),[selectedMatchForComment,setSelectedMatchForComment]=useState<any>(null),[notificationsEnabled,setNotificationsEnabled]=useState(false)
+const[selectedMapCompo,setSelectedMapCompo]=useState(''),[compoJoueurs,setCompoJoueurs]=useState<string[]>([]),[showAddCompo,setShowAddCompo]=useState(false),[anniversaire,setAnniversaire]=useState(''),[pullDistance,setPullDistance]=useState(0),[isRefreshing,setIsRefreshing]=useState(false)
+const[showAddFiche,setShowAddFiche]=useState(false),[nouvelleFiche,setNouvelleFiche]=useState({adversaire:'',forces:'',faiblesses:'',notes:''}),[nouvelObjectif,setNouvelObjectif]=useState('')
+const ty=useRef(0)
 
-useEffect(()=>{const unsub=onAuthStateChanged(auth,async(u)=>{setUser(u);if(u){const d=await getDoc(doc(db,'users',u.uid));if(d.exists()){const data=d.data();setPseudo(data.pseudo||'');if(data.anniversaire)setAnniversaire(data.anniversaire);if(u.email===AE||data.isAdmin){setIsAdmin(true);localStorage.setItem('dyno-admin','true')}}};setLoading(false)});return()=>unsub()},[])
-useEffect(()=>{const q=query(collection(db,'matchs'),orderBy('createdAt','desc'));const u=onSnapshot(q,(s)=>{const d:any[]=[];s.forEach((x)=>d.push({id:x.id,...x.data()}));setMatchs(d)});return()=>u()},[])
-useEffect(()=>{const unsubNotes=onSnapshot(query(collection(db,'notes'),orderBy('createdAt','desc')),(s)=>{const d:any[]=[];s.forEach(x=>d.push({id:x.id,...x.data()}));setNotes(d)});return()=>unsubNotes()},[])
-useEffect(()=>{const unsubStrats=onSnapshot(query(collection(db,'strats'),orderBy('createdAt','desc')),(s)=>{const d:any[]=[];s.forEach(x=>d.push({id:x.id,...x.data()}));setStrats(d)});return()=>unsubStrats()},[])
-useEffect(()=>{const unsubRecs=onSnapshot(query(collection(db,'replays'),orderBy('createdAt','desc')),(s)=>{const d:any[]=[];s.forEach(x=>d.push({id:x.id,...x.data()}));setReplays(d)});return()=>unsubRecs()},[])
-useEffect(()=>{const unsubPlayers=onSnapshot(query(collection(db,'players'),orderBy('createdAt','desc')),(s)=>{const d:any[]=[];s.forEach(x=>d.push({id:x.id,...x.data()}));setJoueurs(d)});return()=>unsubPlayers()},[])
-useEffect(()=>{const unsubCompos=onSnapshot(query(collection(db,'compos'),orderBy('createdAt','desc')),(s)=>{const d:any[]=[];s.forEach(x=>d.push({id:x.id,...x.data()}));setCompos(d)});return()=>unsubCompos()},[])
-useEffect(()=>{const unsubObj=onSnapshot(query(collection(db,'objectifs'),orderBy('createdAt','desc')),(s)=>{const d:any[]=[];s.forEach(x=>d.push({id:x.id,...x.data()}));setObjectifs(d)});return()=>unsubObj()},[])
-useEffect(()=>{const unsubFiches=onSnapshot(query(collection(db,'fichesAdversaires'),orderBy('createdAt','desc')),(s)=>{const d:any[]=[];s.forEach(x=>d.push({id:x.id,...x.data()}));setFichesAdversaires(d)});return()=>unsubFiches()},[])
+useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+        setUser(u);
+        if (u) {
+            const d = await getDoc(doc(db, 'users', u.uid));
+            if (d.exists()) {
+                const data = d.data();
+                setPseudo(data.pseudo || '');
+                if (data.anniversaire) setAnniversaire(data.anniversaire);
+                if (u.email === AE || data.isAdmin) {
+                    setIsAdmin(true);
+                    localStorage.setItem('dyno-admin', 'true');
+                }
+            }
+        }
+        setLoading(false);
+    });
+    return () => unsub();
+}, []);
+
+useEffect(() => {
+    const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (s) => {
+        const d: any[] = [];
+        s.forEach((x) => d.push({ id: x.id, ...x.data() }));
+        setMatchs(d);
+    });
+    return () => unsub();
+}, []);
+
+useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'notes'), orderBy('createdAt', 'desc')), (s) => {
+        const d: any[] = [];
+        s.forEach(x => d.push({ id: x.id, ...x.data() }));
+        setNotes(d);
+    });
+    return () => unsub();
+}, []);
+
+useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'strats'), orderBy('createdAt', 'desc')), (s) => {
+        const d: any[] = [];
+        s.forEach(x => d.push({ id: x.id, ...x.data() }));
+        setStrats(d);
+    });
+    return () => unsub();
+}, []);
+
+useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'replays'), orderBy('createdAt', 'desc')), (s) => {
+        const d: any[] = [];
+        s.forEach(x => d.push({ id: x.id, ...x.data() }));
+        setReplays(d);
+    });
+    return () => unsub();
+}, []);
+
+useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'players'), orderBy('createdAt', 'desc')), (s) => {
+        const d: any[] = [];
+        s.forEach(x => d.push({ id: x.id, ...x.data() }));
+        setJoueurs(d);
+    });
+    return () => unsub();
+}, []);
+
+useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'compos'), orderBy('createdAt', 'desc')), (s) => {
+        const d: any[] = [];
+        s.forEach(x => d.push({ id: x.id, ...x.data() }));
+        setCompos(d);
+    });
+    return () => unsub();
+}, []);
+
+useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'objectifs'), orderBy('createdAt', 'desc')), (s) => {
+        const d: any[] = [];
+        s.forEach(x => d.push({ id: x.id, ...x.data() }));
+        setObjectifs(d);
+    });
+    return () => unsub();
+}, []);
+
+useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'fichesAdversaires'), orderBy('createdAt', 'desc')), (s) => {
+        const d: any[] = [];
+        s.forEach(x => d.push({ id: x.id, ...x.data() }));
+        setFichesAdversaires(d);
+    });
+    return () => unsub();
+}, []);
 
 const handleSignUp=async()=>{if(!email||!authPassword||!pseudo)return alert('⚠️!');try{const r=await createUserWithEmailAndPassword(auth,email,authPassword);await setDoc(doc(db,'users',r.user.uid),{pseudo,email,createdAt:Date.now(),isAdmin:email===AE});await addDoc(collection(db,'players'),{pseudo,role:'Joueur',userId:r.user.uid,createdAt:Date.now()});alert('✅!');setIsSignUp(false)}catch(e:any){alert('❌ '+e.message)}}
 const handleSignIn=async()=>{if(!email||!authPassword)return alert('⚠️!');try{await signInWithEmailAndPassword(auth,email,authPassword);alert('✅!')}catch(e:any){alert('❌ '+e.message)}}
@@ -58,8 +141,8 @@ const ajouterMatch=async()=>{
   if(!nouveauMatch.adversaire||!nouveauMatch.date||!nouveauMatch.horaire1) return alert('⚠️!');
   const md:any={...nouveauMatch,termine:nouveauMatch.type==='Division',disponibles:[],indisponibles:[],createdAt:Date.now()};
   if(nouveauMatch.type==='Division'){
-    md.scoreDyno = nouveauMatch.sousMatchs.reduce((a,s)=>a+parseInt(s.scoreDyno||'0'),0);
-    md.scoreAdversaire = nouveauMatch.sousMatchs.reduce((a,s)=>a+parseInt(s.scoreAdv||'0'),0);
+    md.scoreDyno = nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||'0'),0);
+    md.scoreAdversaire = nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||'0'),0);
   }
   await addDoc(collection(db,'matchs'),md);
   setNouveauMatch({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[]});
@@ -141,7 +224,6 @@ return(
 ))}
 </div></nav>
 
-{/* MODALS CORRIGÉES */}
 {scoreEdit&&(<div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[100] p-4"><div className="bg-[#111] p-8 rounded-[3rem] border border-gold/20 w-full max-w-sm shadow-2xl"><h3 className="text-xl font-black text-gold text-center mb-8 uppercase tracking-widest">Update Match</h3>
 {scoreEdit.type==='Division'?(<div className="space-y-4 mb-8"><div className="flex justify-between items-center"><p className="text-[10px] text-gray-500 font-black uppercase tracking-tighter">Sub-Matches List</p><button onClick={ajouterSousMatch} className="px-4 py-2 bg-gold text-black rounded-xl text-[10px] font-black">+</button></div><div className="max-h-60 overflow-y-auto space-y-2">{scoreEdit.sousMatchs?.map((sm:any,i:number)=>(<div key={i} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center"><div className="flex-1"><p className="text-[9px] text-gray-500 font-bold">{sm.adversaire}</p><p className="text-lg font-black text-white">{sm.scoreDyno} - {sm.scoreAdv}</p></div><button onClick={()=>supprimerSousMatch(i)} className="text-red-500/30 p-2">🗑️</button></div>))}</div></div>):(
 <div className="grid grid-cols-2 gap-4 mb-8"><div><label className="text-[9px] text-gray-500 font-black uppercase block mb-2 text-center">DYNO</label><input type="number" value={scoreEdit.scoreDyno} onChange={e=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-2xl font-black text-center text-gold outline-none"/></div><div><label className="text-[9px] text-gray-500 font-black uppercase block mb-2 text-center">ADV</label><input type="number" value={scoreEdit.scoreAdv} onChange={e=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-2xl font-black text-center text-gray-500 outline-none"/></div></div>
