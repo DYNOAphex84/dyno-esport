@@ -10,12 +10,10 @@ setPersistence(auth,browserLocalPersistence).catch(()=>{})
 const DW='https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const YT='https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC',LG='https://i.imgur.com/gTLj57a.png',AE='thibaut.llorens@hotmail.com'
 
-// ✅ Maps EVA ESPORT ARENA (pas Rocket League)
 const DRAFT_MAPS=['Atlantis','Engine','Horizon','Helios','Lunar','Polaris','The Cliff','Silva']
 const SKINS=['Default','Farmstead','Pillars','Cosmic','Nest','Utopia','Aquadome','Forbidden Temple']
 const AM=['Engine','Helios','Silva','The Cliff','Artefact','Outlaw','Atlantis','Horizon','Polaris','Lunar','Ceres']
 
-// Séquence draft officielle EVA ESPORT
 const DRAFT_SEQUENCE=[
   {step:0,type:'coin',label:'🪙 Pile ou Face',who:'admin'},
   {step:1,type:'side',label:'🌍 Choix du côté',who:'winner'},
@@ -39,18 +37,10 @@ const THEMES:Record<string,any>={
 const ROLES=['Joueur','Capitaine','Coach','Admin']
 const ROLE_COLORS:Record<string,string>={Joueur:'rgba(255,255,255,0.3)',Capitaine:'rgba(212,175,55,0.8)',Coach:'rgba(96,165,250,0.8)',Admin:'rgba(239,68,68,0.8)'}
 
-function App(){
-const[isDark,setIsDark]=useState(()=>localStorage.getItem('dyno-theme')!=='light')
-const[themeKey,setThemeKey]=useState(()=>localStorage.getItem('dyno-theme-color')||'gold')
-const TH=THEMES[themeKey]
-const T=isDark?TH.dark:TH.light
-const P=TH.primary,P2=TH.primary2,G=TH.g,G2=TH.g2
-const toggleTheme=()=>{const n=!isDark;setIsDark(n);localStorage.setItem('dyno-theme',n?'dark':'light')}
-const setTheme=(k:string)=>{setThemeKey(k);localStorage.setItem('dyno-theme-color',k)}
-
-// ✅ MODALE CORRIGÉE - Seul le bouton X ferme, JAMAIS le fond
-// Aucun handler sur le fond = clavier ne disparaît jamais
-const Mo=({onClose,children,title,sub}:{onClose:()=>void,children:any,title?:string,sub?:string})=>(
+// ✅ MODALE DÉFINIE EN DEHORS DE APP - évite la recréation à chaque render
+// C'est la clé pour que le clavier ne se ferme plus
+interface MoProps{onClose:()=>void;children:any;title?:string;sub?:string;isDark:boolean;T:any;P:string;G:string}
+const Mo=({onClose,children,title,sub,isDark,T,P,G}:MoProps)=>(
   <div className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[5vh]" style={{background:'rgba(0,0,0,0.88)',backdropFilter:'blur(16px)'}}>
     <div className="w-full max-w-sm rounded-3xl max-h-[88vh] overflow-y-auto" style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 24px 80px rgba(0,0,0,0.8)'}}>
       <div className="sticky top-0 pt-4 pb-3 px-5 z-10 flex items-start justify-between" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`}}>
@@ -64,6 +54,20 @@ const Mo=({onClose,children,title,sub}:{onClose:()=>void,children:any,title?:str
       <div className="p-5">{children}</div>
     </div>
   </div>
+)
+
+function App(){
+const[isDark,setIsDark]=useState(()=>localStorage.getItem('dyno-theme')!=='light')
+const[themeKey,setThemeKey]=useState(()=>localStorage.getItem('dyno-theme-color')||'gold')
+const TH=THEMES[themeKey]
+const T=isDark?TH.dark:TH.light
+const P=TH.primary,P2=TH.primary2,G=TH.g,G2=TH.g2
+const toggleTheme=()=>{const n=!isDark;setIsDark(n);localStorage.setItem('dyno-theme',n?'dark':'light')}
+const setTheme=(k:string)=>{setThemeKey(k);localStorage.setItem('dyno-theme-color',k)}
+
+// Helper pour passer les props à Mo
+const MoC=({onClose,children,title,sub}:{onClose:()=>void,children:any,title?:string,sub?:string})=>(
+  <Mo onClose={onClose} title={title} sub={sub} isDark={isDark} T={T} P={P} G={G}>{children}</Mo>
 )
 
 const CS={background:T.card,border:`1px solid ${T.cardBorder}`,boxShadow:isDark?'0 8px 40px rgba(0,0,0,0.8)':'0 4px 24px rgba(0,0,0,0.08)',backdropFilter:'blur(24px)'}
@@ -136,9 +140,7 @@ const[draftAdversaire,setDraftAdversaire]=useState('')
 const[advWaiting,setAdvWaiting]=useState<string|null>(null)
 const pm=useRef(0),pn=useRef(0),pc=useRef(0),ps=useRef(0),ty=useRef(0)
 
-// ✅ FIX NOTES - Scroll vers le haut quand la modale note s'ouvre
 useEffect(()=>{if(selectedMatchForNotes){window.scrollTo({top:0,behavior:'smooth'})}},[selectedMatchForNotes])
-
 useEffect(()=>{if(window.location.search.includes('reset=1')){localStorage.clear();window.location.href=window.location.pathname}},[])
 const sendNotification=useCallback((t:string,b:string,tg?:string)=>{try{if(!('Notification' in window)||Notification.permission!=='granted')return;const n=new Notification(t,{body:b,icon:LG,badge:LG,tag:tg||'d',requireInteraction:false});n.onclick=()=>{window.focus();n.close()}}catch{}},[])
 const requestNotificationPermission=async()=>{try{if(!('Notification' in window)){alert('❌');return};const p=await Notification.requestPermission();if(p==='granted'){setNotificationsEnabled(true);localStorage.setItem('dyno-notifs','true')}else{setNotificationsEnabled(false);localStorage.setItem('dyno-notifs','false')}}catch{}}
@@ -206,7 +208,6 @@ const ajouterSondage=async()=>{if(!nouveauSondage.question.trim()||nouveauSondag
 const voterSondage=async(sid:string,ok:string)=>{if(!user)return;const s=sondages.find((x:any)=>x.id===sid);if(!s)return;const opts={...s.options};Object.keys(opts).forEach(k=>{opts[k]={...opts[k],votes:(opts[k].votes||[]).filter((v:string)=>v!==user.uid)}});opts[ok]={...opts[ok],votes:[...(opts[ok].votes||[]),user.uid]};await updateDoc(doc(db,'sondages',sid),{options:opts})}
 const clotureSondage=async(id:string)=>{await updateDoc(doc(db,'sondages',id),{actif:false})}
 
-// ✅ DRAFT EVA ESPORT - Fonctions
 const creerDraft=async()=>{
   const adv=draftAdversaire.trim()
   if(!adv){alert('⚠️ Entre le nom de l\'adversaire!');return}
@@ -216,7 +217,6 @@ const creerDraft=async()=>{
   setShowAddDraft(false)
   alert('✅ Draft créée!')
 }
-
 const draftCoin=async(draftId:string)=>{
   const d=drafts.find((x:any)=>x.id===draftId)
   if(!d)return
@@ -235,7 +235,6 @@ const draftCoin=async(draftId:string)=>{
     },1800)
   }
 }
-
 const draftDynoSide=async(draftId:string,side:string)=>{
   const d=drafts.find((x:any)=>x.id===draftId)
   if(!d)return
@@ -248,7 +247,7 @@ const draftDynoSide=async(draftId:string,side:string)=>{
     await updateDoc(doc(db,'drafts',draftId),{loserSkin:skin,currentStep:3,actions:newActions})
     setAdvWaiting(null)
     const seq3=DRAFT_SEQUENCE[3]
-    const step3IsAdv=!d.winnerIsDyno&&seq3.who==='winner'||(d.winnerIsDyno&&seq3.who==='loser')
+    const step3IsAdv=(d.winnerIsDyno&&seq3.who==='loser')||(!d.winnerIsDyno&&seq3.who==='winner')
     if(step3IsAdv){
       setAdvWaiting(draftId)
       setTimeout(async()=>{
@@ -263,15 +262,13 @@ const draftDynoSide=async(draftId:string,side:string)=>{
     }
   },1800)
 }
-
 const draftDynoSkin=async(draftId:string,skin:string)=>{
   const d=drafts.find((x:any)=>x.id===draftId)
   if(!d)return
   const actions=[...(d.actions||[]),{step:2,type:'skin',label:`🎨 DYNO choisit le skin : ${skin}`,at:Date.now()}]
   await updateDoc(doc(db,'drafts',draftId),{loserSkin:skin,currentStep:3,actions})
   const seq3=DRAFT_SEQUENCE[3]
-  const dynoIsWinner=d.winnerIsDyno
-  const step3IsAdv=(dynoIsWinner&&seq3.who==='loser')||(!dynoIsWinner&&seq3.who==='winner')
+  const step3IsAdv=(d.winnerIsDyno&&seq3.who==='loser')||(!d.winnerIsDyno&&seq3.who==='winner')
   if(step3IsAdv){
     setAdvWaiting(draftId)
     setTimeout(async()=>{
@@ -285,7 +282,6 @@ const draftDynoSkin=async(draftId:string,skin:string)=>{
     },1800)
   }
 }
-
 const doAdvAction=async(draftId:string,draftState:any,atStep:number)=>{
   const seq=DRAFT_SEQUENCE[atStep]
   if(!seq)return
@@ -302,7 +298,6 @@ const doAdvAction=async(draftId:string,draftState:any,atStep:number)=>{
   const isFinished=nextStep>=DRAFT_SEQUENCE.length
   await updateDoc(doc(db,'drafts',draftId),{[field]:newVal,actions:newActions,currentStep:nextStep,actif:!isFinished})
 }
-
 const draftDynoAction=async(draftId:string,map:string)=>{
   const d=drafts.find((x:any)=>x.id===draftId)
   if(!d||!d.actif)return
@@ -315,8 +310,7 @@ const draftDynoAction=async(draftId:string,map:string)=>{
   const newActions=[...(d.actions||[]),{step,type:seq.type,map,label,at:Date.now()}]
   const nextStep=step+1
   const isFinished=nextStep>=DRAFT_SEQUENCE.length
-  const update:any={[field]:[...current,map],actions:newActions,currentStep:nextStep,actif:!isFinished}
-  await updateDoc(doc(db,'drafts',draftId),update)
+  await updateDoc(doc(db,'drafts',draftId),{[field]:[...current,map],actions:newActions,currentStep:nextStep,actif:!isFinished})
   if(!isFinished){
     const nextSeq=DRAFT_SEQUENCE[nextStep]
     if(nextSeq&&nextSeq.type!=='coin'&&nextSeq.type!=='side'&&nextSeq.type!=='skin'){
@@ -329,7 +323,6 @@ const draftDynoAction=async(draftId:string,map:string)=>{
         setTimeout(async()=>{
           await doAdvAction(draftId,{...d,picks:updatedPicks,bans:updatedBans,actions:newActions,currentStep:nextStep},nextStep)
           setAdvWaiting(null)
-          // Vérifier si le suivant est aussi adversaire
           const nextNextStep=nextStep+1
           if(nextNextStep<DRAFT_SEQUENCE.length){
             const nnSeq=DRAFT_SEQUENCE[nextNextStep]
@@ -356,7 +349,6 @@ const draftDynoAction=async(draftId:string,map:string)=>{
     }
   }
 }
-
 const resetDraft=async(draftId:string)=>{
   await updateDoc(doc(db,'drafts',draftId),{currentStep:0,winner:'',winnerIsDyno:false,winnerSide:'',loserSkin:'',picks:[],bans:[],actions:[],actif:true})
   setAdvWaiting(null)
@@ -481,7 +473,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   </div>
 </header>
 
-{showNotifSettings&&<Mo onClose={()=>setShowNotifSettings(false)} title="⚙️ Réglages" sub="Thème et notifications">
+{showNotifSettings&&<MoC onClose={()=>setShowNotifSettings(false)} title="⚙️ Réglages" sub="Thème et notifications">
   <div className="mb-4">
     <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🎨 Thème</p>
     <div className="grid grid-cols-4 gap-2">
@@ -507,7 +499,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     ))}
   </div>
   {!notificationsEnabled&&<button onClick={async()=>{await requestNotificationPermission();setShowNotifSettings(false)}} className="w-full py-3 rounded-2xl font-black text-sm text-black mb-3" style={{background:G2}}>🔔 Activer</button>}
-</Mo>}
+</MoC>}
 
 <main className="max-w-lg mx-auto px-4 py-5 relative z-10" onTouchStart={hts} onTouchMove={htm} onTouchEnd={hte}>
 {pullDistance>0&&<div className="flex justify-center mb-3" style={{height:pullDistance}}><span className={`text-2xl ${pullDistance>60?'rotate-180':''}`} style={{color:P}}>{isRefreshing?'⏳':'↓'}</span></div>}
@@ -616,7 +608,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       </div>
     </div>
   })}</div>}
-  {showAddSondage&&<Mo onClose={()=>setShowAddSondage(false)} title="🗳️ Nouveau Sondage">
+  {showAddSondage&&<MoC onClose={()=>setShowAddSondage(false)} title="🗳️ Nouveau Sondage">
     <div className="space-y-3 mb-4">
       <input type="text" placeholder="Ta question..." value={nouveauSondage.question} onChange={(e:any)=>setNouveauSondage({...nouveauSondage,question:e.target.value})} className={iCls} style={IS}/>
       {nouveauSondage.options.map((opt:string,i:number)=><div key={i} className="flex gap-2">
@@ -626,14 +618,57 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       {nouveauSondage.options.length<6&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:[...nouveauSondage.options,'']})} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:`${P}10`,color:P,border:`1px solid ${P}20`}}>➕ Option</button>}
     </div>
     <GBtn onClick={ajouterSondage}>✅ Créer</GBtn>
-  </Mo>}
+  </MoC>}
 </div>
 )}
 
-{/* ✅ DRAFT EVA ESPORT ARENA */}
 {activeTab==='draft'&&(
 <div className="ce"><ST icon="🎲" title="Draft — Eva Esport Arena"/>
   {user?<GBtn onClick={()=>setShowAddDraft(true)} cls="mb-5">➕ Nouvelle Draft</GBtn>:<div className="rounded-2xl p-3 mb-5 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔐 Connecte-toi pour créer une draft</p></div>}
+
+  {/* ✅ MODALE DRAFT INLINE - pas de composant Mo pour éviter le problème de clavier */}
+  {showAddDraft&&(
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[5vh]" style={{background:'rgba(0,0,0,0.88)',backdropFilter:'blur(16px)'}}>
+      <div className="w-full max-w-sm rounded-3xl" style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 24px 80px rgba(0,0,0,0.8)'}}>
+        <div className="pt-4 pb-3 px-5 flex items-start justify-between" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`,borderRadius:'1.5rem 1.5rem 0 0'}}>
+          <div className="flex-1 pr-3">
+            <div className="w-10 h-1 rounded-full mb-3" style={{background:`${P}50`}}/>
+            <h3 className="text-base font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>🎲 Nouvelle Draft</h3>
+            <p className="text-xs mt-0.5" style={{color:T.textMuted}}>Eva Esport Arena</p>
+          </div>
+          <button onClick={()=>{setShowAddDraft(false);setDraftAdversaire('')}} className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-90 text-lg font-bold" style={{background:'rgba(255,255,255,0.1)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>✕</button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 1</p>
+            <div className="rounded-2xl px-4 py-3.5 text-sm font-black" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:P}}>DYNO</div>
+          </div>
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 2 (Adversaire)</p>
+            {/* Input avec value contrôlée par state, aucun autre handler */}
+            <input
+              type="text"
+              placeholder="Nom de l'adversaire"
+              value={draftAdversaire}
+              onChange={e=>setDraftAdversaire(e.target.value)}
+              className={iCls}
+              style={IS}
+            />
+          </div>
+          <div className="rounded-2xl p-3" style={{background:isDark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)',border:`1px solid ${T.cardBorder}`}}>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>🤖 Comment ça marche</p>
+            <div className="space-y-1">
+              <p className="text-[9px]" style={{color:T.textMuted}}>• 🪙 Tu lances la pièce → résultat aléatoire</p>
+              <p className="text-[9px]" style={{color:T.textMuted}}>• Si DYNO gagne → tu choisis le côté</p>
+              <p className="text-[9px]" style={{color:T.textMuted}}>• L'adversaire joue automatiquement 🤖</p>
+              <p className="text-[9px]" style={{color:T.textMuted}}>• DYNO choisit ses picks/bans manuellement</p>
+            </div>
+          </div>
+          <GBtn onClick={creerDraft}>✅ Créer la draft</GBtn>
+        </div>
+      </div>
+    </div>
+  )}
 
   {drafts.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🎲</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune draft en cours</p></div>
   :<div className="space-y-4">{drafts.map((draft:any,idx:number)=>{
@@ -673,27 +708,22 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Progression */}
         <div>
           <div className="flex justify-between mb-1.5"><p className="text-[9px] font-black uppercase tracking-widest" style={{color:T.textMuted}}>Progression</p><p className="text-[9px] font-black" style={{color:P}}>{Math.min(step,DRAFT_SEQUENCE.length)}/{DRAFT_SEQUENCE.length}</p></div>
           <div className="flex gap-0.5">{DRAFT_SEQUENCE.map((_,i)=><div key={i} className="flex-1 h-1.5 rounded-full" style={{background:i<step?P:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)'}}/>)}</div>
         </div>
 
-        {/* Adversaire réfléchit */}
         {isAdvWaiting&&<div className="rounded-2xl p-3 text-center" style={{background:'rgba(168,85,247,.08)',border:'1px solid rgba(168,85,247,.2)'}}>
           <p className="text-sm font-black" style={{color:'#c084fc'}}>⏳ {draft.equipe2} réfléchit...</p>
         </div>}
 
-        {/* Étape courante */}
         {!isFinished&&!isAdvWaiting&&seq&&<div className="rounded-2xl p-3" style={{background:isDynoTurn?`${P}10`:'rgba(168,85,247,.08)',border:`1px solid ${isDynoTurn?P+'20':'rgba(168,85,247,.2)'}`}}>
           <p className="text-xs font-black" style={{color:isDynoTurn?P:'#c084fc'}}>{isDynoTurn?'👤 Ton tour — DYNO':'🤖 Tour adversaire'}</p>
           <p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>{seq.label}</p>
         </div>}
 
-        {/* COIN */}
         {!isFinished&&!isAdvWaiting&&step===0&&user&&<button onClick={()=>draftCoin(draft.id)} className="w-full py-4 rounded-2xl font-black text-base active:scale-95" style={{background:G2,color:'#000',boxShadow:`0 4px 20px ${P}40`}}>🪙 Lancer la pièce !</button>}
 
-        {/* SIDE - DYNO */}
         {!isFinished&&!isAdvWaiting&&step===1&&isDynoTurn&&user&&<div>
           <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le côté de DYNO</p>
           <div className="grid grid-cols-2 gap-2">
@@ -701,7 +731,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           </div>
         </div>}
 
-        {/* SKIN - DYNO */}
         {!isFinished&&!isAdvWaiting&&step===2&&isDynoTurn&&user&&<div>
           <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le skin de l'arène</p>
           <div className="grid grid-cols-2 gap-1.5">
@@ -709,7 +738,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           </div>
         </div>}
 
-        {/* PICKS & BANS - DYNO */}
         {!isFinished&&!isAdvWaiting&&step>=3&&step<DRAFT_SEQUENCE.length&&isDynoTurn&&user&&availableMaps.length>0&&<div>
           <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>
             {seq?.type==='pick'?'✅ Choisis une map à PICK':'❌ Choisis une map à BANNIR'}
@@ -719,7 +747,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           </div>
         </div>}
 
-        {/* Résumé picks/bans */}
         {((draft.picks||[]).length>0||(draft.bans||[]).length>0)&&<div className="grid grid-cols-2 gap-3">
           {(draft.picks||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.15)'}}>
             <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks</p>
@@ -731,20 +758,17 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           </div>}
         </div>}
 
-        {/* Infos */}
         {(draft.winner||draft.winnerSide||draft.loserSkin)&&<div className="space-y-1.5">
           {draft.winner&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:`${P}08`}}><span className="text-[10px]" style={{color:T.textMuted}}>🪙 Pile ou face</span><span className="text-[10px] font-black" style={{color:P}}>{draft.winner} a gagné</span></div>}
           {draft.winnerSide&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(245,158,11,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🌍 Côté DYNO</span><span className="text-[10px] font-black" style={{color:'#fbbf24'}}>{draft.winnerSide}</span></div>}
           {draft.loserSkin&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(96,165,250,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🎨 Skin</span><span className="text-[10px] font-black" style={{color:'#60a5fa'}}>{draft.loserSkin}</span></div>}
         </div>}
 
-        {/* Historique */}
         {(draft.actions||[]).length>0&&<div>
           <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>📋 Historique</p>
           <div className="space-y-0.5 max-h-28 overflow-y-auto">{(draft.actions||[]).map((a:any,i:number)=><p key={i} className="text-[9px]" style={{color:T.textMuted}}>• {a.label}</p>)}</div>
         </div>}
 
-        {/* Fin */}
         {isFinished&&(draft.picks||[]).length>0&&<div className="rounded-2xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
           <p className="text-2xl mb-2">🎉</p>
           <p className="text-sm font-black mb-3" style={{color:P}}>Draft terminée !</p>
@@ -753,37 +777,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       </div>
     </div>
   })}</div>}
-
-  {/* ✅ MODALE CRÉATION DRAFT - Input simple, clavier stable */}
-  {showAddDraft&&<Mo onClose={()=>{setShowAddDraft(false);setDraftAdversaire('')}} title="🎲 Nouvelle Draft" sub="Eva Esport Arena">
-    <div className="space-y-4 mb-5">
-      <div>
-        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 1</p>
-        <div className="rounded-2xl px-4 py-3.5 text-sm font-black" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:P}}>DYNO</div>
-      </div>
-      <div>
-        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 2 (Adversaire)</p>
-        <input
-          type="text"
-          placeholder="Nom de l'adversaire"
-          value={draftAdversaire}
-          onChange={e=>setDraftAdversaire(e.target.value)}
-          className={iCls}
-          style={IS}
-        />
-      </div>
-      <div className="rounded-2xl p-3" style={{background:isDark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)',border:`1px solid ${T.cardBorder}`}}>
-        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>🤖 Comment ça marche</p>
-        <div className="space-y-1">
-          <p className="text-[9px]" style={{color:T.textMuted}}>• 🪙 Tu lances la pièce → résultat aléatoire</p>
-          <p className="text-[9px]" style={{color:T.textMuted}}>• Si DYNO gagne → tu choisis le côté</p>
-          <p className="text-[9px]" style={{color:T.textMuted}}>• L'adversaire joue automatiquement 🤖</p>
-          <p className="text-[9px]" style={{color:T.textMuted}}>• DYNO choisit ses picks/bans manuellement</p>
-        </div>
-      </div>
-    </div>
-    <GBtn onClick={creerDraft}>✅ Créer la draft</GBtn>
-  </Mo>}
 </div>
 )}
 
@@ -801,14 +794,14 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     <div className="mb-4"><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks ({s.picks?.length||0}/4)</p><div className="flex flex-wrap gap-1.5">{s.picks?.map((p:string,i:number)=><Tg key={i} color="green">{p}</Tg>)}</div></div>
     <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans ({s.bans?.length||0}/4)</p><div className="flex flex-wrap gap-1.5">{s.bans?.map((b:string,i:number)=><Tg key={i} color="red">{b}</Tg>)}</div></div>
   </div>)}</div>}
-  {showAddStrat&&<Mo onClose={()=>{setShowAddStrat(false);setNouvelleStrat({adversaire:'',picks:[],bans:[]})}} title="🎯 Nouvelle Stratégie">
+  {showAddStrat&&<MoC onClose={()=>{setShowAddStrat(false);setNouvelleStrat({adversaire:'',picks:[],bans:[]})}} title="🎯 Nouvelle Stratégie">
     <div className="space-y-4 mb-4">
       <input type="text" placeholder="Adversaire" value={nouvelleStrat.adversaire} onChange={(e:any)=>setNouvelleStrat({...nouvelleStrat,adversaire:e.target.value})} className={iCls} style={IS}/>
       <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(74,222,128,.8)'}}>✅ Picks (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'picks')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={nouvelleStrat.picks.includes(m)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
       <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.8)'}}>❌ Bans (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'bans')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={nouvelleStrat.bans.includes(m)?{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.28)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
     </div>
     <GBtn onClick={ajouterStrat}>✅ Sauvegarder</GBtn>
-  </Mo>}
+  </MoC>}
 </div>
 )}
 
@@ -823,13 +816,13 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     </div>
     <div className="flex flex-wrap gap-1.5">{c.joueurs?.map((j:string,i:number)=><Tg key={i} color="primary">{j}</Tg>)}</div>
   </div>)}</div>}
-  {showAddCompo&&<Mo onClose={()=>{setShowAddCompo(false);setSelectedMapCompo('');setCompoJoueurs([])}} title="📋 Nouvelle Compo">
+  {showAddCompo&&<MoC onClose={()=>{setShowAddCompo(false);setSelectedMapCompo('');setCompoJoueurs([])}} title="📋 Nouvelle Compo">
     <div className="space-y-4 mb-4">
       <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>🗺️ Map</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>setSelectedMapCompo(m)} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={selectedMapCompo===m?{background:`${P}20`,color:P,border:`1px solid ${P}35`}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
       <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>👥 Joueurs</p><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j:any)=>j.actif!==false).map((j:any)=><button key={j.id} onClick={()=>toggleCompoJoueur(j.pseudo)} className="px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95" style={compoJoueurs.includes(j.pseudo)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{j.pseudo}</button>)}</div></div>
     </div>
     <GBtn onClick={ajouterCompo}>✅ Sauvegarder</GBtn>
-  </Mo>}
+  </MoC>}
 </div>
 )}
 
@@ -850,7 +843,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     </div>
     <p className="px-5 pb-4 text-[9px]" style={{color:T.textMuted}}>par {f.auteur}</p>
   </div>)}</div>}
-  {showAddFiche&&<Mo onClose={()=>{setShowAddFiche(false);setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''})}} title="🔍 Nouvelle Fiche">
+  {showAddFiche&&<MoC onClose={()=>{setShowAddFiche(false);setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''})}} title="🔍 Nouvelle Fiche">
     <div className="space-y-3 mb-4">
       <input type="text" placeholder="Adversaire" value={nouvelleFiche.adversaire} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,adversaire:e.target.value})} className={iCls} style={IS}/>
       <textarea placeholder="💪 Forces..." value={nouvelleFiche.forces} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,forces:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(74,222,128,.2)'}}/>
@@ -858,7 +851,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <textarea placeholder="📝 Notes..." value={nouvelleFiche.notes} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,notes:e.target.value})} rows={2} className={`${iCls} resize-none`} style={IS}/>
     </div>
     <GBtn onClick={ajouterFiche}>✅ Sauvegarder</GBtn>
-  </Mo>}
+  </MoC>}
 </div>
 )}
 
@@ -934,9 +927,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       {mn.length===0&&mc.length===0&&ma.length===0&&<p className="text-center text-[10px] pb-4" style={{color:T.textMuted}}>Aucune donnée</p>}
     </div>
   })}</div>}
-
-  {/* ✅ MODALE NOTE COMPACTE - s'affiche en HAUT grâce au useEffect scroll */}
-  {noteEdit&&<Mo onClose={()=>setNoteEdit(null)} title="✏️ Modifier ma note" sub={noteEdit.joueur}>
+  {noteEdit&&<MoC onClose={()=>setNoteEdit(null)} title="✏️ Modifier ma note" sub={noteEdit.joueur}>
     <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
       <div key={key}>
         <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
@@ -951,10 +942,8 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <button onClick={()=>setNoteEdit(null)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
       <button onClick={updateNote} className="flex-1 py-2.5 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
     </div>
-  </Mo>}
-
-  {/* ✅ MODALE AJOUT NOTE - s'affiche en HAUT */}
-  {selectedMatchForNotes&&<Mo onClose={()=>setSelectedMatchForNotes(null)} title={`📊 ${selectedMatchForNotes.adversaire}`} sub="Évalue la performance (0 à 10)">
+  </MoC>}
+  {selectedMatchForNotes&&<MoC onClose={()=>setSelectedMatchForNotes(null)} title={`📊 ${selectedMatchForNotes.adversaire}`} sub="Évalue la performance (0 à 10)">
     <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
       <div key={key}>
         <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
@@ -969,7 +958,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <button onClick={()=>setSelectedMatchForNotes(null)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
       <button onClick={ajouterNote} className="flex-1 py-2.5 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Envoyer</button>
     </div>
-  </Mo>}
+  </MoC>}
 </div>
 )}
 
@@ -1045,7 +1034,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   </div>
   <GBtn onClick={()=>setShowBilan(true)}>📊 Bilan du mois</GBtn>
   {showBilan&&(()=>{const b=genBilan();return(
-    <Mo onClose={()=>setShowBilan(false)} title={`📊 Bilan ${b.nom}`} sub="Performances du mois">
+    <MoC onClose={()=>setShowBilan(false)} title={`📊 Bilan ${b.nom}`} sub="Performances du mois">
       <div className="space-y-4 mb-4">
         <div className="grid grid-cols-3 gap-2"><SC value={b.m} label="Matchs"/><SC value={`${b.w}W`} label="Victoires" color="#4ade80"/><SC value={`${b.l}L`} label="Défaites" color="#f87171"/></div>
         <div className="rounded-2xl p-6 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:`${P}60`}}>Win Rate</p><p className="text-6xl font-black sg">{b.wr}%</p></div>
@@ -1054,7 +1043,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           <div className="grid grid-cols-3 gap-2">{[{v:b.am,l:'🧠',c:'#c084fc'},{v:b.ac,l:'💬',c:'#60a5fa'},{v:b.ap,l:'🎯',c:'#4ade80'}].map(({v,l,c})=><div key={l} className="text-center rounded-xl py-3" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)'}}><p className="text-2xl font-black" style={{color:c}}>{v}</p><p className="text-[8px] mt-1" style={{color:T.textMuted}}>{l}</p></div>)}</div>
         </div>
       </div>
-    </Mo>
+    </MoC>
   )})()}
 </div>
 )}
@@ -1137,7 +1126,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <GBtn onClick={handleAdminLogout} danger>🚪 Déconnexion Admin</GBtn>
     </div>
   )}
-  {scoreEdit&&<Mo onClose={()=>setScoreEdit(null)} title="✏️ Modifier le score" sub={`DYNO vs ${scoreEdit.adversaire}`}>
+  {scoreEdit&&<MoC onClose={()=>setScoreEdit(null)} title="✏️ Modifier le score" sub={`DYNO vs ${scoreEdit.adversaire}`}>
     {scoreEdit.type==='Division'?(
       <div className="space-y-3 mb-4">
         {(scoreEdit.sousMatchs||[]).length>0&&<div className="space-y-1.5">{(scoreEdit.sousMatchs||[]).map((sm:any,i:number)=>
@@ -1169,7 +1158,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <button onClick={()=>setScoreEdit(null)} className="flex-1 py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
       <button onClick={updateScore} className="flex-1 py-3 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
     </div>
-  </Mo>}
+  </MoC>}
 </div>
 )}
 
