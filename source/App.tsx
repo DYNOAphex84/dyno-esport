@@ -37,25 +37,6 @@ const THEMES:Record<string,any>={
 const ROLES=['Joueur','Capitaine','Coach','Admin']
 const ROLE_COLORS:Record<string,string>={Joueur:'rgba(255,255,255,0.3)',Capitaine:'rgba(212,175,55,0.8)',Coach:'rgba(96,165,250,0.8)',Admin:'rgba(239,68,68,0.8)'}
 
-// ✅ MODALE DÉFINIE EN DEHORS DE APP - évite la recréation à chaque render
-// C'est la clé pour que le clavier ne se ferme plus
-interface MoProps{onClose:()=>void;children:any;title?:string;sub?:string;isDark:boolean;T:any;P:string;G:string}
-const Mo=({onClose,children,title,sub,isDark,T,P,G}:MoProps)=>(
-  <div className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[5vh]" style={{background:'rgba(0,0,0,0.88)',backdropFilter:'blur(16px)'}}>
-    <div className="w-full max-w-sm rounded-3xl max-h-[88vh] overflow-y-auto" style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 24px 80px rgba(0,0,0,0.8)'}}>
-      <div className="sticky top-0 pt-4 pb-3 px-5 z-10 flex items-start justify-between" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`}}>
-        <div className="flex-1 pr-3">
-          <div className="w-10 h-1 rounded-full mb-3" style={{background:`${P}50`}}/>
-          {title&&<h3 className="text-base font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{title}</h3>}
-          {sub&&<p className="text-xs mt-0.5" style={{color:T.textMuted}}>{sub}</p>}
-        </div>
-        <button onClick={onClose} className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-90 text-lg font-bold" style={{background:'rgba(255,255,255,0.1)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>✕</button>
-      </div>
-      <div className="p-5">{children}</div>
-    </div>
-  </div>
-)
-
 function App(){
 const[isDark,setIsDark]=useState(()=>localStorage.getItem('dyno-theme')!=='light')
 const[themeKey,setThemeKey]=useState(()=>localStorage.getItem('dyno-theme-color')||'gold')
@@ -65,9 +46,22 @@ const P=TH.primary,P2=TH.primary2,G=TH.g,G2=TH.g2
 const toggleTheme=()=>{const n=!isDark;setIsDark(n);localStorage.setItem('dyno-theme',n?'dark':'light')}
 const setTheme=(k:string)=>{setThemeKey(k);localStorage.setItem('dyno-theme-color',k)}
 
-// Helper pour passer les props à Mo
-const MoC=({onClose,children,title,sub}:{onClose:()=>void,children:any,title?:string,sub?:string})=>(
-  <Mo onClose={onClose} title={title} sub={sub} isDark={isDark} T={T} P={P} G={G}>{children}</Mo>
+// ✅ SOLUTION DÉFINITIVE : helper renderModal sans composant - juste du JSX pur
+// Aucun composant React créé = aucun démontage/remontage = clavier stable
+const modal=(onClose:()=>void,title:string,sub:string,content:any)=>(
+  <div className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[5vh]" style={{background:'rgba(0,0,0,0.88)',backdropFilter:'blur(16px)'}}>
+    <div className="w-full max-w-sm rounded-3xl max-h-[88vh] overflow-y-auto" style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 24px 80px rgba(0,0,0,0.8)'}}>
+      <div className="sticky top-0 pt-4 pb-3 px-5 z-10 flex items-start justify-between" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`}}>
+        <div className="flex-1 pr-3">
+          <div className="w-10 h-1 rounded-full mb-3" style={{background:`${P}50`}}/>
+          <h3 className="text-base font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{title}</h3>
+          {sub&&<p className="text-xs mt-0.5" style={{color:T.textMuted}}>{sub}</p>}
+        </div>
+        <button onClick={onClose} className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-90 text-lg font-bold" style={{background:'rgba(255,255,255,0.1)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>✕</button>
+      </div>
+      <div className="p-5">{content}</div>
+    </div>
+  </div>
 )
 
 const CS={background:T.card,border:`1px solid ${T.cardBorder}`,boxShadow:isDark?'0 8px 40px rgba(0,0,0,0.8)':'0 4px 24px rgba(0,0,0,0.08)',backdropFilter:'blur(24px)'}
@@ -208,151 +202,13 @@ const ajouterSondage=async()=>{if(!nouveauSondage.question.trim()||nouveauSondag
 const voterSondage=async(sid:string,ok:string)=>{if(!user)return;const s=sondages.find((x:any)=>x.id===sid);if(!s)return;const opts={...s.options};Object.keys(opts).forEach(k=>{opts[k]={...opts[k],votes:(opts[k].votes||[]).filter((v:string)=>v!==user.uid)}});opts[ok]={...opts[ok],votes:[...(opts[ok].votes||[]),user.uid]};await updateDoc(doc(db,'sondages',sid),{options:opts})}
 const clotureSondage=async(id:string)=>{await updateDoc(doc(db,'sondages',id),{actif:false})}
 
-const creerDraft=async()=>{
-  const adv=draftAdversaire.trim()
-  if(!adv){alert('⚠️ Entre le nom de l\'adversaire!');return}
-  if(!user){alert('⚠️ Connecte-toi d\'abord!');return}
-  await addDoc(collection(db,'drafts'),{adversaire:adv,equipe1:'DYNO',equipe2:adv,dynoTeam:'DYNO',currentStep:0,winner:'',winnerIsDyno:false,winnerSide:'',loserSkin:'',picks:[],bans:[],actions:[],actif:true,auteur:pseudo,createdAt:Date.now()})
-  setDraftAdversaire('')
-  setShowAddDraft(false)
-  alert('✅ Draft créée!')
-}
-const draftCoin=async(draftId:string)=>{
-  const d=drafts.find((x:any)=>x.id===draftId)
-  if(!d)return
-  const dynoWins=Math.random()<0.5
-  const winner=dynoWins?'DYNO':d.equipe2
-  const actions=[{step:0,type:'coin',label:`🪙 Pile ou Face → ${winner} remporte !`,at:Date.now()}]
-  await updateDoc(doc(db,'drafts',draftId),{winner,winnerIsDyno:dynoWins,currentStep:1,actions})
-  if(!dynoWins){
-    setAdvWaiting(draftId)
-    setTimeout(async()=>{
-      const sides=['🟠 Orange','🔵 Bleu']
-      const side=sides[Math.floor(Math.random()*sides.length)]
-      const newActions=[...actions,{step:1,type:'side',label:`🌍 ${d.equipe2} choisit le côté ${side}`,at:Date.now()}]
-      await updateDoc(doc(db,'drafts',draftId),{winnerSide:side,currentStep:2,actions:newActions})
-      setAdvWaiting(null)
-    },1800)
-  }
-}
-const draftDynoSide=async(draftId:string,side:string)=>{
-  const d=drafts.find((x:any)=>x.id===draftId)
-  if(!d)return
-  const actions=[...(d.actions||[]),{step:1,type:'side',label:`🌍 DYNO choisit le côté ${side}`,at:Date.now()}]
-  await updateDoc(doc(db,'drafts',draftId),{winnerSide:side,currentStep:2,actions})
-  setAdvWaiting(draftId)
-  setTimeout(async()=>{
-    const skin=SKINS[Math.floor(Math.random()*SKINS.length)]
-    const newActions=[...actions,{step:2,type:'skin',label:`🎨 ${d.equipe2} choisit le skin : ${skin}`,at:Date.now()}]
-    await updateDoc(doc(db,'drafts',draftId),{loserSkin:skin,currentStep:3,actions:newActions})
-    setAdvWaiting(null)
-    const seq3=DRAFT_SEQUENCE[3]
-    const step3IsAdv=(d.winnerIsDyno&&seq3.who==='loser')||(!d.winnerIsDyno&&seq3.who==='winner')
-    if(step3IsAdv){
-      setAdvWaiting(draftId)
-      setTimeout(async()=>{
-        const avail=DRAFT_MAPS.filter(m=>![...(d.picks||[]),...(d.bans||[])].includes(m))
-        if(avail.length>0){
-          const map=avail[Math.floor(Math.random()*avail.length)]
-          const na=[...newActions,{step:3,type:'ban',label:`❌ Ban ${map} par ${d.equipe2}`,at:Date.now()}]
-          await updateDoc(doc(db,'drafts',draftId),{bans:[map],actions:na,currentStep:4})
-        }
-        setAdvWaiting(null)
-      },1800)
-    }
-  },1800)
-}
-const draftDynoSkin=async(draftId:string,skin:string)=>{
-  const d=drafts.find((x:any)=>x.id===draftId)
-  if(!d)return
-  const actions=[...(d.actions||[]),{step:2,type:'skin',label:`🎨 DYNO choisit le skin : ${skin}`,at:Date.now()}]
-  await updateDoc(doc(db,'drafts',draftId),{loserSkin:skin,currentStep:3,actions})
-  const seq3=DRAFT_SEQUENCE[3]
-  const step3IsAdv=(d.winnerIsDyno&&seq3.who==='loser')||(!d.winnerIsDyno&&seq3.who==='winner')
-  if(step3IsAdv){
-    setAdvWaiting(draftId)
-    setTimeout(async()=>{
-      const avail=DRAFT_MAPS.filter(m=>![...(d.picks||[]),...(d.bans||[])].includes(m))
-      if(avail.length>0){
-        const map=avail[Math.floor(Math.random()*avail.length)]
-        const na=[...actions,{step:3,type:'ban',label:`❌ Ban ${map} par ${d.equipe2}`,at:Date.now()}]
-        await updateDoc(doc(db,'drafts',draftId),{bans:[map],actions:na,currentStep:4})
-      }
-      setAdvWaiting(null)
-    },1800)
-  }
-}
-const doAdvAction=async(draftId:string,draftState:any,atStep:number)=>{
-  const seq=DRAFT_SEQUENCE[atStep]
-  if(!seq)return
-  const usedMaps=[...(draftState.picks||[]),...(draftState.bans||[])]
-  const available=DRAFT_MAPS.filter((m:string)=>!usedMaps.includes(m))
-  if(available.length===0)return
-  const map=available[Math.floor(Math.random()*available.length)]
-  const field=seq.type==='pick'?'picks':'bans'
-  const current=draftState[field]||[]
-  const newVal=[...current,map]
-  const label=`${seq.type==='pick'?'✅ Pick':'❌ Ban'} ${map} par ${draftState.equipe2}`
-  const newActions=[...(draftState.actions||[]),{step:atStep,type:seq.type,map,label,at:Date.now()}]
-  const nextStep=atStep+1
-  const isFinished=nextStep>=DRAFT_SEQUENCE.length
-  await updateDoc(doc(db,'drafts',draftId),{[field]:newVal,actions:newActions,currentStep:nextStep,actif:!isFinished})
-}
-const draftDynoAction=async(draftId:string,map:string)=>{
-  const d=drafts.find((x:any)=>x.id===draftId)
-  if(!d||!d.actif)return
-  const step=d.currentStep
-  const seq=DRAFT_SEQUENCE[step]
-  if(!seq||seq.type==='coin'||seq.type==='side'||seq.type==='skin')return
-  const field=seq.type==='pick'?'picks':'bans'
-  const current=d[field]||[]
-  const label=`${seq.type==='pick'?'✅ Pick':'❌ Ban'} ${map} par DYNO`
-  const newActions=[...(d.actions||[]),{step,type:seq.type,map,label,at:Date.now()}]
-  const nextStep=step+1
-  const isFinished=nextStep>=DRAFT_SEQUENCE.length
-  await updateDoc(doc(db,'drafts',draftId),{[field]:[...current,map],actions:newActions,currentStep:nextStep,actif:!isFinished})
-  if(!isFinished){
-    const nextSeq=DRAFT_SEQUENCE[nextStep]
-    if(nextSeq&&nextSeq.type!=='coin'&&nextSeq.type!=='side'&&nextSeq.type!=='skin'){
-      const dynoIsWinner=d.winnerIsDyno
-      const nextIsAdv=(dynoIsWinner&&nextSeq.who==='loser')||(!dynoIsWinner&&nextSeq.who==='winner')
-      if(nextIsAdv){
-        setAdvWaiting(draftId)
-        const updatedPicks=seq.type==='pick'?[...current,map]:(d.picks||[])
-        const updatedBans=seq.type==='ban'?[...current,map]:(d.bans||[])
-        setTimeout(async()=>{
-          await doAdvAction(draftId,{...d,picks:updatedPicks,bans:updatedBans,actions:newActions,currentStep:nextStep},nextStep)
-          setAdvWaiting(null)
-          const nextNextStep=nextStep+1
-          if(nextNextStep<DRAFT_SEQUENCE.length){
-            const nnSeq=DRAFT_SEQUENCE[nextNextStep]
-            const nnIsAdv=(dynoIsWinner&&nnSeq.who==='loser')||(!dynoIsWinner&&nnSeq.who==='winner')
-            if(nnIsAdv&&(nnSeq.type==='pick'||nnSeq.type==='ban')){
-              setAdvWaiting(draftId)
-              setTimeout(async()=>{
-                const usedAfter=[...updatedPicks,...updatedBans,map]
-                const availAfter=DRAFT_MAPS.filter((m:string)=>!usedAfter.includes(m))
-                if(availAfter.length>0){
-                  const mapAfter=availAfter[Math.floor(Math.random()*availAfter.length)]
-                  const fieldAfter=nnSeq.type==='pick'?'picks':'bans'
-                  const currentAfter=nnSeq.type==='pick'?updatedPicks:updatedBans
-                  const labelAfter=`${nnSeq.type==='pick'?'✅ Pick':'❌ Ban'} ${mapAfter} par ${d.equipe2}`
-                  const actAfter=[...newActions,{step:nextNextStep,type:nnSeq.type,map:mapAfter,label:labelAfter,at:Date.now()}]
-                  await updateDoc(doc(db,'drafts',draftId),{[fieldAfter]:[...currentAfter,mapAfter],actions:actAfter,currentStep:nextNextStep+1,actif:nextNextStep+1<DRAFT_SEQUENCE.length})
-                }
-                setAdvWaiting(null)
-              },1800)
-            }
-          }
-        },1800)
-      }
-    }
-  }
-}
-const resetDraft=async(draftId:string)=>{
-  await updateDoc(doc(db,'drafts',draftId),{currentStep:0,winner:'',winnerIsDyno:false,winnerSide:'',loserSkin:'',picks:[],bans:[],actions:[],actif:true})
-  setAdvWaiting(null)
-}
+const creerDraft=async()=>{const adv=draftAdversaire.trim();if(!adv){alert('⚠️ Entre le nom de l\'adversaire!');return};if(!user){alert('⚠️ Connecte-toi d\'abord!');return};await addDoc(collection(db,'drafts'),{adversaire:adv,equipe1:'DYNO',equipe2:adv,currentStep:0,winner:'',winnerIsDyno:false,winnerSide:'',loserSkin:'',picks:[],bans:[],actions:[],actif:true,auteur:pseudo,createdAt:Date.now()});setDraftAdversaire('');setShowAddDraft(false);alert('✅ Draft créée!')}
+const draftCoin=async(draftId:string)=>{const d=drafts.find((x:any)=>x.id===draftId);if(!d)return;const dynoWins=Math.random()<0.5;const winner=dynoWins?'DYNO':d.equipe2;const actions=[{step:0,type:'coin',label:`🪙 Pile ou Face → ${winner} remporte !`,at:Date.now()}];await updateDoc(doc(db,'drafts',draftId),{winner,winnerIsDyno:dynoWins,currentStep:1,actions});if(!dynoWins){setAdvWaiting(draftId);setTimeout(async()=>{const sides=['🟠 Orange','🔵 Bleu'];const side=sides[Math.floor(Math.random()*sides.length)];const newActions=[...actions,{step:1,type:'side',label:`🌍 ${d.equipe2} choisit le côté ${side}`,at:Date.now()}];await updateDoc(doc(db,'drafts',draftId),{winnerSide:side,currentStep:2,actions:newActions});setAdvWaiting(null)},1800)}}
+const draftDynoSide=async(draftId:string,side:string)=>{const d=drafts.find((x:any)=>x.id===draftId);if(!d)return;const actions=[...(d.actions||[]),{step:1,type:'side',label:`🌍 DYNO choisit le côté ${side}`,at:Date.now()}];await updateDoc(doc(db,'drafts',draftId),{winnerSide:side,currentStep:2,actions});setAdvWaiting(draftId);setTimeout(async()=>{const skin=SKINS[Math.floor(Math.random()*SKINS.length)];const newActions=[...actions,{step:2,type:'skin',label:`🎨 ${d.equipe2} choisit le skin : ${skin}`,at:Date.now()}];await updateDoc(doc(db,'drafts',draftId),{loserSkin:skin,currentStep:3,actions:newActions});setAdvWaiting(null);const seq3=DRAFT_SEQUENCE[3];const step3IsAdv=(d.winnerIsDyno&&seq3.who==='loser')||(!d.winnerIsDyno&&seq3.who==='winner');if(step3IsAdv){setAdvWaiting(draftId);setTimeout(async()=>{const avail=DRAFT_MAPS.filter(m=>![...(d.picks||[]),...(d.bans||[])].includes(m));if(avail.length>0){const map=avail[Math.floor(Math.random()*avail.length)];const na=[...newActions,{step:3,type:'ban',label:`❌ Ban ${map} par ${d.equipe2}`,at:Date.now()}];await updateDoc(doc(db,'drafts',draftId),{bans:[map],actions:na,currentStep:4})};setAdvWaiting(null)},1800)}},1800)}
+const draftDynoSkin=async(draftId:string,skin:string)=>{const d=drafts.find((x:any)=>x.id===draftId);if(!d)return;const actions=[...(d.actions||[]),{step:2,type:'skin',label:`🎨 DYNO choisit le skin : ${skin}`,at:Date.now()}];await updateDoc(doc(db,'drafts',draftId),{loserSkin:skin,currentStep:3,actions});const seq3=DRAFT_SEQUENCE[3];const step3IsAdv=(d.winnerIsDyno&&seq3.who==='loser')||(!d.winnerIsDyno&&seq3.who==='winner');if(step3IsAdv){setAdvWaiting(draftId);setTimeout(async()=>{const avail=DRAFT_MAPS.filter(m=>![...(d.picks||[]),...(d.bans||[])].includes(m));if(avail.length>0){const map=avail[Math.floor(Math.random()*avail.length)];const na=[...actions,{step:3,type:'ban',label:`❌ Ban ${map} par ${d.equipe2}`,at:Date.now()}];await updateDoc(doc(db,'drafts',draftId),{bans:[map],actions:na,currentStep:4})};setAdvWaiting(null)},1800)}}
+const doAdvAction=async(draftId:string,draftState:any,atStep:number)=>{const seq=DRAFT_SEQUENCE[atStep];if(!seq)return;const usedMaps=[...(draftState.picks||[]),...(draftState.bans||[])];const available=DRAFT_MAPS.filter((m:string)=>!usedMaps.includes(m));if(available.length===0)return;const map=available[Math.floor(Math.random()*available.length)];const field=seq.type==='pick'?'picks':'bans';const current=draftState[field]||[];const newVal=[...current,map];const label=`${seq.type==='pick'?'✅ Pick':'❌ Ban'} ${map} par ${draftState.equipe2}`;const newActions=[...(draftState.actions||[]),{step:atStep,type:seq.type,map,label,at:Date.now()}];const nextStep=atStep+1;const isFinished=nextStep>=DRAFT_SEQUENCE.length;await updateDoc(doc(db,'drafts',draftId),{[field]:newVal,actions:newActions,currentStep:nextStep,actif:!isFinished})}
+const draftDynoAction=async(draftId:string,map:string)=>{const d=drafts.find((x:any)=>x.id===draftId);if(!d||!d.actif)return;const step=d.currentStep;const seq=DRAFT_SEQUENCE[step];if(!seq||seq.type==='coin'||seq.type==='side'||seq.type==='skin')return;const field=seq.type==='pick'?'picks':'bans';const current=d[field]||[];const label=`${seq.type==='pick'?'✅ Pick':'❌ Ban'} ${map} par DYNO`;const newActions=[...(d.actions||[]),{step,type:seq.type,map,label,at:Date.now()}];const nextStep=step+1;const isFinished=nextStep>=DRAFT_SEQUENCE.length;await updateDoc(doc(db,'drafts',draftId),{[field]:[...current,map],actions:newActions,currentStep:nextStep,actif:!isFinished});if(!isFinished){const nextSeq=DRAFT_SEQUENCE[nextStep];if(nextSeq&&nextSeq.type!=='coin'&&nextSeq.type!=='side'&&nextSeq.type!=='skin'){const dynoIsWinner=d.winnerIsDyno;const nextIsAdv=(dynoIsWinner&&nextSeq.who==='loser')||(!dynoIsWinner&&nextSeq.who==='winner');if(nextIsAdv){setAdvWaiting(draftId);const updatedPicks=seq.type==='pick'?[...current,map]:(d.picks||[]);const updatedBans=seq.type==='ban'?[...current,map]:(d.bans||[]);setTimeout(async()=>{await doAdvAction(draftId,{...d,picks:updatedPicks,bans:updatedBans,actions:newActions,currentStep:nextStep},nextStep);setAdvWaiting(null);const nextNextStep=nextStep+1;if(nextNextStep<DRAFT_SEQUENCE.length){const nnSeq=DRAFT_SEQUENCE[nextNextStep];const nnIsAdv=(dynoIsWinner&&nnSeq.who==='loser')||(!dynoIsWinner&&nnSeq.who==='winner');if(nnIsAdv&&(nnSeq.type==='pick'||nnSeq.type==='ban')){setAdvWaiting(draftId);setTimeout(async()=>{const usedAfter=[...updatedPicks,...updatedBans,map];const availAfter=DRAFT_MAPS.filter((m:string)=>!usedAfter.includes(m));if(availAfter.length>0){const mapAfter=availAfter[Math.floor(Math.random()*availAfter.length)];const fieldAfter=nnSeq.type==='pick'?'picks':'bans';const currentAfter=nnSeq.type==='pick'?updatedPicks:updatedBans;const labelAfter=`${nnSeq.type==='pick'?'✅ Pick':'❌ Ban'} ${mapAfter} par ${d.equipe2}`;const actAfter=[...newActions,{step:nextNextStep,type:nnSeq.type,map:mapAfter,label:labelAfter,at:Date.now()}];await updateDoc(doc(db,'drafts',draftId),{[fieldAfter]:[...currentAfter,mapAfter],actions:actAfter,currentStep:nextNextStep+1,actif:nextNextStep+1<DRAFT_SEQUENCE.length})};setAdvWaiting(null)},1800)}}},1800)}}}}
+const resetDraft=async(draftId:string)=>{await updateDoc(doc(db,'drafts',draftId),{currentStep:0,winner:'',winnerIsDyno:false,winnerSide:'',loserSkin:'',picks:[],bans:[],actions:[],actif:true});setAdvWaiting(null)}
 
 const fdf=(s:string)=>{if(!s)return'';if(s.includes('/'))return s;const[y,m,d]=s.split('-');return`${d}/${m}/${y}`}
 const fts=(t:number)=>{const d=new Date(t);return`${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`}
@@ -473,33 +329,37 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   </div>
 </header>
 
-{showNotifSettings&&<MoC onClose={()=>setShowNotifSettings(false)} title="⚙️ Réglages" sub="Thème et notifications">
-  <div className="mb-4">
-    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🎨 Thème</p>
-    <div className="grid grid-cols-4 gap-2">
-      {Object.entries(THEMES).map(([key,th])=>(
-        <button key={key} onClick={()=>setTheme(key)} className="p-2.5 rounded-2xl text-center active:scale-95 relative" style={{background:themeKey===key?`${th.primary}22`:'rgba(255,255,255,0.04)',border:`2px solid ${themeKey===key?th.primary:T.cardBorder}`}}>
-          {themeKey===key&&<div className="absolute top-1 right-1 w-3 h-3 rounded-full flex items-center justify-center text-[8px]" style={{background:th.primary,color:'#000'}}>✓</div>}
-          <p className="text-xl mb-1">{th.icon}</p>
-          <p className="text-[8px] font-black" style={{color:th.primary}}>{th.name}</p>
-        </button>
+{/* ✅ TOUTES LES MODALES SONT DU JSX INLINE - plus aucun composant wrapper */}
+
+{showNotifSettings&&modal(()=>setShowNotifSettings(false),'⚙️ Réglages','Thème et notifications',
+  <div>
+    <div className="mb-4">
+      <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🎨 Thème</p>
+      <div className="grid grid-cols-4 gap-2">
+        {Object.entries(THEMES).map(([key,th])=>(
+          <button key={key} onClick={()=>setTheme(key)} className="p-2.5 rounded-2xl text-center active:scale-95 relative" style={{background:themeKey===key?`${th.primary}22`:'rgba(255,255,255,0.04)',border:`2px solid ${themeKey===key?th.primary:T.cardBorder}`}}>
+            {themeKey===key&&<div className="absolute top-1 right-1 w-3 h-3 rounded-full flex items-center justify-center text-[8px]" style={{background:th.primary,color:'#000'}}>✓</div>}
+            <p className="text-xl mb-1">{th.icon}</p>
+            <p className="text-[8px] font-black" style={{color:th.primary}}>{th.name}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+    <div className="h-px mb-4" style={{background:`linear-gradient(90deg,transparent,${T.cardBorder},transparent)`}}/>
+    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🔔 Notifications</p>
+    <div className="space-y-2.5 mb-4">
+      {[{k:'match',label:'📅 Matchs'},{k:'note',label:'📊 Notes'},{k:'commentaire',label:'💬 Commentaires'},{k:'strat',label:'🎯 Strats'},{k:'resultat',label:'🏆 Résultats'}].map(({k,label})=>(
+        <div key={k} className="flex items-center justify-between p-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}>
+          <p className="text-xs font-bold" style={{color:T.text}}>{label}</p>
+          <button onClick={()=>saveNotifSettings({...notifSettings,[k]:!notifSettings[k]})} className="w-11 h-6 rounded-full relative transition-all flex-shrink-0" style={{background:notifSettings[k]?G2:'rgba(255,255,255,.12)'}}>
+            <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all" style={{left:notifSettings[k]?'calc(100% - 22px)':'2px'}}/>
+          </button>
+        </div>
       ))}
     </div>
+    {!notificationsEnabled&&<button onClick={async()=>{await requestNotificationPermission();setShowNotifSettings(false)}} className="w-full py-3 rounded-2xl font-black text-sm text-black mb-3" style={{background:G2}}>🔔 Activer</button>}
   </div>
-  <div className="h-px mb-4" style={{background:`linear-gradient(90deg,transparent,${T.cardBorder},transparent)`}}/>
-  <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🔔 Notifications</p>
-  <div className="space-y-2.5 mb-4">
-    {[{k:'match',label:'📅 Matchs'},{k:'note',label:'📊 Notes'},{k:'commentaire',label:'💬 Commentaires'},{k:'strat',label:'🎯 Strats'},{k:'resultat',label:'🏆 Résultats'}].map(({k,label})=>(
-      <div key={k} className="flex items-center justify-between p-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}>
-        <p className="text-xs font-bold" style={{color:T.text}}>{label}</p>
-        <button onClick={()=>saveNotifSettings({...notifSettings,[k]:!notifSettings[k]})} className="w-11 h-6 rounded-full relative transition-all flex-shrink-0" style={{background:notifSettings[k]?G2:'rgba(255,255,255,.12)'}}>
-          <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all" style={{left:notifSettings[k]?'calc(100% - 22px)':'2px'}}/>
-        </button>
-      </div>
-    ))}
-  </div>
-  {!notificationsEnabled&&<button onClick={async()=>{await requestNotificationPermission();setShowNotifSettings(false)}} className="w-full py-3 rounded-2xl font-black text-sm text-black mb-3" style={{background:G2}}>🔔 Activer</button>}
-</MoC>}
+)}
 
 <main className="max-w-lg mx-auto px-4 py-5 relative z-10" onTouchStart={hts} onTouchMove={htm} onTouchEnd={hte}>
 {pullDistance>0&&<div className="flex justify-center mb-3" style={{height:pullDistance}}><span className={`text-2xl ${pullDistance>60?'rotate-180':''}`} style={{color:P}}>{isRefreshing?'⏳':'↓'}</span></div>}
@@ -608,97 +468,60 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       </div>
     </div>
   })}</div>}
-  {showAddSondage&&<MoC onClose={()=>setShowAddSondage(false)} title="🗳️ Nouveau Sondage">
-    <div className="space-y-3 mb-4">
-      <input type="text" placeholder="Ta question..." value={nouveauSondage.question} onChange={(e:any)=>setNouveauSondage({...nouveauSondage,question:e.target.value})} className={iCls} style={IS}/>
-      {nouveauSondage.options.map((opt:string,i:number)=><div key={i} className="flex gap-2">
-        <input type="text" placeholder={`Option ${i+1}`} value={opt} onChange={(e:any)=>{const o=[...nouveauSondage.options];o[i]=e.target.value;setNouveauSondage({...nouveauSondage,options:o})}} className={`flex-1 ${iCls}`} style={IS}/>
-        {nouveauSondage.options.length>2&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:nouveauSondage.options.filter((_:string,j:number)=>j!==i)})} className="px-3 rounded-xl font-bold text-xl" style={{background:'rgba(239,68,68,.1)',color:'#f87171'}}>×</button>}
-      </div>)}
-      {nouveauSondage.options.length<6&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:[...nouveauSondage.options,'']})} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:`${P}10`,color:P,border:`1px solid ${P}20`}}>➕ Option</button>}
+  {showAddSondage&&modal(()=>setShowAddSondage(false),'🗳️ Nouveau Sondage','',
+    <div>
+      <div className="space-y-3 mb-4">
+        <input type="text" placeholder="Ta question..." value={nouveauSondage.question} onChange={e=>setNouveauSondage({...nouveauSondage,question:e.target.value})} className={iCls} style={IS}/>
+        {nouveauSondage.options.map((opt:string,i:number)=><div key={i} className="flex gap-2">
+          <input type="text" placeholder={`Option ${i+1}`} value={opt} onChange={e=>{const o=[...nouveauSondage.options];o[i]=e.target.value;setNouveauSondage({...nouveauSondage,options:o})}} className={`flex-1 ${iCls}`} style={IS}/>
+          {nouveauSondage.options.length>2&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:nouveauSondage.options.filter((_:string,j:number)=>j!==i)})} className="px-3 rounded-xl font-bold text-xl" style={{background:'rgba(239,68,68,.1)',color:'#f87171'}}>×</button>}
+        </div>)}
+        {nouveauSondage.options.length<6&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:[...nouveauSondage.options,'']})} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:`${P}10`,color:P,border:`1px solid ${P}20`}}>➕ Option</button>}
+      </div>
+      <GBtn onClick={ajouterSondage}>✅ Créer</GBtn>
     </div>
-    <GBtn onClick={ajouterSondage}>✅ Créer</GBtn>
-  </MoC>}
+  )}
 </div>
 )}
 
 {activeTab==='draft'&&(
 <div className="ce"><ST icon="🎲" title="Draft — Eva Esport Arena"/>
   {user?<GBtn onClick={()=>setShowAddDraft(true)} cls="mb-5">➕ Nouvelle Draft</GBtn>:<div className="rounded-2xl p-3 mb-5 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔐 Connecte-toi pour créer une draft</p></div>}
-
-  {/* ✅ MODALE DRAFT INLINE - pas de composant Mo pour éviter le problème de clavier */}
-  {showAddDraft&&(
-    <div className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[5vh]" style={{background:'rgba(0,0,0,0.88)',backdropFilter:'blur(16px)'}}>
-      <div className="w-full max-w-sm rounded-3xl" style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 24px 80px rgba(0,0,0,0.8)'}}>
-        <div className="pt-4 pb-3 px-5 flex items-start justify-between" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`,borderRadius:'1.5rem 1.5rem 0 0'}}>
-          <div className="flex-1 pr-3">
-            <div className="w-10 h-1 rounded-full mb-3" style={{background:`${P}50`}}/>
-            <h3 className="text-base font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>🎲 Nouvelle Draft</h3>
-            <p className="text-xs mt-0.5" style={{color:T.textMuted}}>Eva Esport Arena</p>
-          </div>
-          <button onClick={()=>{setShowAddDraft(false);setDraftAdversaire('')}} className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-90 text-lg font-bold" style={{background:'rgba(255,255,255,0.1)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>✕</button>
+  {showAddDraft&&modal(()=>{setShowAddDraft(false);setDraftAdversaire('')},'🎲 Nouvelle Draft','Eva Esport Arena',
+    <div>
+      <div className="space-y-4 mb-5">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 1</p>
+          <div className="rounded-2xl px-4 py-3.5 text-sm font-black" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:P}}>DYNO</div>
         </div>
-        <div className="p-5 space-y-4">
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 1</p>
-            <div className="rounded-2xl px-4 py-3.5 text-sm font-black" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:P}}>DYNO</div>
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 2 (Adversaire)</p>
+          <input type="text" placeholder="Nom de l'adversaire" value={draftAdversaire} onChange={e=>setDraftAdversaire(e.target.value)} className={iCls} style={IS}/>
+        </div>
+        <div className="rounded-2xl p-3" style={{background:isDark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)',border:`1px solid ${T.cardBorder}`}}>
+          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>🤖 Comment ça marche</p>
+          <div className="space-y-1">
+            <p className="text-[9px]" style={{color:T.textMuted}}>• 🪙 Tu lances la pièce → résultat aléatoire</p>
+            <p className="text-[9px]" style={{color:T.textMuted}}>• Si DYNO gagne → tu choisis le côté</p>
+            <p className="text-[9px]" style={{color:T.textMuted}}>• L'adversaire joue automatiquement 🤖</p>
+            <p className="text-[9px]" style={{color:T.textMuted}}>• DYNO choisit ses picks/bans manuellement</p>
           </div>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 2 (Adversaire)</p>
-            {/* Input avec value contrôlée par state, aucun autre handler */}
-            <input
-              type="text"
-              placeholder="Nom de l'adversaire"
-              value={draftAdversaire}
-              onChange={e=>setDraftAdversaire(e.target.value)}
-              className={iCls}
-              style={IS}
-            />
-          </div>
-          <div className="rounded-2xl p-3" style={{background:isDark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)',border:`1px solid ${T.cardBorder}`}}>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>🤖 Comment ça marche</p>
-            <div className="space-y-1">
-              <p className="text-[9px]" style={{color:T.textMuted}}>• 🪙 Tu lances la pièce → résultat aléatoire</p>
-              <p className="text-[9px]" style={{color:T.textMuted}}>• Si DYNO gagne → tu choisis le côté</p>
-              <p className="text-[9px]" style={{color:T.textMuted}}>• L'adversaire joue automatiquement 🤖</p>
-              <p className="text-[9px]" style={{color:T.textMuted}}>• DYNO choisit ses picks/bans manuellement</p>
-            </div>
-          </div>
-          <GBtn onClick={creerDraft}>✅ Créer la draft</GBtn>
         </div>
       </div>
+      <GBtn onClick={creerDraft}>✅ Créer la draft</GBtn>
     </div>
   )}
-
-  {drafts.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🎲</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune draft en cours</p></div>
+  {drafts.length===0&&!showAddDraft?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🎲</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune draft en cours</p></div>
   :<div className="space-y-4">{drafts.map((draft:any,idx:number)=>{
-    const step=draft.currentStep
-    const seq=DRAFT_SEQUENCE[step]
-    const isFinished=!draft.actif||(step>=DRAFT_SEQUENCE.length)
-    const isAdvWaiting=advWaiting===draft.id
-
+    const step=draft.currentStep;const seq=DRAFT_SEQUENCE[step];const isFinished=!draft.actif||(step>=DRAFT_SEQUENCE.length);const isAdvWaiting=advWaiting===draft.id
     let isDynoTurn=false
-    if(!isFinished&&seq){
-      if(seq.type==='coin')isDynoTurn=true
-      else if(seq.type==='side'&&draft.winnerIsDyno)isDynoTurn=true
-      else if(seq.type==='skin'&&!draft.winnerIsDyno)isDynoTurn=true
-      else if(seq.type==='pick'||seq.type==='ban'){
-        if(seq.who==='winner'&&draft.winnerIsDyno)isDynoTurn=true
-        if(seq.who==='loser'&&!draft.winnerIsDyno)isDynoTurn=true
-      }
-    }
-
-    const usedMaps=[...(draft.picks||[]),...(draft.bans||[])]
-    const availableMaps=DRAFT_MAPS.filter(m=>!usedMaps.includes(m))
-
+    if(!isFinished&&seq){if(seq.type==='coin')isDynoTurn=true;else if(seq.type==='side'&&draft.winnerIsDyno)isDynoTurn=true;else if(seq.type==='skin'&&!draft.winnerIsDyno)isDynoTurn=true;else if(seq.type==='pick'||seq.type==='ban'){if(seq.who==='winner'&&draft.winnerIsDyno)isDynoTurn=true;if(seq.who==='loser'&&!draft.winnerIsDyno)isDynoTurn=true}}
+    const usedMaps=[...(draft.picks||[]),...(draft.bans||[])];const availableMaps=DRAFT_MAPS.filter(m=>!usedMaps.includes(m))
     return<div key={draft.id} className="rounded-3xl overflow-hidden ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
       <div className="h-px w-full" style={{background:`linear-gradient(90deg,transparent,${P}25,transparent)`}}/>
       <div className="px-5 pt-4 pb-3" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
         <div className="flex items-center justify-between">
-          <div>
-            <p className="font-black text-base" style={{color:T.text}}>DYNO vs {draft.equipe2}</p>
-            <p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {draft.auteur} · Eva Esport Arena</p>
-          </div>
+          <div><p className="font-black text-base" style={{color:T.text}}>DYNO vs {draft.equipe2}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {draft.auteur} · Eva Esport Arena</p></div>
           <div className="flex items-center gap-1.5">
             {isFinished?<span className="px-2 py-1 rounded-full text-[9px] font-black" style={{background:'rgba(255,255,255,.07)',color:T.textMuted}}>Terminée</span>:<span className="px-2 py-1 rounded-full text-[9px] font-black ld" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>🟢 Active</span>}
             {(isAdmin||draft.auteur===pseudo)&&<button onClick={()=>resetDraft(draft.id)} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(245,158,11,.1)',color:'#fbbf24'}}>↺</button>}
@@ -706,74 +529,28 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           </div>
         </div>
       </div>
-
       <div className="p-4 space-y-4">
         <div>
           <div className="flex justify-between mb-1.5"><p className="text-[9px] font-black uppercase tracking-widest" style={{color:T.textMuted}}>Progression</p><p className="text-[9px] font-black" style={{color:P}}>{Math.min(step,DRAFT_SEQUENCE.length)}/{DRAFT_SEQUENCE.length}</p></div>
           <div className="flex gap-0.5">{DRAFT_SEQUENCE.map((_,i)=><div key={i} className="flex-1 h-1.5 rounded-full" style={{background:i<step?P:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)'}}/>)}</div>
         </div>
-
-        {isAdvWaiting&&<div className="rounded-2xl p-3 text-center" style={{background:'rgba(168,85,247,.08)',border:'1px solid rgba(168,85,247,.2)'}}>
-          <p className="text-sm font-black" style={{color:'#c084fc'}}>⏳ {draft.equipe2} réfléchit...</p>
-        </div>}
-
-        {!isFinished&&!isAdvWaiting&&seq&&<div className="rounded-2xl p-3" style={{background:isDynoTurn?`${P}10`:'rgba(168,85,247,.08)',border:`1px solid ${isDynoTurn?P+'20':'rgba(168,85,247,.2)'}`}}>
-          <p className="text-xs font-black" style={{color:isDynoTurn?P:'#c084fc'}}>{isDynoTurn?'👤 Ton tour — DYNO':'🤖 Tour adversaire'}</p>
-          <p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>{seq.label}</p>
-        </div>}
-
+        {isAdvWaiting&&<div className="rounded-2xl p-3 text-center" style={{background:'rgba(168,85,247,.08)',border:'1px solid rgba(168,85,247,.2)'}}><p className="text-sm font-black" style={{color:'#c084fc'}}>⏳ {draft.equipe2} réfléchit...</p></div>}
+        {!isFinished&&!isAdvWaiting&&seq&&<div className="rounded-2xl p-3" style={{background:isDynoTurn?`${P}10`:'rgba(168,85,247,.08)',border:`1px solid ${isDynoTurn?P+'20':'rgba(168,85,247,.2)'}`}}><p className="text-xs font-black" style={{color:isDynoTurn?P:'#c084fc'}}>{isDynoTurn?'👤 Ton tour — DYNO':'🤖 Tour adversaire'}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>{seq.label}</p></div>}
         {!isFinished&&!isAdvWaiting&&step===0&&user&&<button onClick={()=>draftCoin(draft.id)} className="w-full py-4 rounded-2xl font-black text-base active:scale-95" style={{background:G2,color:'#000',boxShadow:`0 4px 20px ${P}40`}}>🪙 Lancer la pièce !</button>}
-
-        {!isFinished&&!isAdvWaiting&&step===1&&isDynoTurn&&user&&<div>
-          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le côté de DYNO</p>
-          <div className="grid grid-cols-2 gap-2">
-            {['🟠 Orange','🔵 Bleu'].map(side=><button key={side} onClick={()=>draftDynoSide(draft.id,side)} className="py-3 rounded-2xl font-black text-sm active:scale-95" style={side.includes('Orange')?{background:'rgba(245,158,11,.15)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.3)'}:{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.3)'}}>{side}</button>)}
-          </div>
-        </div>}
-
-        {!isFinished&&!isAdvWaiting&&step===2&&isDynoTurn&&user&&<div>
-          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le skin de l'arène</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {SKINS.map(skin=><button key={skin} onClick={()=>draftDynoSkin(draft.id,skin)} className="py-2.5 rounded-xl text-xs font-bold active:scale-95" style={{background:T.input,color:T.text,border:`1px solid ${T.inputBorder}`}}>{skin}</button>)}
-          </div>
-        </div>}
-
-        {!isFinished&&!isAdvWaiting&&step>=3&&step<DRAFT_SEQUENCE.length&&isDynoTurn&&user&&availableMaps.length>0&&<div>
-          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>
-            {seq?.type==='pick'?'✅ Choisis une map à PICK':'❌ Choisis une map à BANNIR'}
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {availableMaps.map(map=><button key={map} onClick={()=>draftDynoAction(draft.id,map)} className="py-3 rounded-2xl text-sm font-bold active:scale-95" style={seq?.type==='pick'?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:'rgba(248,113,113,.18)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)'}}>{map}</button>)}
-          </div>
-        </div>}
-
+        {!isFinished&&!isAdvWaiting&&step===1&&isDynoTurn&&user&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le côté de DYNO</p><div className="grid grid-cols-2 gap-2">{['🟠 Orange','🔵 Bleu'].map(side=><button key={side} onClick={()=>draftDynoSide(draft.id,side)} className="py-3 rounded-2xl font-black text-sm active:scale-95" style={side.includes('Orange')?{background:'rgba(245,158,11,.15)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.3)'}:{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.3)'}}>{side}</button>)}</div></div>}
+        {!isFinished&&!isAdvWaiting&&step===2&&isDynoTurn&&user&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le skin de l'arène</p><div className="grid grid-cols-2 gap-1.5">{SKINS.map(skin=><button key={skin} onClick={()=>draftDynoSkin(draft.id,skin)} className="py-2.5 rounded-xl text-xs font-bold active:scale-95" style={{background:T.input,color:T.text,border:`1px solid ${T.inputBorder}`}}>{skin}</button>)}</div></div>}
+        {!isFinished&&!isAdvWaiting&&step>=3&&step<DRAFT_SEQUENCE.length&&isDynoTurn&&user&&availableMaps.length>0&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>{seq?.type==='pick'?'✅ Choisis une map à PICK':'❌ Choisis une map à BANNIR'}</p><div className="grid grid-cols-2 gap-2">{availableMaps.map(map=><button key={map} onClick={()=>draftDynoAction(draft.id,map)} className="py-3 rounded-2xl text-sm font-bold active:scale-95" style={seq?.type==='pick'?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:'rgba(248,113,113,.18)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)'}}>{map}</button>)}</div></div>}
         {((draft.picks||[]).length>0||(draft.bans||[]).length>0)&&<div className="grid grid-cols-2 gap-3">
-          {(draft.picks||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.15)'}}>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks</p>
-            <div className="space-y-1">{(draft.picks||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#4ade80'}}>{m}</p>)}</div>
-          </div>}
-          {(draft.bans||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(248,113,113,.06)',border:'1px solid rgba(248,113,113,.15)'}}>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans</p>
-            <div className="space-y-1">{(draft.bans||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#f87171'}}>{m}</p>)}</div>
-          </div>}
+          {(draft.picks||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.15)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks</p><div className="space-y-1">{(draft.picks||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#4ade80'}}>{m}</p>)}</div></div>}
+          {(draft.bans||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(248,113,113,.06)',border:'1px solid rgba(248,113,113,.15)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans</p><div className="space-y-1">{(draft.bans||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#f87171'}}>{m}</p>)}</div></div>}
         </div>}
-
         {(draft.winner||draft.winnerSide||draft.loserSkin)&&<div className="space-y-1.5">
           {draft.winner&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:`${P}08`}}><span className="text-[10px]" style={{color:T.textMuted}}>🪙 Pile ou face</span><span className="text-[10px] font-black" style={{color:P}}>{draft.winner} a gagné</span></div>}
           {draft.winnerSide&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(245,158,11,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🌍 Côté DYNO</span><span className="text-[10px] font-black" style={{color:'#fbbf24'}}>{draft.winnerSide}</span></div>}
           {draft.loserSkin&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(96,165,250,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🎨 Skin</span><span className="text-[10px] font-black" style={{color:'#60a5fa'}}>{draft.loserSkin}</span></div>}
         </div>}
-
-        {(draft.actions||[]).length>0&&<div>
-          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>📋 Historique</p>
-          <div className="space-y-0.5 max-h-28 overflow-y-auto">{(draft.actions||[]).map((a:any,i:number)=><p key={i} className="text-[9px]" style={{color:T.textMuted}}>• {a.label}</p>)}</div>
-        </div>}
-
-        {isFinished&&(draft.picks||[]).length>0&&<div className="rounded-2xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
-          <p className="text-2xl mb-2">🎉</p>
-          <p className="text-sm font-black mb-3" style={{color:P}}>Draft terminée !</p>
-          <div className="flex flex-wrap justify-center gap-1.5">{(draft.picks||[]).map((m:string,i:number)=><span key={i} className="px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>{m}</span>)}</div>
-        </div>}
+        {(draft.actions||[]).length>0&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>📋 Historique</p><div className="space-y-0.5 max-h-28 overflow-y-auto">{(draft.actions||[]).map((a:any,i:number)=><p key={i} className="text-[9px]" style={{color:T.textMuted}}>• {a.label}</p>)}</div></div>}
+        {isFinished&&(draft.picks||[]).length>0&&<div className="rounded-2xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}><p className="text-2xl mb-2">🎉</p><p className="text-sm font-black mb-3" style={{color:P}}>Draft terminée !</p><div className="flex flex-wrap justify-center gap-1.5">{(draft.picks||[]).map((m:string,i:number)=><span key={i} className="px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>{m}</span>)}</div></div>}
       </div>
     </div>
   })}</div>}
@@ -786,22 +563,21 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   {!canAddStrat&&<div className="rounded-2xl p-3 mb-4 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔒 Réservé aux Capitaines et Coachs</p></div>}
   {strats.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">📝</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune stratégie</p></div>
   :<div className="space-y-3">{strats.map((s:any,idx:number)=><div key={s.id} className="rounded-3xl p-5 ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
-    <div className="flex items-start justify-between mb-4">
-      <div><p className="font-black text-base" style={{color:T.text}}>DYNO vs {s.adversaire}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {s.auteur||'?'}</p></div>
-      {(isAdmin||user?.uid===s.auteurId)&&<button onClick={()=>del('strats',s.id)} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
-    </div>
+    <div className="flex items-start justify-between mb-4"><div><p className="font-black text-base" style={{color:T.text}}>DYNO vs {s.adversaire}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {s.auteur||'?'}</p></div>{(isAdmin||user?.uid===s.auteurId)&&<button onClick={()=>del('strats',s.id)} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}</div>
     <div className="my-3 h-px" style={{background:`linear-gradient(90deg,transparent,${T.cardBorder},transparent)`}}/>
     <div className="mb-4"><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks ({s.picks?.length||0}/4)</p><div className="flex flex-wrap gap-1.5">{s.picks?.map((p:string,i:number)=><Tg key={i} color="green">{p}</Tg>)}</div></div>
     <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans ({s.bans?.length||0}/4)</p><div className="flex flex-wrap gap-1.5">{s.bans?.map((b:string,i:number)=><Tg key={i} color="red">{b}</Tg>)}</div></div>
   </div>)}</div>}
-  {showAddStrat&&<MoC onClose={()=>{setShowAddStrat(false);setNouvelleStrat({adversaire:'',picks:[],bans:[]})}} title="🎯 Nouvelle Stratégie">
-    <div className="space-y-4 mb-4">
-      <input type="text" placeholder="Adversaire" value={nouvelleStrat.adversaire} onChange={(e:any)=>setNouvelleStrat({...nouvelleStrat,adversaire:e.target.value})} className={iCls} style={IS}/>
-      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(74,222,128,.8)'}}>✅ Picks (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'picks')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={nouvelleStrat.picks.includes(m)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
-      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.8)'}}>❌ Bans (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'bans')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={nouvelleStrat.bans.includes(m)?{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.28)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
+  {showAddStrat&&modal(()=>{setShowAddStrat(false);setNouvelleStrat({adversaire:'',picks:[],bans:[]})},'🎯 Nouvelle Stratégie','',
+    <div>
+      <div className="space-y-4 mb-4">
+        <input type="text" placeholder="Adversaire" value={nouvelleStrat.adversaire} onChange={e=>setNouvelleStrat({...nouvelleStrat,adversaire:e.target.value})} className={iCls} style={IS}/>
+        <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(74,222,128,.8)'}}>✅ Picks (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'picks')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={nouvelleStrat.picks.includes(m)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
+        <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.8)'}}>❌ Bans (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'bans')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={nouvelleStrat.bans.includes(m)?{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.28)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
+      </div>
+      <GBtn onClick={ajouterStrat}>✅ Sauvegarder</GBtn>
     </div>
-    <GBtn onClick={ajouterStrat}>✅ Sauvegarder</GBtn>
-  </MoC>}
+  )}
 </div>
 )}
 
@@ -810,19 +586,18 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   {user&&<GBtn onClick={()=>setShowAddCompo(true)} cls="mb-5">➕ Nouvelle Compo</GBtn>}
   {compos.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">📋</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune compo</p></div>
   :<div className="space-y-3">{compos.map((c:any,idx:number)=><div key={c.id} className="rounded-3xl p-5 ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
-    <div className="flex items-center justify-between mb-4">
-      <div><p className="font-black" style={{color:T.text}}>🗺️ {c.map}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {c.auteur||'?'}</p></div>
-      {(isAdmin||user?.uid===c.auteurId)&&<button onClick={()=>del('compos',c.id)} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
-    </div>
+    <div className="flex items-center justify-between mb-4"><div><p className="font-black" style={{color:T.text}}>🗺️ {c.map}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {c.auteur||'?'}</p></div>{(isAdmin||user?.uid===c.auteurId)&&<button onClick={()=>del('compos',c.id)} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}</div>
     <div className="flex flex-wrap gap-1.5">{c.joueurs?.map((j:string,i:number)=><Tg key={i} color="primary">{j}</Tg>)}</div>
   </div>)}</div>}
-  {showAddCompo&&<MoC onClose={()=>{setShowAddCompo(false);setSelectedMapCompo('');setCompoJoueurs([])}} title="📋 Nouvelle Compo">
-    <div className="space-y-4 mb-4">
-      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>🗺️ Map</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>setSelectedMapCompo(m)} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={selectedMapCompo===m?{background:`${P}20`,color:P,border:`1px solid ${P}35`}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
-      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>👥 Joueurs</p><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j:any)=>j.actif!==false).map((j:any)=><button key={j.id} onClick={()=>toggleCompoJoueur(j.pseudo)} className="px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95" style={compoJoueurs.includes(j.pseudo)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{j.pseudo}</button>)}</div></div>
+  {showAddCompo&&modal(()=>{setShowAddCompo(false);setSelectedMapCompo('');setCompoJoueurs([])},'📋 Nouvelle Compo','',
+    <div>
+      <div className="space-y-4 mb-4">
+        <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>🗺️ Map</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>setSelectedMapCompo(m)} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={selectedMapCompo===m?{background:`${P}20`,color:P,border:`1px solid ${P}35`}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
+        <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>👥 Joueurs</p><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j:any)=>j.actif!==false).map((j:any)=><button key={j.id} onClick={()=>toggleCompoJoueur(j.pseudo)} className="px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95" style={compoJoueurs.includes(j.pseudo)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{j.pseudo}</button>)}</div></div>
+      </div>
+      <GBtn onClick={ajouterCompo}>✅ Sauvegarder</GBtn>
     </div>
-    <GBtn onClick={ajouterCompo}>✅ Sauvegarder</GBtn>
-  </MoC>}
+  )}
 </div>
 )}
 
@@ -832,10 +607,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   {!canAddFiche&&<div className="rounded-2xl p-3 mb-4 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔒 Réservé aux Coachs</p></div>}
   {fichesAdversaires.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🔍</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune fiche</p></div>
   :<div className="space-y-3">{fichesAdversaires.map((f:any,idx:number)=><div key={f.id} className="rounded-3xl overflow-hidden ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
-    <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
-      <p className="font-black" style={{color:T.text}}>⚔️ {f.adversaire}</p>
-      {(isAdmin||user?.uid===f.auteurId)&&<button onClick={()=>del('fichesAdversaires',f.id)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
-    </div>
+    <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{borderBottom:`1px solid ${T.cardBorder}`}}><p className="font-black" style={{color:T.text}}>⚔️ {f.adversaire}</p>{(isAdmin||user?.uid===f.auteurId)&&<button onClick={()=>del('fichesAdversaires',f.id)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}</div>
     <div className="p-5 space-y-3">
       <div className="rounded-2xl p-4" style={{background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.12)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{color:'rgba(74,222,128,.7)'}}>💪 Forces</p><p className="text-xs leading-relaxed" style={{color:T.textMuted}}>{f.forces||'—'}</p></div>
       <div className="rounded-2xl p-4" style={{background:'rgba(248,113,113,.06)',border:'1px solid rgba(248,113,113,.12)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{color:'rgba(248,113,113,.7)'}}>⚠️ Faiblesses</p><p className="text-xs leading-relaxed" style={{color:T.textMuted}}>{f.faiblesses||'—'}</p></div>
@@ -843,15 +615,17 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     </div>
     <p className="px-5 pb-4 text-[9px]" style={{color:T.textMuted}}>par {f.auteur}</p>
   </div>)}</div>}
-  {showAddFiche&&<MoC onClose={()=>{setShowAddFiche(false);setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''})}} title="🔍 Nouvelle Fiche">
-    <div className="space-y-3 mb-4">
-      <input type="text" placeholder="Adversaire" value={nouvelleFiche.adversaire} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,adversaire:e.target.value})} className={iCls} style={IS}/>
-      <textarea placeholder="💪 Forces..." value={nouvelleFiche.forces} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,forces:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(74,222,128,.2)'}}/>
-      <textarea placeholder="⚠️ Faiblesses..." value={nouvelleFiche.faiblesses} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,faiblesses:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(248,113,113,.2)'}}/>
-      <textarea placeholder="📝 Notes..." value={nouvelleFiche.notes} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,notes:e.target.value})} rows={2} className={`${iCls} resize-none`} style={IS}/>
+  {showAddFiche&&modal(()=>{setShowAddFiche(false);setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''})},'🔍 Nouvelle Fiche','',
+    <div>
+      <div className="space-y-3 mb-4">
+        <input type="text" placeholder="Adversaire" value={nouvelleFiche.adversaire} onChange={e=>setNouvelleFiche({...nouvelleFiche,adversaire:e.target.value})} className={iCls} style={IS}/>
+        <textarea placeholder="💪 Forces..." value={nouvelleFiche.forces} onChange={e=>setNouvelleFiche({...nouvelleFiche,forces:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(74,222,128,.2)'}}/>
+        <textarea placeholder="⚠️ Faiblesses..." value={nouvelleFiche.faiblesses} onChange={e=>setNouvelleFiche({...nouvelleFiche,faiblesses:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(248,113,113,.2)'}}/>
+        <textarea placeholder="📝 Notes..." value={nouvelleFiche.notes} onChange={e=>setNouvelleFiche({...nouvelleFiche,notes:e.target.value})} rows={2} className={`${iCls} resize-none`} style={IS}/>
+      </div>
+      <GBtn onClick={ajouterFiche}>✅ Sauvegarder</GBtn>
     </div>
-    <GBtn onClick={ajouterFiche}>✅ Sauvegarder</GBtn>
-  </MoC>}
+  )}
 </div>
 )}
 
@@ -872,17 +646,17 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
         </div>
       </div>
       <div className="px-4 py-3 grid grid-cols-3 gap-2">
-        <button onClick={()=>{setSelectedMatchForNotes(match);setNouvelleNote({matchId:match.id,mental:0,communication:0,gameplay:0})}} className="py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={{background:'rgba(168,85,247,.12)',color:'#c084fc',border:'1px solid rgba(168,85,247,.2)'}}>📝 Note</button>
+        <button onClick={()=>{setSelectedMatchForNotes(match);setNouvelleNote({matchId:match.id,mental:0,communication:0,gameplay:0});window.scrollTo({top:0,behavior:'smooth'})}} className="py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={{background:'rgba(168,85,247,.12)',color:'#c084fc',border:'1px solid rgba(168,85,247,.2)'}}>📝 Note</button>
         <button onClick={()=>setSelectedMatchForComment(selectedMatchForComment?.id===match.id?null:match)} className="py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={{background:'rgba(34,211,238,.12)',color:'#22d3ee',border:'1px solid rgba(34,211,238,.2)'}}>💬 Comm</button>
         <button onClick={()=>setSelectedMatchForAnalyse(selectedMatchForAnalyse?.id===match.id?null:match)} className="py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={{background:'rgba(251,146,60,.12)',color:'#fb923c',border:'1px solid rgba(251,146,60,.2)'}}>📋 Analyse</button>
       </div>
       {selectedMatchForComment?.id===match.id&&user&&<div className="px-4 pb-3">
-        <textarea placeholder="Ton commentaire..." value={nouveauCommentaire} onChange={(e:any)=>setNouveauCommentaire(e.target.value)} rows={2} className="w-full rounded-xl px-4 py-3 text-xs resize-none focus:outline-none mb-2" style={{background:'rgba(34,211,238,.06)',border:'1px solid rgba(34,211,238,.15)',color:T.text}}/>
+        <textarea placeholder="Ton commentaire..." value={nouveauCommentaire} onChange={e=>setNouveauCommentaire(e.target.value)} rows={2} className="w-full rounded-xl px-4 py-3 text-xs resize-none focus:outline-none mb-2" style={{background:'rgba(34,211,238,.06)',border:'1px solid rgba(34,211,238,.15)',color:T.text}}/>
         <button onClick={()=>ajouterCommentaire(match.id)} className="w-full py-2 rounded-xl text-xs font-bold" style={{background:'rgba(34,211,238,.15)',color:'#22d3ee',border:'1px solid rgba(34,211,238,.22)'}}>💬 Envoyer</button>
       </div>}
       {selectedMatchForAnalyse?.id===match.id&&user&&<div className="px-4 pb-3 space-y-2">
         {[{k:'bien',label:"✅ Ce qui a bien marché",bg:'rgba(74,222,128,.08)',border:'rgba(74,222,128,.18)',tc:'#4ade80'},{k:'mal',label:"❌ Ce qui a mal marché",bg:'rgba(248,113,113,.08)',border:'rgba(248,113,113,.18)',tc:'#f87171'},{k:'plan',label:"🎯 Plan d'action",bg:'rgba(96,165,250,.08)',border:'rgba(96,165,250,.18)',tc:'#60a5fa'}].map(({k,label,bg,border,tc})=>
-          <div key={k}><p className="text-[9px] font-black uppercase mb-1" style={{color:tc}}>{label}</p><textarea value={(nouvelleAnalyse as any)[k]} onChange={(e:any)=>setNouvelleAnalyse({...nouvelleAnalyse,[k]:e.target.value})} rows={2} className="w-full rounded-xl px-4 py-2.5 text-xs resize-none focus:outline-none" style={{background:bg,border:`1px solid ${border}`,color:T.text}}/></div>
+          <div key={k}><p className="text-[9px] font-black uppercase mb-1" style={{color:tc}}>{label}</p><textarea value={(nouvelleAnalyse as any)[k]} onChange={e=>setNouvelleAnalyse({...nouvelleAnalyse,[k]:e.target.value})} rows={2} className="w-full rounded-xl px-4 py-2.5 text-xs resize-none focus:outline-none" style={{background:bg,border:`1px solid ${border}`,color:T.text}}/></div>
         )}
         <button onClick={()=>ajouterAnalyse(match.id)} className="w-full py-2 rounded-xl text-xs font-bold" style={{background:'rgba(251,146,60,.15)',color:'#fb923c',border:'1px solid rgba(251,146,60,.22)'}}>📋 Sauvegarder</button>
       </div>}
@@ -892,7 +666,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           <div className="flex items-center justify-between mb-3">
             <p className="font-black text-xs" style={{color:P}}>{n.joueur}</p>
             <div className="flex items-center gap-1.5">
-              {user&&(isAdmin||user.uid===n.joueurId)&&<button onClick={()=>setNoteEdit({id:n.id,mental:String(Math.min(10,Math.max(0,parseInt(n.mental)||0))),communication:String(Math.min(10,Math.max(0,parseInt(n.communication)||0))),gameplay:String(Math.min(10,Math.max(0,parseInt(n.gameplay)||0))),joueur:n.joueur})} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(168,85,247,.18)',color:'#c084fc',border:'1px solid rgba(168,85,247,.25)'}}>✏️</button>}
+              {user&&(isAdmin||user.uid===n.joueurId)&&<button onClick={()=>{setNoteEdit({id:n.id,mental:String(Math.min(10,Math.max(0,parseInt(n.mental)||0))),communication:String(Math.min(10,Math.max(0,parseInt(n.communication)||0))),gameplay:String(Math.min(10,Math.max(0,parseInt(n.gameplay)||0))),joueur:n.joueur});window.scrollTo({top:0,behavior:'smooth'})}} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(168,85,247,.18)',color:'#c084fc',border:'1px solid rgba(168,85,247,.25)'}}>✏️</button>}
               {isAdmin&&<button onClick={()=>del('notes',n.id)} className="w-6 h-6 rounded-lg flex items-center justify-center text-xs" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
             </div>
           </div>
@@ -927,38 +701,42 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       {mn.length===0&&mc.length===0&&ma.length===0&&<p className="text-center text-[10px] pb-4" style={{color:T.textMuted}}>Aucune donnée</p>}
     </div>
   })}</div>}
-  {noteEdit&&<MoC onClose={()=>setNoteEdit(null)} title="✏️ Modifier ma note" sub={noteEdit.joueur}>
-    <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
-      <div key={key}>
-        <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
-        <div className="flex items-center gap-2">
-          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.max(0,parseInt(noteEdit[key]||'0')-1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>−</button>
-          <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}28`}}>{noteEdit[key]}/10</div>
-          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.min(10,parseInt(noteEdit[key]||'0')+1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>+</button>
+  {noteEdit&&modal(()=>setNoteEdit(null),'✏️ Modifier ma note',noteEdit.joueur,
+    <div>
+      <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
+        <div key={key}>
+          <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
+          <div className="flex items-center gap-2">
+            <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.max(0,parseInt(noteEdit[key]||'0')-1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>−</button>
+            <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}28`}}>{noteEdit[key]}/10</div>
+            <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.min(10,parseInt(noteEdit[key]||'0')+1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>+</button>
+          </div>
         </div>
+      )}</div>
+      <div className="flex gap-2">
+        <button onClick={()=>setNoteEdit(null)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
+        <button onClick={updateNote} className="flex-1 py-2.5 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
       </div>
-    )}</div>
-    <div className="flex gap-2">
-      <button onClick={()=>setNoteEdit(null)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
-      <button onClick={updateNote} className="flex-1 py-2.5 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
     </div>
-  </MoC>}
-  {selectedMatchForNotes&&<MoC onClose={()=>setSelectedMatchForNotes(null)} title={`📊 ${selectedMatchForNotes.adversaire}`} sub="Évalue la performance (0 à 10)">
-    <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
-      <div key={key}>
-        <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
-        <div className="flex items-center gap-2">
-          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.max(0,(nouvelleNote as any)[key]-1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>−</button>
-          <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}28`}}>{(nouvelleNote as any)[key]}/10</div>
-          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.min(10,(nouvelleNote as any)[key]+1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>+</button>
+  )}
+  {selectedMatchForNotes&&modal(()=>setSelectedMatchForNotes(null),`📊 ${selectedMatchForNotes.adversaire}`,'Évalue la performance (0 à 10)',
+    <div>
+      <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
+        <div key={key}>
+          <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
+          <div className="flex items-center gap-2">
+            <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.max(0,(nouvelleNote as any)[key]-1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>−</button>
+            <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}28`}}>{(nouvelleNote as any)[key]}/10</div>
+            <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.min(10,(nouvelleNote as any)[key]+1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>+</button>
+          </div>
         </div>
+      )}</div>
+      <div className="flex gap-2">
+        <button onClick={()=>setSelectedMatchForNotes(null)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
+        <button onClick={ajouterNote} className="flex-1 py-2.5 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Envoyer</button>
       </div>
-    )}</div>
-    <div className="flex gap-2">
-      <button onClick={()=>setSelectedMatchForNotes(null)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
-      <button onClick={ajouterNote} className="flex-1 py-2.5 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Envoyer</button>
     </div>
-  </MoC>}
+  )}
 </div>
 )}
 
@@ -969,10 +747,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   </a>
   {replays.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">📹</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucun replay</p></div>
   :<div className="space-y-3">{replays.map((r:any,idx:number)=><div key={r.id} className="rounded-3xl overflow-hidden ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
-    <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
-      <h3 className="font-black" style={{color:T.text}}>{r.titre}</h3>
-      {isAdmin&&<button onClick={()=>del('replays',r.id)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
-    </div>
+    <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{borderBottom:`1px solid ${T.cardBorder}`}}><h3 className="font-black" style={{color:T.text}}>{r.titre}</h3>{isAdmin&&<button onClick={()=>del('replays',r.id)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}</div>
     <div className="p-4">{ytId(r.lien)?<div className="relative w-full rounded-2xl overflow-hidden" style={{paddingBottom:'56.25%'}}><iframe src={`https://www.youtube.com/embed/${ytId(r.lien)}`} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen/></div>:<a href={r.lien} target="_blank" rel="noreferrer" className="block w-full py-3.5 rounded-2xl font-bold text-center text-sm" style={{background:G2,color:'#000'}}>▶️ Voir le replay</a>}</div>
   </div>)}</div>}
 </div>
@@ -990,7 +765,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   {user&&<div className="rounded-2xl p-4 mb-5" style={{background:'rgba(236,72,153,.08)',border:'1px solid rgba(236,72,153,.15)'}}>
     <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{color:'rgba(236,72,153,.7)'}}>🎂 Anniversaire</p>
     <div className="flex gap-2">
-      <input type="date" value={anniversaire} onChange={(e:any)=>setAnniversaire(e.target.value)} className={`flex-1 ${iCls} py-2.5`} style={{...IS,border:'1px solid rgba(236,72,153,.25)'}}/>
+      <input type="date" value={anniversaire} onChange={e=>setAnniversaire(e.target.value)} className={`flex-1 ${iCls} py-2.5`} style={{...IS,border:'1px solid rgba(236,72,153,.25)'}}/>
       <button onClick={sauvegarderAnniversaire} className="px-4 py-2.5 rounded-2xl font-black text-xs active:scale-95" style={{background:'rgba(236,72,153,.18)',color:'#f472b6',border:'1px solid rgba(236,72,153,.25)'}}>💾</button>
     </div>
   </div>}
@@ -1001,7 +776,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <span className="text-[9px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block" style={{background:`${ROLE_COLORS[j.role]||'rgba(255,255,255,.15)'}15`,color:ROLE_COLORS[j.role]||T.textMuted,border:`1px solid ${ROLE_COLORS[j.role]||'rgba(255,255,255,.1)'}30`}}>{j.role||'Joueur'}</span>
     </div>
     <div className="flex items-center gap-2">
-      {isAdmin&&<select value={j.role||'Joueur'} onChange={(e:any)=>updatePlayerRole(j.id,j.userId,e.target.value)} className="text-xs rounded-xl px-2 py-1.5 font-bold focus:outline-none" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:T.text}}>{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select>}
+      {isAdmin&&<select value={j.role||'Joueur'} onChange={e=>updatePlayerRole(j.id,j.userId,e.target.value)} className="text-xs rounded-xl px-2 py-1.5 font-bold focus:outline-none" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:T.text}}>{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select>}
       {isAdmin&&<button onClick={()=>del('players',j.id)} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
     </div>
   </div>)}</div>
@@ -1033,8 +808,8 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     )}</div>
   </div>
   <GBtn onClick={()=>setShowBilan(true)}>📊 Bilan du mois</GBtn>
-  {showBilan&&(()=>{const b=genBilan();return(
-    <MoC onClose={()=>setShowBilan(false)} title={`📊 Bilan ${b.nom}`} sub="Performances du mois">
+  {showBilan&&(()=>{const b=genBilan();return modal(()=>setShowBilan(false),`📊 Bilan ${b.nom}`,'Performances du mois',
+    <div>
       <div className="space-y-4 mb-4">
         <div className="grid grid-cols-3 gap-2"><SC value={b.m} label="Matchs"/><SC value={`${b.w}W`} label="Victoires" color="#4ade80"/><SC value={`${b.l}L`} label="Défaites" color="#f87171"/></div>
         <div className="rounded-2xl p-6 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:`${P}60`}}>Win Rate</p><p className="text-6xl font-black sg">{b.wr}%</p></div>
@@ -1043,7 +818,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           <div className="grid grid-cols-3 gap-2">{[{v:b.am,l:'🧠',c:'#c084fc'},{v:b.ac,l:'💬',c:'#60a5fa'},{v:b.ap,l:'🎯',c:'#4ade80'}].map(({v,l,c})=><div key={l} className="text-center rounded-xl py-3" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)'}}><p className="text-2xl font-black" style={{color:c}}>{v}</p><p className="text-[8px] mt-1" style={{color:T.textMuted}}>{l}</p></div>)}</div>
         </div>
       </div>
-    </MoC>
+    </div>
   )})()}
 </div>
 )}
@@ -1052,22 +827,22 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 <div className="ce"><ST icon="⚙️" title="Administration"/>
   {!isAdmin?<div className="rounded-3xl p-6" style={CS}>
     <p className="text-center text-sm mb-5 font-medium" style={{color:T.textMuted}}>🔐 Accès requis</p>
-    <input type="password" placeholder="Mot de passe admin" value={adminPassword} onChange={(e:any)=>setAdminPassword(e.target.value)} className={`${iCls} mb-3`} style={IS}/>
+    <input type="password" placeholder="Mot de passe admin" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} className={`${iCls} mb-3`} style={IS}/>
     <GBtn onClick={handleAdminLogin}>Se connecter</GBtn>
   </div>:(
     <div className="space-y-4">
       <div className="rounded-3xl p-5" style={CS}>
         <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>➕ Nouveau Match</p>
         <div className="space-y-2.5">
-          <input type="text" placeholder="Adversaire / Nom soirée" value={nouveauMatch.adversaire} onChange={(e:any)=>setNouveauMatch({...nouveauMatch,adversaire:e.target.value})} className={iCls} style={IS}/>
-          <input type="date" value={nouveauMatch.date} onChange={(e:any)=>setNouveauMatch({...nouveauMatch,date:e.target.value})} className={iCls} style={IS}/>
+          <input type="text" placeholder="Adversaire / Nom soirée" value={nouveauMatch.adversaire} onChange={e=>setNouveauMatch({...nouveauMatch,adversaire:e.target.value})} className={iCls} style={IS}/>
+          <input type="date" value={nouveauMatch.date} onChange={e=>setNouveauMatch({...nouveauMatch,date:e.target.value})} className={iCls} style={IS}/>
           <div className="grid grid-cols-2 gap-2">
-            <input type="time" value={nouveauMatch.horaire1} onChange={(e:any)=>setNouveauMatch({...nouveauMatch,horaire1:e.target.value})} className={iCls} style={IS}/>
-            <input type="time" value={nouveauMatch.horaire2} onChange={(e:any)=>setNouveauMatch({...nouveauMatch,horaire2:e.target.value})} className={iCls} style={IS}/>
+            <input type="time" value={nouveauMatch.horaire1} onChange={e=>setNouveauMatch({...nouveauMatch,horaire1:e.target.value})} className={iCls} style={IS}/>
+            <input type="time" value={nouveauMatch.horaire2} onChange={e=>setNouveauMatch({...nouveauMatch,horaire2:e.target.value})} className={iCls} style={IS}/>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <select value={nouveauMatch.arene} onChange={(e:any)=>setNouveauMatch({...nouveauMatch,arene:e.target.value})} className={iCls} style={IS}><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select>
-            <select value={nouveauMatch.type} onChange={(e:any)=>setNouveauMatch({...nouveauMatch,type:e.target.value})} className={iCls} style={IS}><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select>
+            <select value={nouveauMatch.arene} onChange={e=>setNouveauMatch({...nouveauMatch,arene:e.target.value})} className={iCls} style={IS}><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select>
+            <select value={nouveauMatch.type} onChange={e=>setNouveauMatch({...nouveauMatch,type:e.target.value})} className={iCls} style={IS}><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select>
           </div>
           {nouveauMatch.type==='Division'&&<div className="rounded-2xl p-4" style={{background:'rgba(245,158,11,.07)',border:'1px solid rgba(245,158,11,.18)'}}>
             <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:'rgba(245,158,11,.8)'}}>🏆 Division (BO3)</p>
@@ -1078,10 +853,10 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
               </div>
             )}</div>}
             <div className="space-y-2">
-              <input type="text" placeholder="Adversaire (ex: EY)" value={newSubAdv} onChange={(e:any)=>setNewSubAdv(e.target.value)} className={`${iCls} text-xs py-2.5`} style={IS}/>
+              <input type="text" placeholder="Adversaire (ex: EY)" value={newSubAdv} onChange={e=>setNewSubAdv(e.target.value)} className={`${iCls} text-xs py-2.5`} style={IS}/>
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" placeholder="Score DYNO" value={newSubScoreDyno} onChange={(e:any)=>setNewSubScoreDyno(e.target.value)} className={`${iCls} text-center font-black text-sm py-2.5`} style={{background:`${P}12`,border:`1px solid ${P}28`,color:P}}/>
-                <input type="number" placeholder="Score Adv" value={newSubScoreAdv} onChange={(e:any)=>setNewSubScoreAdv(e.target.value)} className={`${iCls} text-center font-black text-sm py-2.5`} style={IS}/>
+                <input type="number" placeholder="Score DYNO" value={newSubScoreDyno} onChange={e=>setNewSubScoreDyno(e.target.value)} className={`${iCls} text-center font-black text-sm py-2.5`} style={{background:`${P}12`,border:`1px solid ${P}28`,color:P}}/>
+                <input type="number" placeholder="Score Adv" value={newSubScoreAdv} onChange={e=>setNewSubScoreAdv(e.target.value)} className={`${iCls} text-center font-black text-sm py-2.5`} style={IS}/>
               </div>
               <button onClick={ajouterSousMatch} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:'rgba(245,158,11,.12)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.25)'}}>➕ Ajouter ce match</button>
             </div>
@@ -1092,8 +867,8 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <div className="rounded-3xl p-5" style={CS}>
         <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>🎬 Replay</p>
         <div className="space-y-2.5">
-          <input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={(e:any)=>setNouveauReplay({...nouveauReplay,titre:e.target.value})} className={iCls} style={IS}/>
-          <input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={(e:any)=>setNouveauReplay({...nouveauReplay,lien:e.target.value})} className={iCls} style={IS}/>
+          <input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={e=>setNouveauReplay({...nouveauReplay,titre:e.target.value})} className={iCls} style={IS}/>
+          <input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={e=>setNouveauReplay({...nouveauReplay,lien:e.target.value})} className={iCls} style={IS}/>
           <GBtn onClick={ajouterReplay}>Ajouter</GBtn>
         </div>
       </div>
@@ -1126,39 +901,41 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <GBtn onClick={handleAdminLogout} danger>🚪 Déconnexion Admin</GBtn>
     </div>
   )}
-  {scoreEdit&&<MoC onClose={()=>setScoreEdit(null)} title="✏️ Modifier le score" sub={`DYNO vs ${scoreEdit.adversaire}`}>
-    {scoreEdit.type==='Division'?(
-      <div className="space-y-3 mb-4">
-        {(scoreEdit.sousMatchs||[]).length>0&&<div className="space-y-1.5">{(scoreEdit.sousMatchs||[]).map((sm:any,i:number)=>
-          <div key={i} className="flex items-center justify-between px-4 py-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',border:`1px solid ${T.cardBorder}`}}>
-            <span className="text-xs" style={{color:T.text}}>DYNO vs {sm.adversaire}</span>
-            <div className="flex items-center gap-2"><span className="text-sm font-black" style={{color:P}}>{sm.scoreDyno}</span><span style={{color:T.textMuted}}>—</span><span className="text-sm font-black" style={{color:T.textMuted}}>{sm.scoreAdv}</span><button onClick={()=>supprimerSousMatchEdit(i)} className="ml-2 font-black text-red-400">×</button></div>
+  {scoreEdit&&modal(()=>setScoreEdit(null),'✏️ Modifier le score',`DYNO vs ${scoreEdit.adversaire}`,
+    <div>
+      {scoreEdit.type==='Division'?(
+        <div className="space-y-3 mb-4">
+          {(scoreEdit.sousMatchs||[]).length>0&&<div className="space-y-1.5">{(scoreEdit.sousMatchs||[]).map((sm:any,i:number)=>
+            <div key={i} className="flex items-center justify-between px-4 py-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',border:`1px solid ${T.cardBorder}`}}>
+              <span className="text-xs" style={{color:T.text}}>DYNO vs {sm.adversaire}</span>
+              <div className="flex items-center gap-2"><span className="text-sm font-black" style={{color:P}}>{sm.scoreDyno}</span><span style={{color:T.textMuted}}>—</span><span className="text-sm font-black" style={{color:T.textMuted}}>{sm.scoreAdv}</span><button onClick={()=>supprimerSousMatchEdit(i)} className="ml-2 font-black text-red-400">×</button></div>
+            </div>
+          )}</div>}
+          <div className="rounded-2xl p-4 space-y-2" style={{background:'rgba(245,158,11,.07)',border:'1px solid rgba(245,158,11,.18)'}}>
+            <input type="text" placeholder="Adversaire" value={scoreEdit._newSubAdv||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubAdv:e.target.value})} className={`${iCls} text-xs py-2.5`} style={IS}/>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="number" placeholder="DYNO" value={scoreEdit._newSubScoreDyno||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubScoreDyno:e.target.value})} className={`${iCls} text-center font-black py-2.5`} style={{background:`${P}12`,border:`1px solid ${P}28`,color:P}}/>
+              <input type="number" placeholder="Adv" value={scoreEdit._newSubScoreAdv||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubScoreAdv:e.target.value})} className={`${iCls} text-center font-black py-2.5`} style={IS}/>
+            </div>
+            <button onClick={ajouterSousMatchEdit} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:'rgba(245,158,11,.12)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.25)'}}>➕ Ajouter</button>
           </div>
-        )}</div>}
-        <div className="rounded-2xl p-4 space-y-2" style={{background:'rgba(245,158,11,.07)',border:'1px solid rgba(245,158,11,.18)'}}>
-          <input type="text" placeholder="Adversaire" value={scoreEdit._newSubAdv||''} onChange={(e:any)=>setScoreEdit({...scoreEdit,_newSubAdv:e.target.value})} className={`${iCls} text-xs py-2.5`} style={IS}/>
-          <div className="grid grid-cols-2 gap-2">
-            <input type="number" placeholder="DYNO" value={scoreEdit._newSubScoreDyno||''} onChange={(e:any)=>setScoreEdit({...scoreEdit,_newSubScoreDyno:e.target.value})} className={`${iCls} text-center font-black py-2.5`} style={{background:`${P}12`,border:`1px solid ${P}28`,color:P}}/>
-            <input type="number" placeholder="Adv" value={scoreEdit._newSubScoreAdv||''} onChange={(e:any)=>setScoreEdit({...scoreEdit,_newSubScoreAdv:e.target.value})} className={`${iCls} text-center font-black py-2.5`} style={IS}/>
-          </div>
-          <button onClick={ajouterSousMatchEdit} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:'rgba(245,158,11,.12)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.25)'}}>➕ Ajouter</button>
+          {(scoreEdit.sousMatchs||[]).length>0&&<div className="rounded-xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
+            <p className="text-[9px] uppercase mb-1.5" style={{color:`${P}60`}}>Total</p>
+            <p className="text-3xl font-black"><span style={{color:P}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0)}</span><span style={{color:T.textMuted}}> — </span><span style={{color:T.textMuted}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)}</span></p>
+          </div>}
         </div>
-        {(scoreEdit.sousMatchs||[]).length>0&&<div className="rounded-xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
-          <p className="text-[9px] uppercase mb-1.5" style={{color:`${P}60`}}>Total</p>
-          <p className="text-3xl font-black"><span style={{color:P}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0)}</span><span style={{color:T.textMuted}}> — </span><span style={{color:T.textMuted}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)}</span></p>
-        </div>}
+      ):(
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div><p className="text-[10px] font-bold uppercase mb-2" style={{color:`${P}70`}}>DYNO</p><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={{background:`${P}12`,border:`1px solid ${P}25`,color:P}}/></div>
+          <div><p className="text-[10px] font-bold uppercase mb-2" style={{color:T.textMuted}}>Adversaire</p><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={IS}/></div>
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button onClick={()=>setScoreEdit(null)} className="flex-1 py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
+        <button onClick={updateScore} className="flex-1 py-3 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
       </div>
-    ):(
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div><p className="text-[10px] font-bold uppercase mb-2" style={{color:`${P}70`}}>DYNO</p><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={(e:any)=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={{background:`${P}12`,border:`1px solid ${P}25`,color:P}}/></div>
-        <div><p className="text-[10px] font-bold uppercase mb-2" style={{color:T.textMuted}}>Adversaire</p><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={(e:any)=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={IS}/></div>
-      </div>
-    )}
-    <div className="flex gap-2">
-      <button onClick={()=>setScoreEdit(null)} className="flex-1 py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
-      <button onClick={updateScore} className="flex-1 py-3 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
     </div>
-  </MoC>}
+  )}
 </div>
 )}
 
@@ -1186,9 +963,9 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           <p className="text-xs mt-1.5" style={{color:T.textMuted}}>DYNO Esport Team</p>
         </div>
         <div className="space-y-3 mb-6">
-          {isSignUp&&<input type="text" placeholder="Ton pseudo" value={pseudo} onChange={(e:any)=>setPseudo(e.target.value)} className={iCls} style={IS}/>}
-          <input type="email" placeholder="Email" value={email} onChange={(e:any)=>setEmail(e.target.value)} className={iCls} style={IS}/>
-          <input type="password" placeholder="Mot de passe" value={authPassword} onChange={(e:any)=>setAuthPassword(e.target.value)} className={iCls} style={IS}/>
+          {isSignUp&&<input type="text" placeholder="Ton pseudo" value={pseudo} onChange={e=>setPseudo(e.target.value)} className={iCls} style={IS}/>}
+          <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className={iCls} style={IS}/>
+          <input type="password" placeholder="Mot de passe" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className={iCls} style={IS}/>
         </div>
         {isSignUp?<GBtn onClick={handleSignUp} cls="mb-4">✅ Créer mon compte</GBtn>:<GBtn onClick={handleSignIn} cls="mb-4">🔐 Se connecter</GBtn>}
         <div className="text-center pt-4" style={{borderTop:`1px solid ${T.cardBorder}`}}>
