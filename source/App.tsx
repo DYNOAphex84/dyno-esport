@@ -10,25 +10,23 @@ setPersistence(auth,browserLocalPersistence).catch(()=>{})
 const DW='https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const YT='https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC',LG='https://i.imgur.com/gTLj57a.png',AE='thibaut.llorens@hotmail.com'
 
-// ✅ 8 maps officielles Rocket League seulement
 const DRAFT_MAPS=['Atlantis','Engine','Horizon','Helios','Lunar','Polaris','The Cliff','Silva']
 const AM=['Engine','Helios','Silva','The Cliff','Artefact','Outlaw','Atlantis','Horizon','Polaris','Lunar','Ceres']
+const SKINS=['Default','Farmstead','Pillars','Cosmic','Nest','Utopia','Aquadome','Forbidden Temple']
 
-// ✅ Séquence de draft officielle
-// étape 0 = pile ou face, 1 = choix côté (gagnant), 2 = choix skin (perdant)
-// 3 = ban (gagnant), 4 = ban (perdant), 5 = pick (perdant), 6 = pick (gagnant)
-// 7 = ban (gagnant), 8 = ban (perdant), 9 = pick (perdant)
+// Séquence draft officielle RL
+// who: 'dyno'=DYNO joue, 'adv'=adversaire joue automatiquement
 const DRAFT_SEQUENCE=[
-  {step:0,type:'coin',label:'🪙 Pile ou Face',desc:'Admin lance la pièce et désigne le gagnant',who:'admin'},
-  {step:1,type:'side',label:'🌍 Choix du côté',desc:'Équipe gagnante choisit son côté (Orange ou Bleu)',who:'winner'},
-  {step:2,type:'skin',label:'🎨 Choix du skin',desc:"Équipe perdante choisit le skin de l'arène",who:'loser'},
-  {step:3,type:'ban',label:'❌ Ban',desc:'Équipe gagnante banne une map',who:'winner'},
-  {step:4,type:'ban',label:'❌ Ban',desc:'Équipe perdante banne une map',who:'loser'},
-  {step:5,type:'pick',label:'✅ Pick',desc:'Équipe perdante pick une map',who:'loser'},
-  {step:6,type:'pick',label:'✅ Pick',desc:'Équipe gagnante pick une map',who:'winner'},
-  {step:7,type:'ban',label:'❌ Ban',desc:'Équipe gagnante banne une map',who:'winner'},
-  {step:8,type:'ban',label:'❌ Ban',desc:'Équipe perdante banne une map',who:'loser'},
-  {step:9,type:'pick',label:'✅ Pick final',desc:'Équipe perdante pick la dernière map',who:'loser'},
+  {step:0,type:'coin',label:'🪙 Pile ou Face',who:'admin'},
+  {step:1,type:'side',label:'🌍 Choix du côté',who:'winner'},
+  {step:2,type:'skin',label:'🎨 Choix du skin',who:'loser'},
+  {step:3,type:'ban',label:'❌ Ban',who:'winner'},
+  {step:4,type:'ban',label:'❌ Ban',who:'loser'},
+  {step:5,type:'pick',label:'✅ Pick',who:'loser'},
+  {step:6,type:'pick',label:'✅ Pick',who:'winner'},
+  {step:7,type:'ban',label:'❌ Ban',who:'winner'},
+  {step:8,type:'ban',label:'❌ Ban',who:'loser'},
+  {step:9,type:'pick',label:'✅ Pick final',who:'loser'},
 ]
 
 const THEMES:Record<string,any>={
@@ -50,24 +48,24 @@ const P=TH.primary,P2=TH.primary2,G=TH.g,G2=TH.g2
 const toggleTheme=()=>{const n=!isDark;setIsDark(n);localStorage.setItem('dyno-theme',n?'dark':'light')}
 const setTheme=(k:string)=>{setThemeKey(k);localStorage.setItem('dyno-theme-color',k)}
 
-// ✅ MODALE CENTRÉE - onMouseDown pour éviter fermeture clavier
+// ✅ MODALE CORRIGÉE - Fermeture uniquement via bouton X, jamais via fond
 const Mo=({onClose,children,title,sub}:{onClose:()=>void,children:any,title?:string,sub?:string})=>(
-  <div className="fixed inset-0 z-50 flex items-center justify-center px-3"
-    style={{background:'rgba(0,0,0,0.93)',backdropFilter:'blur(28px)'}}
-    onMouseDown={(e:any)=>{if(e.target===e.currentTarget)onClose()}}>
-    <div className="w-full max-w-sm rounded-3xl max-h-[88vh] overflow-y-auto"
-      style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 32px 80px rgba(0,0,0,0.9)'}}>
-      <div className="sticky top-0 pt-4 pb-3 px-6 z-10" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`}}>
-        <div className="w-10 h-1 rounded-full mx-auto mb-3" style={{background:`${P}50`}}/>
-        {title&&<h3 className="text-base font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{title}</h3>}
-        {sub&&<p className="text-xs mt-0.5" style={{color:T.textMuted}}>{sub}</p>}
+  <div className="fixed inset-0 z-50 flex items-center justify-center px-3" style={{background:'rgba(0,0,0,0.85)',backdropFilter:'blur(20px)'}}>
+    <div className="w-full max-w-sm rounded-3xl max-h-[88vh] overflow-y-auto relative" style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 32px 80px rgba(0,0,0,0.9)'}}>
+      <div className="sticky top-0 pt-4 pb-3 px-5 z-10 flex items-start justify-between" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`}}>
+        <div className="flex-1 pr-3">
+          <div className="w-10 h-1 rounded-full mb-3" style={{background:`${P}50`}}/>
+          {title&&<h3 className="text-base font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{title}</h3>}
+          {sub&&<p className="text-xs mt-0.5" style={{color:T.textMuted}}>{sub}</p>}
+        </div>
+        <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 active:scale-90" style={{background:'rgba(255,255,255,0.08)',color:T.textMuted}}>✕</button>
       </div>
       <div className="p-5">{children}</div>
     </div>
   </div>
 )
 
-const CS={background:T.card,border:`1px solid ${T.cardBorder}`,boxShadow:isDark?'0 8px 40px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.04)':'0 4px 24px rgba(0,0,0,0.08)',backdropFilter:'blur(24px)'}
+const CS={background:T.card,border:`1px solid ${T.cardBorder}`,boxShadow:isDark?'0 8px 40px rgba(0,0,0,0.8)':'0 4px 24px rgba(0,0,0,0.08)',backdropFilter:'blur(24px)'}
 const IS={background:T.input,border:`1px solid ${T.inputBorder}`,color:T.text}
 const iCls='w-full rounded-2xl px-4 py-3.5 text-sm font-medium focus:outline-none transition-all'
 const[showConfetti,setShowConfetti]=useState(false)
@@ -133,8 +131,11 @@ const[nouveauSondage,setNouveauSondage]=useState({question:'',options:['',''] as
 const[showNotifSettings,setShowNotifSettings]=useState(false)
 const[notifSettings,setNotifSettings]=useState(()=>{try{return JSON.parse(localStorage.getItem('dyno-notif-settings')||'{"match":true,"note":true,"commentaire":true,"strat":true,"resultat":true}')}catch{return{match:true,note:true,commentaire:true,strat:true,resultat:true}}})
 const saveNotifSettings=(s:any)=>{setNotifSettings(s);localStorage.setItem('dyno-notif-settings',JSON.stringify(s))}
+// ✅ DRAFT - Utilisation de state local simple (plus de ref)
 const[showAddDraft,setShowAddDraft]=useState(false)
-const[nouvelleDraft,setNouvelleDraft]=useState({adversaire:'',equipe1:'DYNO',equipe2:''})
+const[draftAdversaire,setDraftAdversaire]=useState('')
+const[advWaiting,setAdvWaiting]=useState<string|null>(null) // id de la draft où l'adversaire "réfléchit"
+
 const pm=useRef(0),pn=useRef(0),pc=useRef(0),ps=useRef(0),ty=useRef(0)
 
 useEffect(()=>{if(window.location.search.includes('reset=1')){localStorage.clear();window.location.href=window.location.pathname}},[])
@@ -180,8 +181,6 @@ const updatePlayerRole=async(playerId:string,userId:string,newRole:string)=>{awa
 
 const canAddStrat=isAdmin||userRole==='Coach'||userRole==='Capitaine'
 const canAddFiche=isAdmin||userRole==='Coach'
-const canCreateSondage=isAdmin
-const canCreateDraft=isAdmin
 
 const ajouterSousMatch=()=>{if(!newSubAdv.trim()||newSubScoreDyno===''||newSubScoreAdv===''){alert('⚠️');return};setNouveauMatch({...nouveauMatch,sousMatchs:[...nouveauMatch.sousMatchs,{adversaire:newSubAdv.trim(),scoreDyno:newSubScoreDyno,scoreAdv:newSubScoreAdv}]});setNewSubAdv('');setNewSubScoreDyno('');setNewSubScoreAdv('')}
 const supprimerSousMatch=(i:number)=>{const sm=[...nouveauMatch.sousMatchs];sm.splice(i,1);setNouveauMatch({...nouveauMatch,sousMatchs:sm})}
@@ -206,15 +205,19 @@ const ajouterSondage=async()=>{if(!nouveauSondage.question.trim()||nouveauSondag
 const voterSondage=async(sid:string,ok:string)=>{if(!user)return;const s=sondages.find((x:any)=>x.id===sid);if(!s)return;const opts={...s.options};Object.keys(opts).forEach(k=>{opts[k]={...opts[k],votes:(opts[k].votes||[]).filter((v:string)=>v!==user.uid)}});opts[ok]={...opts[ok],votes:[...(opts[ok].votes||[]),user.uid]};await updateDoc(doc(db,'sondages',sid),{options:opts})}
 const clotureSondage=async(id:string)=>{await updateDoc(doc(db,'sondages',id),{actif:false})}
 
-// ✅ DRAFT - Fonctions complètes
+// ✅ DRAFT - Fonctions corrigées, accessible à tous les utilisateurs
 const creerDraft=async()=>{
-  if(!nouvelleDraft.adversaire.trim()||!nouvelleDraft.equipe2.trim()){alert('⚠️ Remplis tous les champs!');return}
+  const adv=draftAdversaire.trim()
+  if(!adv){alert('⚠️ Entre le nom de l\'adversaire!');return}
+  if(!user){alert('⚠️ Connecte-toi d\'abord!');return}
   await addDoc(collection(db,'drafts'),{
-    adversaire:nouvelleDraft.adversaire.trim(),
-    equipe1:nouvelleDraft.equipe1,
-    equipe2:nouvelleDraft.equipe2.trim(),
+    adversaire:adv,
+    equipe1:'DYNO',
+    equipe2:adv,
+    dynoTeam:'DYNO',
     currentStep:0,
     winner:'',
+    winnerIsDyno:false,
     winnerSide:'',
     loserSkin:'',
     picks:[],
@@ -224,44 +227,156 @@ const creerDraft=async()=>{
     auteur:pseudo,
     createdAt:Date.now()
   })
-  setNouvelleDraft({adversaire:'',equipe1:'DYNO',equipe2:''})
+  setDraftAdversaire('')
   setShowAddDraft(false)
   alert('✅ Draft créée!')
 }
-const draftCoinResult=async(draftId:string,winnerId:string)=>{
-  await updateDoc(doc(db,'drafts',draftId),{winner:winnerId,currentStep:1,actions:[{step:0,type:'coin',label:`🪙 ${winnerId} remporte le pile ou face`,at:Date.now()}]})
-}
-const draftSideChoice=async(draftId:string,side:string)=>{
+
+// ✅ Pile ou face - résultat aléatoire, lance aussi l'action adversaire si nécessaire
+const draftCoin=async(draftId:string)=>{
   const d=drafts.find((x:any)=>x.id===draftId)
   if(!d)return
-  const actions=[...(d.actions||[]),{step:1,type:'side',label:`🌍 ${d.winner} choisit le côté ${side}`,at:Date.now()}]
+  const dynoWins=Math.random()<0.5
+  const winner=dynoWins?'DYNO':d.equipe2
+  const coinLabel=`🪙 Pile ou Face → ${winner} remporte !`
+  const actions=[{step:0,type:'coin',label:coinLabel,at:Date.now()}]
+  await updateDoc(doc(db,'drafts',draftId),{winner,winnerIsDyno:dynoWins,currentStep:1,actions})
+  // Si adversaire gagne → il choisit côté automatiquement après 1.5s
+  if(!dynoWins){
+    setAdvWaiting(draftId)
+    setTimeout(async()=>{
+      const sides=['🟠 Orange','🔵 Bleu']
+      const side=sides[Math.floor(Math.random()*sides.length)]
+      const newActions=[...actions,{step:1,type:'side',label:`🌍 ${d.equipe2} choisit le côté ${side}`,at:Date.now()}]
+      await updateDoc(doc(db,'drafts',draftId),{winnerSide:side,currentStep:2,actions:newActions})
+      // DYNO choisit le skin (step 2)
+      setAdvWaiting(null)
+    },1800)
+  }
+}
+
+// ✅ DYNO choisit côté (si DYNO a gagné pile ou face)
+const draftDynoSide=async(draftId:string,side:string)=>{
+  const d=drafts.find((x:any)=>x.id===draftId)
+  if(!d)return
+  const actions=[...(d.actions||[]),{step:1,type:'side',label:`🌍 DYNO choisit le côté ${side}`,at:Date.now()}]
   await updateDoc(doc(db,'drafts',draftId),{winnerSide:side,currentStep:2,actions})
+  // Adversaire choisit le skin automatiquement
+  setAdvWaiting(draftId)
+  setTimeout(async()=>{
+    const skin=SKINS[Math.floor(Math.random()*SKINS.length)]
+    const newActions=[...actions,{step:2,type:'skin',label:`🎨 ${d.equipe2} choisit le skin : ${skin}`,at:Date.now()}]
+    await updateDoc(doc(db,'drafts',draftId),{loserSkin:skin,currentStep:3,actions:newActions})
+    setAdvWaiting(null)
+    // Vérifier si step 3 est tour adversaire
+    const seq3=DRAFT_SEQUENCE[3]
+    const dynoIsWinner=d.winnerIsDyno
+    const step3IsAdv=(dynoIsWinner&&seq3.who==='loser')||(!dynoIsWinner&&seq3.who==='winner')
+    if(step3IsAdv){
+      await doAdvAction(draftId,{...d,actions:newActions,loserSkin:skin,currentStep:3,picks:[],bans:[]},3)
+    }
+  },1800)
 }
-const draftSkinChoice=async(draftId:string,skin:string)=>{
+
+// ✅ DYNO choisit le skin (si adversaire a gagné pile ou face)
+const draftDynoSkin=async(draftId:string,skin:string)=>{
   const d=drafts.find((x:any)=>x.id===draftId)
   if(!d)return
-  const loser=d.winner===d.equipe1?d.equipe2:d.equipe1
-  const actions=[...(d.actions||[]),{step:2,type:'skin',label:`🎨 ${loser} choisit le skin : ${skin}`,at:Date.now()}]
+  const actions=[...(d.actions||[]),{step:2,type:'skin',label:`🎨 DYNO choisit le skin : ${skin}`,at:Date.now()}]
   await updateDoc(doc(db,'drafts',draftId),{loserSkin:skin,currentStep:3,actions})
+  // Vérifier si step 3 est tour adversaire
+  const seq3=DRAFT_SEQUENCE[3]
+  const dynoIsWinner=d.winnerIsDyno
+  const step3IsAdv=(dynoIsWinner&&seq3.who==='loser')||(!dynoIsWinner&&seq3.who==='winner')
+  if(step3IsAdv){
+    setAdvWaiting(draftId)
+    setTimeout(async()=>{
+      await doAdvAction(draftId,{...d,actions,loserSkin:skin,currentStep:3,picks:[],bans:[]},3)
+      setAdvWaiting(null)
+    },1800)
+  }
 }
-const draftMapAction=async(draftId:string,map:string)=>{
+
+// ✅ Action automatique de l'adversaire
+const doAdvAction=async(draftId:string,draftState:any,atStep:number)=>{
+  const seq=DRAFT_SEQUENCE[atStep]
+  if(!seq)return
+  const usedMaps=[...(draftState.picks||[]),...(draftState.bans||[])]
+  const available=DRAFT_MAPS.filter((m:string)=>!usedMaps.includes(m))
+  if(available.length===0)return
+  const map=available[Math.floor(Math.random()*available.length)]
+  const field=seq.type==='pick'?'picks':'bans'
+  const current=draftState[field]||[]
+  const newVal=[...current,map]
+  const label=`${seq.type==='pick'?'✅ Pick':'❌ Ban'} ${map} par ${draftState.equipe2}`
+  const newActions=[...(draftState.actions||[]),{step:atStep,type:seq.type,map,label,at:Date.now()}]
+  const nextStep=atStep+1
+  const isFinished=nextStep>=DRAFT_SEQUENCE.length
+  const update:any={[field]:newVal,actions:newActions,currentStep:nextStep,actif:!isFinished}
+  await updateDoc(doc(db,'drafts',draftId),update)
+}
+
+// ✅ DYNO fait son action (pick ou ban)
+const draftDynoAction=async(draftId:string,map:string)=>{
   const d=drafts.find((x:any)=>x.id===draftId)
   if(!d||!d.actif)return
   const step=d.currentStep
   const seq=DRAFT_SEQUENCE[step]
   if(!seq||seq.type==='coin'||seq.type==='side'||seq.type==='skin')return
-  const who=seq.who==='winner'?d.winner:(d.winner===d.equipe1?d.equipe2:d.equipe1)
-  const newActions=[...(d.actions||[]),{step,type:seq.type,map,label:`${seq.type==='pick'?'✅ Pick':'❌ Ban'} ${map} par ${who}`,at:Date.now()}]
-  const newPicks=seq.type==='pick'?[...(d.picks||[]),map]:d.picks||[]
-  const newBans=seq.type==='ban'?[...(d.bans||[]),map]:d.bans||[]
+  const field=seq.type==='pick'?'picks':'bans'
+  const current=d[field]||[]
+  const label=`${seq.type==='pick'?'✅ Pick':'❌ Ban'} ${map} par DYNO`
+  const newActions=[...(d.actions||[]),{step,type:seq.type,map,label,at:Date.now()}]
   const nextStep=step+1
   const isFinished=nextStep>=DRAFT_SEQUENCE.length
-  await updateDoc(doc(db,'drafts',draftId),{picks:newPicks,bans:newBans,actions:newActions,currentStep:nextStep,actif:!isFinished})
+  const update:any={[field]:[...current,map],actions:newActions,currentStep:nextStep,actif:!isFinished}
+  await updateDoc(doc(db,'drafts',draftId),update)
+
+  // Si pas fini, vérifier si le prochain tour est adversaire
+  if(!isFinished){
+    const nextSeq=DRAFT_SEQUENCE[nextStep]
+    if(nextSeq&&nextSeq.type!=='coin'&&nextSeq.type!=='side'&&nextSeq.type!=='skin'){
+      const dynoIsWinner=d.winnerIsDyno
+      const nextIsAdv=(dynoIsWinner&&nextSeq.who==='loser')||(!dynoIsWinner&&nextSeq.who==='winner')
+      if(nextIsAdv){
+        setAdvWaiting(draftId)
+        setTimeout(async()=>{
+          const updatedPicks=seq.type==='pick'?[...current,map]:d.picks||[]
+          const updatedBans=seq.type==='ban'?[...current,map]:d.bans||[]
+          await doAdvAction(draftId,{...d,picks:updatedPicks,bans:updatedBans,actions:newActions,currentStep:nextStep},nextStep)
+          setAdvWaiting(null)
+          // Vérifier encore le suivant
+          const nextNextStep=nextStep+1
+          if(nextNextStep<DRAFT_SEQUENCE.length){
+            const nextNextSeq=DRAFT_SEQUENCE[nextNextStep]
+            const nextNextIsAdv=(dynoIsWinner&&nextNextSeq.who==='loser')||(!dynoIsWinner&&nextNextSeq.who==='winner')
+            if(nextNextIsAdv){
+              setAdvWaiting(draftId)
+              setTimeout(async()=>{
+                const usedAfter=[...updatedPicks,...updatedBans,map]
+                const availAfter=DRAFT_MAPS.filter((m:string)=>!usedAfter.includes(m))
+                if(availAfter.length>0){
+                  const mapAfter=availAfter[Math.floor(Math.random()*availAfter.length)]
+                  const fieldAfter=nextNextSeq.type==='pick'?'picks':'bans'
+                  const currentAfter=nextNextSeq.type==='pick'?updatedPicks:updatedBans
+                  const labelAfter=`${nextNextSeq.type==='pick'?'✅ Pick':'❌ Ban'} ${mapAfter} par ${d.equipe2}`
+                  const actionsAfter=[...newActions,{step:nextStep,type:(DRAFT_SEQUENCE[nextStep] as any).type,map:'',label:'',at:Date.now()},{step:nextNextStep,type:nextNextSeq.type,map:mapAfter,label:labelAfter,at:Date.now()+100}]
+                  const nextNextNextStep=nextNextStep+1
+                  await updateDoc(doc(db,'drafts',draftId),{[fieldAfter]:[...currentAfter,mapAfter],actions:actionsAfter,currentStep:nextNextNextStep,actif:nextNextNextStep<DRAFT_SEQUENCE.length})
+                }
+                setAdvWaiting(null)
+              },1800)
+            }
+          }
+        },1800)
+      }
+    }
+  }
 }
+
 const resetDraft=async(draftId:string)=>{
-  const d=drafts.find((x:any)=>x.id===draftId)
-  if(!d)return
-  await updateDoc(doc(db,'drafts',draftId),{currentStep:0,winner:'',winnerSide:'',loserSkin:'',picks:[],bans:[],actions:[],actif:true})
+  await updateDoc(doc(db,'drafts',draftId),{currentStep:0,winner:'',winnerIsDyno:false,winnerSide:'',loserSkin:'',picks:[],bans:[],actions:[],actif:true})
+  setAdvWaiting(null)
 }
 
 const fdf=(s:string)=>{if(!s)return'';if(s.includes('/'))return s;const[y,m,d]=s.split('-');return`${d}/${m}/${y}`}
@@ -284,8 +399,8 @@ const notesData=notes.reduce((acc:any,n:any)=>{const j=n.joueur;if(!acc[j])acc[j
 const notesChartData=Object.values(notesData).map((d:any)=>({name:d.joueur.substring(0,8),mental:Math.round(d.mental/d.count),comm:Math.round(d.comm/d.count),perf:Math.round(d.perf/d.count)}))
 const genBilan=()=>{const now=new Date();const mm=historique.filter((m:any)=>{const d=new Date(m.createdAt);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()});const w=mm.filter((m:any)=>Number(m.scoreDyno||0)>Number(m.scoreAdversaire||0)).length,l=mm.filter((m:any)=>Number(m.scoreDyno||0)<Number(m.scoreAdversaire||0)).length;const mn=notes.filter((n:any)=>{const d=new Date(n.createdAt);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()});const am=mn.length>0?Math.round(mn.reduce((a:number,n:any)=>a+parseInt(n.mental||0),0)/mn.length):0,ac=mn.length>0?Math.round(mn.reduce((a:number,n:any)=>a+parseInt(n.communication||0),0)/mn.length):0,ap=mn.length>0?Math.round(mn.reduce((a:number,n:any)=>a+parseInt(n.gameplay||0),0)/mn.length):0;return{nom:['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][now.getMonth()],m:mm.length,w,l,wr:mm.length>0?Math.round((w/(w+l||1))*100):0,am,ac,ap}}
 
-const GBtn=({onClick,children,cls='',danger=false,small=false}:{onClick:()=>void,children:any,cls?:string,danger?:boolean,small?:boolean})=>(
-  <button onClick={onClick} className={`${small?'py-2.5 text-xs':'py-4 text-sm'} w-full rounded-2xl font-black tracking-wide transition-all active:scale-[0.97] select-none ${cls}`} style={danger?{background:'rgba(239,68,68,0.1)',color:'#f87171',border:'1px solid rgba(239,68,68,0.2)'}:{background:G2,color:'#000',boxShadow:`0 4px 24px ${P}50`}}>{children}</button>
+const GBtn=({onClick,children,cls='',danger=false}:{onClick:()=>void,children:any,cls?:string,danger?:boolean})=>(
+  <button onClick={onClick} className={`py-4 text-sm w-full rounded-2xl font-black tracking-wide transition-all active:scale-[0.97] select-none ${cls}`} style={danger?{background:'rgba(239,68,68,0.1)',color:'#f87171',border:'1px solid rgba(239,68,68,0.2)'}:{background:G2,color:'#000',boxShadow:`0 4px 24px ${P}50`}}>{children}</button>
 )
 const Bdg=({type}:{type:string})=>{const map:Record<string,{bg:string,color:string}>={Ligue:{bg:'rgba(59,130,246,0.15)',color:'#60a5fa'},Scrim:{bg:'rgba(34,197,94,0.15)',color:'#4ade80'},Tournoi:{bg:'rgba(168,85,247,0.15)',color:'#c084fc'},Division:{bg:'rgba(245,158,11,0.15)',color:'#fbbf24'}};const s=map[type]||{bg:'rgba(255,255,255,0.08)',color:T.textMuted};return<span className="px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest" style={{background:s.bg,color:s.color,border:`1px solid ${s.color}30`}}>{type}</span>}
 const ST=({icon,title}:{icon:string,title:string})=>(
@@ -337,10 +452,12 @@ return(
 @keyframes float{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:1}90%{opacity:.4}100%{transform:translateY(-20px) rotate(720deg);opacity:0}}
 @keyframes conffall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
 @keyframes bdg{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+@keyframes advspin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .ce{animation:su .35s ease both}
 .sg{background:linear-gradient(90deg,#B8860B,${P},${P2},${P},#B8860B);background-size:300% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:sh 4s linear infinite}
 .ld{animation:lp 1s ease-in-out infinite}
 .bdg{animation:bdg .8s ease-in-out infinite}
+.advspin{animation:advspin 1s linear infinite}
 input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-calendar-picker-indicator{filter:${isDark?'invert(.7) sepia(1) saturate(5) hue-rotate(5deg)':'invert(.3) sepia(1) saturate(3) hue-rotate(5deg)'}}
 select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 ::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:${P}40;border-radius:10px}
@@ -391,7 +508,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
         <button key={key} onClick={()=>setTheme(key)} className="p-2.5 rounded-2xl text-center active:scale-95 relative" style={{background:themeKey===key?`${th.primary}22`:'rgba(255,255,255,0.04)',border:`2px solid ${themeKey===key?th.primary:T.cardBorder}`}}>
           {themeKey===key&&<div className="absolute top-1 right-1 w-3 h-3 rounded-full flex items-center justify-center text-[8px]" style={{background:th.primary,color:'#000'}}>✓</div>}
           <p className="text-xl mb-1">{th.icon}</p>
-          <p className="text-[8px] font-black leading-tight" style={{color:th.primary}}>{th.name}</p>
+          <p className="text-[8px] font-black" style={{color:th.primary}}>{th.name}</p>
         </button>
       ))}
     </div>
@@ -409,7 +526,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     ))}
   </div>
   {!notificationsEnabled&&<button onClick={async()=>{await requestNotificationPermission();setShowNotifSettings(false)}} className="w-full py-3 rounded-2xl font-black text-sm text-black mb-3" style={{background:G2}}>🔔 Activer</button>}
-  <button onClick={()=>setShowNotifSettings(false)} className="w-full py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Fermer</button>
 </Mo>}
 
 <main className="max-w-lg mx-auto px-4 py-5 relative z-10" onTouchStart={hts} onTouchMove={htm} onTouchEnd={hte}>
@@ -486,7 +602,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 
 {activeTab==='sondages'&&(
 <div className="ce"><ST icon="🗳️" title="Sondages"/>
-  {canCreateSondage&&<GBtn onClick={()=>setShowAddSondage(true)} cls="mb-5">➕ Créer un sondage</GBtn>}
+  {isAdmin&&<GBtn onClick={()=>setShowAddSondage(true)} cls="mb-5">➕ Créer un sondage</GBtn>}
   {sondages.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🗳️</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucun sondage</p></div>
   :<div className="space-y-4">{sondages.map((s:any,idx:number)=>{
     const opts=s.options||{};const totalVotes=Object.values(opts).reduce((a:number,o:any)=>a+(o.votes?.length||0),0);const userVote=Object.keys(opts).find(k=>(opts[k].votes||[]).includes(user?.uid));const isFinished=!s.actif
@@ -533,17 +649,33 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 </div>
 )}
 
-{/* ✅ DRAFT COMPLÈTE AVEC VRAIES RÈGLES */}
+{/* ✅ DRAFT - Accessible à tous, simulation adversaire automatique */}
 {activeTab==='draft'&&(
 <div className="ce"><ST icon="🎲" title="Draft Maps"/>
-  {canCreateDraft&&<GBtn onClick={()=>setShowAddDraft(true)} cls="mb-5">➕ Nouvelle Draft</GBtn>}
+  {/* Accessible à tous les utilisateurs connectés */}
+  {user?<GBtn onClick={()=>setShowAddDraft(true)} cls="mb-5">➕ Nouvelle Draft</GBtn>:<div className="rounded-2xl p-3 mb-5 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔐 Connecte-toi pour créer une draft</p></div>}
+
   {drafts.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🎲</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune draft en cours</p></div>
   :<div className="space-y-4">{drafts.map((draft:any,idx:number)=>{
-    const currentSeq=DRAFT_SEQUENCE[draft.currentStep]
-    const isFinished=!draft.actif||(draft.currentStep>=DRAFT_SEQUENCE.length)
-    const loser=draft.winner===draft.equipe1?draft.equipe2:draft.equipe1
-    const currentWho=currentSeq?.who==='winner'?draft.winner:loser
-    const availableMaps=DRAFT_MAPS.filter(m=>!(draft.picks||[]).includes(m)&&!(draft.bans||[]).includes(m))
+    const step=draft.currentStep
+    const seq=DRAFT_SEQUENCE[step]
+    const isFinished=!draft.actif||(step>=DRAFT_SEQUENCE.length)
+    const isAdvWaiting=advWaiting===draft.id
+
+    // Déterminer si c'est le tour de DYNO
+    let isDynoTurn=false
+    if(!isFinished&&seq){
+      if(seq.type==='coin')isDynoTurn=true
+      else if(seq.type==='side'&&draft.winnerIsDyno)isDynoTurn=true
+      else if(seq.type==='skin'&&!draft.winnerIsDyno)isDynoTurn=true
+      else if(seq.type==='pick'||seq.type==='ban'){
+        if(seq.who==='winner'&&draft.winnerIsDyno)isDynoTurn=true
+        if(seq.who==='loser'&&!draft.winnerIsDyno)isDynoTurn=true
+      }
+    }
+
+    const usedMaps=[...(draft.picks||[]),...(draft.bans||[])]
+    const availableMaps=DRAFT_MAPS.filter(m=>!usedMaps.includes(m))
 
     return<div key={draft.id} className="rounded-3xl overflow-hidden ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
       <div className="h-px w-full" style={{background:`linear-gradient(90deg,transparent,${P}25,transparent)`}}/>
@@ -552,13 +684,13 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <div className="px-5 pt-4 pb-3" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-black text-base" style={{color:T.text}}>{draft.equipe1} vs {draft.equipe2}</p>
+            <p className="font-black text-base" style={{color:T.text}}>DYNO vs {draft.equipe2}</p>
             <p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {draft.auteur}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {isFinished?<span className="px-2 py-1 rounded-full text-[9px] font-black" style={{background:'rgba(255,255,255,.07)',color:T.textMuted}}>Terminée</span>:<span className="px-2 py-1 rounded-full text-[9px] font-black ld" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>🟢 Active</span>}
-            {isAdmin&&draft.actif&&<button onClick={()=>resetDraft(draft.id)} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(245,158,11,.1)',color:'#fbbf24'}}>↺ Reset</button>}
-            {isAdmin&&<button onClick={()=>del('drafts',draft.id)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
+            {(isAdmin||draft.auteur===pseudo)&&<button onClick={()=>resetDraft(draft.id)} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(245,158,11,.1)',color:'#fbbf24'}}>↺</button>}
+            {(isAdmin||draft.auteur===pseudo)&&<button onClick={()=>del('drafts',draft.id)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
           </div>
         </div>
       </div>
@@ -566,71 +698,69 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <div className="p-4 space-y-4">
         {/* Barre de progression */}
         <div>
-          <div className="flex justify-between mb-2">
-            <p className="text-[9px] font-black uppercase tracking-widest" style={{color:T.textMuted}}>Progression</p>
-            <p className="text-[9px] font-black" style={{color:P}}>{Math.min(draft.currentStep,DRAFT_SEQUENCE.length)}/{DRAFT_SEQUENCE.length}</p>
-          </div>
-          <div className="flex gap-1">{DRAFT_SEQUENCE.map((_,i)=>(
-            <div key={i} className="flex-1 h-1.5 rounded-full" style={{background:i<draft.currentStep?P:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)'}}/>
-          ))}</div>
+          <div className="flex justify-between mb-1.5"><p className="text-[9px] font-black uppercase tracking-widest" style={{color:T.textMuted}}>Progression</p><p className="text-[9px] font-black" style={{color:P}}>{Math.min(step,DRAFT_SEQUENCE.length)}/{DRAFT_SEQUENCE.length}</p></div>
+          <div className="flex gap-0.5">{DRAFT_SEQUENCE.map((_,i)=><div key={i} className="flex-1 h-1.5 rounded-full" style={{background:i<step?P:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)'}}/>)}</div>
         </div>
 
-        {/* Étape actuelle */}
-        {!isFinished&&currentSeq&&(
-          <div className="rounded-2xl p-4" style={{background:`${P}08`,border:`1px solid ${P}20`}}>
-            <p className="text-xs font-black mb-1" style={{color:P}}>Étape {draft.currentStep+1} — {currentSeq.label}</p>
-            <p className="text-[10px]" style={{color:T.textMuted}}>{currentSeq.desc}</p>
-            {currentWho&&<p className="text-[10px] font-black mt-1" style={{color:P}}>👤 Tour de : {currentWho}</p>}
+        {/* Indicateur adversaire qui réfléchit */}
+        {isAdvWaiting&&<div className="rounded-2xl p-3 text-center" style={{background:'rgba(168,85,247,.08)',border:'1px solid rgba(168,85,247,.2)'}}>
+          <p className="text-sm font-black" style={{color:'#c084fc'}}>⏳ {draft.equipe2} réfléchit...</p>
+        </div>}
+
+        {/* Étape courante */}
+        {!isFinished&&!isAdvWaiting&&seq&&(
+          <div className="rounded-2xl p-3" style={{background:`${isDynoTurn?P+'10':'rgba(168,85,247,.08)'}`,border:`1px solid ${isDynoTurn?P+'20':'rgba(168,85,247,.2)'}`}}>
+            <p className="text-xs font-black" style={{color:isDynoTurn?P:'#c084fc'}}>
+              {isDynoTurn?'👤 Ton tour':'🤖 Tour adversaire'}
+            </p>
+            <p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>{seq.label}</p>
           </div>
         )}
 
-        {/* ÉTAPE 0 : PILE OU FACE */}
-        {!isFinished&&draft.currentStep===0&&isAdmin&&(
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Qui remporte le pile ou face ?</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={()=>draftCoinResult(draft.id,draft.equipe1)} className="py-3 rounded-2xl font-black text-sm active:scale-95" style={{background:`${P}15`,color:P,border:`1px solid ${P}30`}}>{draft.equipe1} 🪙</button>
-              <button onClick={()=>draftCoinResult(draft.id,draft.equipe2)} className="py-3 rounded-2xl font-black text-sm active:scale-95" style={{background:'rgba(96,165,250,.15)',color:'#60a5fa',border:'1px solid rgba(96,165,250,.3)'}}>{draft.equipe2} 🪙</button>
-            </div>
-          </div>
+        {/* COIN */}
+        {!isFinished&&!isAdvWaiting&&step===0&&user&&(
+          <button onClick={()=>draftCoin(draft.id)} className="w-full py-4 rounded-2xl font-black text-base active:scale-95" style={{background:G2,color:'#000',boxShadow:`0 4px 20px ${P}40`}}>
+            🪙 Lancer la pièce !
+          </button>
         )}
 
-        {/* ÉTAPE 1 : CHOIX DU CÔTÉ */}
-        {!isFinished&&draft.currentStep===1&&(isAdmin||pseudo===draft.winner)&&(
+        {/* SIDE - DYNO choisit */}
+        {!isFinished&&!isAdvWaiting&&step===1&&isDynoTurn&&user&&(
           <div>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>{draft.winner} choisit son côté</p>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le côté pour DYNO</p>
             <div className="grid grid-cols-2 gap-2">
               {['🟠 Orange','🔵 Bleu'].map(side=>(
-                <button key={side} onClick={()=>draftSideChoice(draft.id,side)} className="py-3 rounded-2xl font-black text-sm active:scale-95" style={side.includes('Orange')?{background:'rgba(245,158,11,.15)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.3)'}:{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.3)'}}>{side}</button>
+                <button key={side} onClick={()=>draftDynoSide(draft.id,side)} className="py-3 rounded-2xl font-black text-sm active:scale-95" style={side.includes('Orange')?{background:'rgba(245,158,11,.15)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.3)'}:{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.3)'}}>{side}</button>
               ))}
             </div>
           </div>
         )}
 
-        {/* ÉTAPE 2 : CHOIX DU SKIN */}
-        {!isFinished&&draft.currentStep===2&&(isAdmin||pseudo===loser)&&(
+        {/* SKIN - DYNO choisit */}
+        {!isFinished&&!isAdvWaiting&&step===2&&isDynoTurn&&user&&(
           <div>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>{loser} choisit le skin de l'arène</p>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le skin de l'arène</p>
             <div className="grid grid-cols-2 gap-1.5">
-              {['Default','Farmstead','Pillars','Cosmic','Nest','Utopia','Aquadome','Forbidden Temple'].map(skin=>(
-                <button key={skin} onClick={()=>draftSkinChoice(draft.id,skin)} className="py-2.5 rounded-xl text-xs font-bold active:scale-95" style={{background:T.input,color:T.text,border:`1px solid ${T.inputBorder}`}}>{skin}</button>
+              {SKINS.map(skin=>(
+                <button key={skin} onClick={()=>draftDynoSkin(draft.id,skin)} className="py-2.5 rounded-xl text-xs font-bold active:scale-95" style={{background:T.input,color:T.text,border:`1px solid ${T.inputBorder}`}}>{skin}</button>
               ))}
             </div>
           </div>
         )}
 
-        {/* ÉTAPES 3-9 : PICKS ET BANS */}
-        {!isFinished&&draft.currentStep>=3&&draft.currentStep<DRAFT_SEQUENCE.length&&(
+        {/* PICKS & BANS - Tour de DYNO */}
+        {!isFinished&&!isAdvWaiting&&step>=3&&step<DRAFT_SEQUENCE.length&&isDynoTurn&&user&&availableMaps.length>0&&(
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>
-              {currentSeq?.type==='pick'?'✅ Choisir une map à PICK':'❌ Choisir une map à BANNIR'}
+              {seq?.type==='pick'?'✅ Choisis une map à PICK':'❌ Choisis une map à BANNIR'}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {availableMaps.map(map=>(
-                <button key={map} onClick={()=>draftMapAction(draft.id,map)} disabled={!isAdmin&&pseudo!==currentWho} className="py-3 rounded-2xl text-sm font-bold active:scale-95 transition-all" style={(isAdmin||pseudo===currentWho)?currentSeq?.type==='pick'?{background:'rgba(74,222,128,.15)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`,opacity:0.5}}>{map}</button>
+                <button key={map} onClick={()=>draftDynoAction(draft.id,map)} className="py-3 rounded-2xl text-sm font-bold active:scale-95" style={seq?.type==='pick'?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:'rgba(248,113,113,.18)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)'}}>
+                  {map}
+                </button>
               ))}
             </div>
-            {!isAdmin&&pseudo!==currentWho&&<p className="text-center text-[9px] mt-2" style={{color:T.textMuted}}>⏳ En attente de {currentWho}...</p>}
           </div>
         )}
 
@@ -638,62 +768,73 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
         {((draft.picks||[]).length>0||(draft.bans||[]).length>0)&&(
           <div className="grid grid-cols-2 gap-3">
             {(draft.picks||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.15)'}}>
-              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks ({(draft.picks||[]).length})</p>
+              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks</p>
               <div className="space-y-1">{(draft.picks||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#4ade80'}}>{m}</p>)}</div>
             </div>}
             {(draft.bans||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(248,113,113,.06)',border:'1px solid rgba(248,113,113,.15)'}}>
-              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans ({(draft.bans||[]).length})</p>
+              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans</p>
               <div className="space-y-1">{(draft.bans||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#f87171'}}>{m}</p>)}</div>
             </div>}
           </div>
         )}
 
-        {/* Infos côté/skin */}
-        {(draft.winnerSide||draft.loserSkin)&&(
-          <div className="grid grid-cols-2 gap-2">
-            {draft.winnerSide&&<div className="rounded-xl p-2.5 text-center" style={{background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.15)'}}><p className="text-[8px] text-gray-500 uppercase">Côté</p><p className="text-xs font-black" style={{color:'#fbbf24'}}>{draft.winner} {draft.winnerSide}</p></div>}
-            {draft.loserSkin&&<div className="rounded-xl p-2.5 text-center" style={{background:'rgba(96,165,250,.08)',border:'1px solid rgba(96,165,250,.15)'}}><p className="text-[8px] text-gray-500 uppercase">Skin</p><p className="text-xs font-black" style={{color:'#60a5fa'}}>{draft.loserSkin}</p></div>}
+        {/* Infos résultat pile/face + côté/skin */}
+        {(draft.winner||draft.winnerSide||draft.loserSkin)&&(
+          <div className="space-y-1.5">
+            {draft.winner&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:`${P}08`}}><span className="text-[10px]" style={{color:T.textMuted}}>🪙 Pile ou face</span><span className="text-[10px] font-black" style={{color:P}}>{draft.winner} a gagné</span></div>}
+            {draft.winnerSide&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(245,158,11,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🌍 Côté DYNO</span><span className="text-[10px] font-black" style={{color:'#fbbf24'}}>{draft.winnerSide}</span></div>}
+            {draft.loserSkin&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(96,165,250,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🎨 Skin</span><span className="text-[10px] font-black" style={{color:'#60a5fa'}}>{draft.loserSkin}</span></div>}
           </div>
         )}
 
-        {/* Historique des actions */}
+        {/* Historique */}
         {(draft.actions||[]).length>0&&(
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>📋 Historique</p>
-            <div className="space-y-1 max-h-32 overflow-y-auto">{(draft.actions||[]).map((a:any,i:number)=>(
-              <p key={i} className="text-[9px] font-medium" style={{color:T.textMuted}}>• {a.label}</p>
+            <div className="space-y-0.5 max-h-28 overflow-y-auto">{(draft.actions||[]).map((a:any,i:number)=>(
+              <p key={i} className="text-[9px]" style={{color:T.textMuted}}>• {a.label}</p>
             ))}</div>
           </div>
         )}
 
-        {/* Draft terminée */}
-        {isFinished&&(draft.picks||[]).length>0&&(
-          <div className="rounded-2xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
-            <p className="text-2xl mb-2">🎉</p>
-            <p className="text-sm font-black mb-3" style={{color:P}}>Draft terminée !</p>
-            <p className="text-[10px] font-bold mb-1" style={{color:T.textMuted}}>Maps jouées :</p>
-            <div className="flex flex-wrap justify-center gap-1.5">{(draft.picks||[]).map((m:string,i:number)=><span key={i} className="px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>{m}</span>)}</div>
-          </div>
-        )}
+        {/* Fin de draft */}
+        {isFinished&&(draft.picks||[]).length>0&&<div className="rounded-2xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
+          <p className="text-2xl mb-2">🎉</p>
+          <p className="text-sm font-black mb-3" style={{color:P}}>Draft terminée !</p>
+          <div className="flex flex-wrap justify-center gap-1.5">{(draft.picks||[]).map((m:string,i:number)=><span key={i} className="px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>{m}</span>)}</div>
+        </div>}
       </div>
     </div>
   })}</div>}
 
-  {showAddDraft&&<Mo onClose={()=>setShowAddDraft(false)} title="🎲 Nouvelle Draft" sub="Draft officielle Rocket League">
-    <div className="space-y-3 mb-4">
+  {/* ✅ MODALE CRÉATION DRAFT - Input sans fermeture clavier */}
+  {showAddDraft&&<Mo onClose={()=>{setShowAddDraft(false);setDraftAdversaire('')}} title="🎲 Nouvelle Draft" sub="Draft officielle Rocket League">
+    <div className="space-y-3 mb-5">
       <div>
-        <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{color:T.textMuted}}>Équipe 1</p>
-        <input type="text" value={nouvelleDraft.equipe1} onChange={(e:any)=>setNouvelleDraft({...nouvelleDraft,equipe1:e.target.value})} className={iCls} style={IS}/>
+        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 1</p>
+        <div className="rounded-2xl px-4 py-3.5 text-sm font-black" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:P}}>DYNO</div>
       </div>
       <div>
-        <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{color:T.textMuted}}>Équipe 2 (Adversaire)</p>
-        <input type="text" placeholder="Nom de l'adversaire" value={nouvelleDraft.equipe2} onChange={(e:any)=>setNouvelleDraft({...nouvelleDraft,equipe2:e.target.value})} className={iCls} style={IS}/>
+        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 2 (Adversaire)</p>
+        {/* ✅ Input simple sans aucun handler de fermeture */}
+        <input
+          type="text"
+          placeholder="Nom de l'adversaire"
+          value={draftAdversaire}
+          onChange={e=>setDraftAdversaire(e.target.value)}
+          className={iCls}
+          style={IS}
+          autoFocus={false}
+        />
       </div>
       <div className="rounded-2xl p-3" style={{background:isDark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)',border:`1px solid ${T.cardBorder}`}}>
-        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>📋 Séquence officielle</p>
-        {DRAFT_SEQUENCE.map((s,i)=>(
-          <p key={i} className="text-[9px] mb-1" style={{color:T.textMuted}}>{i+1}. {s.label} ({s.who==='winner'?'Gagnant pile/face':'Perdant pile/face'})</p>
-        ))}
+        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>🤖 Comment ça marche</p>
+        <div className="space-y-1">
+          <p className="text-[9px]" style={{color:T.textMuted}}>• 🪙 Tu lances la pièce → résultat aléatoire</p>
+          <p className="text-[9px]" style={{color:T.textMuted}}>• Si DYNO gagne → tu choisis le côté</p>
+          <p className="text-[9px]" style={{color:T.textMuted}}>• L'adversaire joue automatiquement 🤖</p>
+          <p className="text-[9px]" style={{color:T.textMuted}}>• DYNO choisit ses picks/bans manuellement</p>
+        </div>
       </div>
     </div>
     <GBtn onClick={creerDraft}>✅ Créer la draft</GBtn>
@@ -848,8 +989,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       {mn.length===0&&mc.length===0&&ma.length===0&&<p className="text-center text-[10px] pb-4" style={{color:T.textMuted}}>Aucune donnée</p>}
     </div>
   })}</div>}
-
-  {/* ✅ MODALE NOTE COMPACTE - Plus besoin de scroller */}
   {noteEdit&&<Mo onClose={()=>setNoteEdit(null)} title="✏️ Modifier ma note" sub={noteEdit.joueur}>
     <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
       <div key={key}>
@@ -866,8 +1005,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <button onClick={updateNote} className="flex-1 py-2.5 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
     </div>
   </Mo>}
-
-  {/* ✅ MODALE AJOUT NOTE COMPACTE avec boutons +/- */}
   {selectedMatchForNotes&&<Mo onClose={()=>setSelectedMatchForNotes(null)} title={`📊 ${selectedMatchForNotes.adversaire}`} sub="Évalue la performance (0 à 10)">
     <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
       <div key={key}>
@@ -968,7 +1105,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           <div className="grid grid-cols-3 gap-2">{[{v:b.am,l:'🧠',c:'#c084fc'},{v:b.ac,l:'💬',c:'#60a5fa'},{v:b.ap,l:'🎯',c:'#4ade80'}].map(({v,l,c})=><div key={l} className="text-center rounded-xl py-3" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)'}}><p className="text-2xl font-black" style={{color:c}}>{v}</p><p className="text-[8px] mt-1" style={{color:T.textMuted}}>{l}</p></div>)}</div>
         </div>
       </div>
-      <button onClick={()=>setShowBilan(false)} className="w-full py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Fermer</button>
     </Mo>
   )})()}
 </div>
@@ -1024,7 +1160,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
         </div>
       </div>
       <div className="rounded-3xl p-5" style={CS}>
-        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>✏️ Modifier les Scores</p>
+        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>✏️ Scores</p>
         {matchs.length===0?<p className="text-center text-xs py-4" style={{color:T.textMuted}}>Aucun match</p>:(
           <div className="space-y-2">{matchs.map((m:any)=>(
             <div key={m.id} className="flex items-center justify-between p-3.5 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',border:`1px solid ${T.cardBorder}`}}>
@@ -1039,7 +1175,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
         )}
       </div>
       <div className="rounded-3xl p-5" style={CS}>
-        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:'rgba(239,68,68,.6)'}}>🗑️ Supprimer Matchs</p>
+        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:'rgba(239,68,68,.6)'}}>🗑️ Matchs</p>
         {matchs.length===0?<p className="text-center text-xs py-4" style={{color:T.textMuted}}>Aucun match</p>:(
           <div className="space-y-2">{matchs.map((m:any)=>(
             <div key={m.id} className="flex items-center justify-between p-3.5 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',border:`1px solid ${T.cardBorder}`}}>
