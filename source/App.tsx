@@ -9,7 +9,27 @@ const app=initializeApp(firebaseConfig),db=getFirestore(app),auth=getAuth(app)
 setPersistence(auth,browserLocalPersistence).catch(()=>{})
 const DW='https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const YT='https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC',LG='https://i.imgur.com/gTLj57a.png',AE='thibaut.llorens@hotmail.com'
+
+// ✅ 8 maps officielles Rocket League seulement
+const DRAFT_MAPS=['Atlantis','Engine','Horizon','Helios','Lunar','Polaris','The Cliff','Silva']
 const AM=['Engine','Helios','Silva','The Cliff','Artefact','Outlaw','Atlantis','Horizon','Polaris','Lunar','Ceres']
+
+// ✅ Séquence de draft officielle
+// étape 0 = pile ou face, 1 = choix côté (gagnant), 2 = choix skin (perdant)
+// 3 = ban (gagnant), 4 = ban (perdant), 5 = pick (perdant), 6 = pick (gagnant)
+// 7 = ban (gagnant), 8 = ban (perdant), 9 = pick (perdant)
+const DRAFT_SEQUENCE=[
+  {step:0,type:'coin',label:'🪙 Pile ou Face',desc:'Admin lance la pièce et désigne le gagnant',who:'admin'},
+  {step:1,type:'side',label:'🌍 Choix du côté',desc:'Équipe gagnante choisit son côté (Orange ou Bleu)',who:'winner'},
+  {step:2,type:'skin',label:'🎨 Choix du skin',desc:"Équipe perdante choisit le skin de l'arène",who:'loser'},
+  {step:3,type:'ban',label:'❌ Ban',desc:'Équipe gagnante banne une map',who:'winner'},
+  {step:4,type:'ban',label:'❌ Ban',desc:'Équipe perdante banne une map',who:'loser'},
+  {step:5,type:'pick',label:'✅ Pick',desc:'Équipe perdante pick une map',who:'loser'},
+  {step:6,type:'pick',label:'✅ Pick',desc:'Équipe gagnante pick une map',who:'winner'},
+  {step:7,type:'ban',label:'❌ Ban',desc:'Équipe gagnante banne une map',who:'winner'},
+  {step:8,type:'ban',label:'❌ Ban',desc:'Équipe perdante banne une map',who:'loser'},
+  {step:9,type:'pick',label:'✅ Pick final',desc:'Équipe perdante pick la dernière map',who:'loser'},
+]
 
 const THEMES:Record<string,any>={
   gold:{name:'Or/Noir',icon:'🥇',primary:'#D4AF37',primary2:'#FFD700',g:`linear-gradient(135deg,#D4AF37,#FFD700,#D4AF37)`,g2:`linear-gradient(135deg,#D4AF37 0%,#FFD700 50%,#B8860B 100%)`,dark:{bg:'radial-gradient(ellipse at top center,#100c00 0%,#050400 45%,#020200 100%)',card:'rgba(20,16,4,0.97)',cardBorder:'rgba(212,175,55,0.15)',text:'#f5f0e0',textMuted:'rgba(245,240,224,0.45)',input:'rgba(255,255,255,0.07)',inputBorder:'rgba(212,175,55,0.2)',navBg:'rgba(5,4,0,0.98)',navBorder:'rgba(212,175,55,0.1)',header:'rgba(6,5,0,0.97)'},light:{bg:'radial-gradient(ellipse at top center,#fffbea 0%,#fdf6d3 45%,#faf0c0 100%)',card:'rgba(255,250,220,0.97)',cardBorder:'rgba(180,140,20,0.25)',text:'#1a1200',textMuted:'rgba(30,20,0,0.5)',input:'rgba(180,140,20,0.1)',inputBorder:'rgba(180,140,20,0.3)',navBg:'rgba(255,248,200,0.99)',navBorder:'rgba(180,140,20,0.25)',header:'rgba(255,248,200,0.99)'}},
@@ -24,14 +44,13 @@ const ROLE_COLORS:Record<string,string>={Joueur:'rgba(255,255,255,0.3)',Capitain
 function App(){
 const[isDark,setIsDark]=useState(()=>localStorage.getItem('dyno-theme')!=='light')
 const[themeKey,setThemeKey]=useState(()=>localStorage.getItem('dyno-theme-color')||'gold')
-const[showThemePicker,setShowThemePicker]=useState(false)
 const TH=THEMES[themeKey]
 const T=isDark?TH.dark:TH.light
 const P=TH.primary,P2=TH.primary2,G=TH.g,G2=TH.g2
 const toggleTheme=()=>{const n=!isDark;setIsDark(n);localStorage.setItem('dyno-theme',n?'dark':'light')}
-const setTheme=(k:string)=>{setThemeKey(k);localStorage.setItem('dyno-theme-color',k);setShowThemePicker(false)}
+const setTheme=(k:string)=>{setThemeKey(k);localStorage.setItem('dyno-theme-color',k)}
 
-// ✅ FIX MODALE : centré + onMouseDown pour éviter fermeture clavier
+// ✅ MODALE CENTRÉE - onMouseDown pour éviter fermeture clavier
 const Mo=({onClose,children,title,sub}:{onClose:()=>void,children:any,title?:string,sub?:string})=>(
   <div className="fixed inset-0 z-50 flex items-center justify-center px-3"
     style={{background:'rgba(0,0,0,0.93)',backdropFilter:'blur(28px)'}}
@@ -39,11 +58,11 @@ const Mo=({onClose,children,title,sub}:{onClose:()=>void,children:any,title?:str
     <div className="w-full max-w-sm rounded-3xl max-h-[88vh] overflow-y-auto"
       style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 32px 80px rgba(0,0,0,0.9)'}}>
       <div className="sticky top-0 pt-4 pb-3 px-6 z-10" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`}}>
-        <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{background:`${P}50`}}/>
-        {title&&<h3 className="text-lg font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{title}</h3>}
+        <div className="w-10 h-1 rounded-full mx-auto mb-3" style={{background:`${P}50`}}/>
+        {title&&<h3 className="text-base font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{title}</h3>}
         {sub&&<p className="text-xs mt-0.5" style={{color:T.textMuted}}>{sub}</p>}
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-5">{children}</div>
     </div>
   </div>
 )
@@ -82,7 +101,7 @@ const[drafts,setDrafts]=useState<any[]>([])
 const[nouveauMatch,setNouveauMatch]=useState({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[] as {adversaire:string,scoreDyno:string,scoreAdv:string}[]})
 const[scoreEdit,setScoreEdit]=useState<any>(null)
 const[nouveauReplay,setNouveauReplay]=useState({titre:'',lien:''})
-const[nouvelleNote,setNouvelleNote]=useState({matchId:'',mental:'',communication:'',gameplay:''})
+const[nouvelleNote,setNouvelleNote]=useState({matchId:'',mental:0,communication:0,gameplay:0})
 const[selectedMatchForNotes,setSelectedMatchForNotes]=useState<any>(null)
 const[nouvelleStrat,setNouvelleStrat]=useState({adversaire:'',picks:[] as string[],bans:[] as string[]})
 const[showAddStrat,setShowAddStrat]=useState(false)
@@ -115,7 +134,7 @@ const[showNotifSettings,setShowNotifSettings]=useState(false)
 const[notifSettings,setNotifSettings]=useState(()=>{try{return JSON.parse(localStorage.getItem('dyno-notif-settings')||'{"match":true,"note":true,"commentaire":true,"strat":true,"resultat":true}')}catch{return{match:true,note:true,commentaire:true,strat:true,resultat:true}}})
 const saveNotifSettings=(s:any)=>{setNotifSettings(s);localStorage.setItem('dyno-notif-settings',JSON.stringify(s))}
 const[showAddDraft,setShowAddDraft]=useState(false)
-const[nouvelleDraft,setNouvelleDraft]=useState({adversaire:''})
+const[nouvelleDraft,setNouvelleDraft]=useState({adversaire:'',equipe1:'DYNO',equipe2:''})
 const pm=useRef(0),pn=useRef(0),pc=useRef(0),ps=useRef(0),ty=useRef(0)
 
 useEffect(()=>{if(window.location.search.includes('reset=1')){localStorage.clear();window.location.href=window.location.pathname}},[])
@@ -170,7 +189,7 @@ const ajouterSousMatchEdit=()=>{if(!scoreEdit)return;const adv=scoreEdit._newSub
 const supprimerSousMatchEdit=(i:number)=>{if(!scoreEdit)return;const sm=[...(scoreEdit.sousMatchs||[])];sm.splice(i,1);setScoreEdit({...scoreEdit,sousMatchs:sm})}
 const ajouterMatch=async()=>{if(!nouveauMatch.adversaire||!nouveauMatch.date||!nouveauMatch.horaire1){alert('⚠️');return};const md:any={...nouveauMatch,termine:false,disponibles:[],indisponibles:[],createdAt:Date.now()};if(nouveauMatch.type==='Division'&&nouveauMatch.sousMatchs.length>0){md.termine=true;md.sousMatchs=nouveauMatch.sousMatchs;md.scoreDyno=nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0);md.scoreAdversaire=nouveauMatch.sousMatchs.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)};await addDoc(collection(db,'matchs'),md);const h=[nouveauMatch.horaire1];if(nouveauMatch.horaire2)h.push(nouveauMatch.horaire2);try{await fetch(DW,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({embeds:[{title:'🎮 DYNO vs '+nouveauMatch.adversaire,color:13934871,fields:[{name:'⚔️',value:nouveauMatch.adversaire,inline:true},{name:'📅',value:nouveauMatch.date,inline:true},{name:'⏰',value:h.join(' / '),inline:true},{name:'🏟️',value:nouveauMatch.arene,inline:true},{name:'📊',value:nouveauMatch.type,inline:true}],footer:{text:'DYNO',icon_url:LG}}]})})}catch{};setNouveauMatch({adversaire:'',date:'',horaire1:'',horaire2:'',arene:'Arène 1',type:'Ligue',sousMatchs:[]});setNewSubAdv('');setNewSubScoreDyno('');setNewSubScoreAdv('');alert('✅')}
 const ajouterReplay=async()=>{if(!nouveauReplay.titre||!nouveauReplay.lien){alert('⚠️');return};await addDoc(collection(db,'replays'),{...nouveauReplay,createdAt:Date.now()});setNouveauReplay({titre:'',lien:''});alert('✅')}
-const ajouterNote=async()=>{if(!user)return;const{matchId:_,...noteData}=nouvelleNote;await addDoc(collection(db,'notes'),{matchId:selectedMatchForNotes?.id,joueur:pseudo,joueurId:user.uid,...noteData,createdAt:Date.now()});setNouvelleNote({matchId:'',mental:'',communication:'',gameplay:''});setSelectedMatchForNotes(null);alert('✅')}
+const ajouterNote=async()=>{if(!user)return;await addDoc(collection(db,'notes'),{matchId:selectedMatchForNotes?.id,joueur:pseudo,joueurId:user.uid,mental:String(nouvelleNote.mental),communication:String(nouvelleNote.communication),gameplay:String(nouvelleNote.gameplay),createdAt:Date.now()});setNouvelleNote({matchId:'',mental:0,communication:0,gameplay:0});setSelectedMatchForNotes(null);alert('✅')}
 const ajouterCommentaire=async(id:string)=>{if(!user||!nouveauCommentaire.trim())return;await addDoc(collection(db,'commentaires'),{matchId:id,joueur:pseudo,joueurId:user.uid,texte:nouveauCommentaire.trim(),createdAt:Date.now()});setNouveauCommentaire('');setSelectedMatchForComment(null)}
 const ajouterStrat=async()=>{if(!nouvelleStrat.adversaire||nouvelleStrat.picks.length===0||nouvelleStrat.bans.length===0){alert('⚠️');return};await addDoc(collection(db,'strats'),{adversaire:nouvelleStrat.adversaire,picks:nouvelleStrat.picks,bans:nouvelleStrat.bans,auteur:pseudo,auteurId:user?.uid,createdAt:Date.now()});setNouvelleStrat({adversaire:'',picks:[],bans:[]});setShowAddStrat(false);alert('✅')}
 const ajouterCompo=async()=>{if(!selectedMapCompo||compoJoueurs.length===0){alert('⚠️');return};const ex=compos.find((c:any)=>c.map===selectedMapCompo);if(ex){await updateDoc(doc(db,'compos',ex.id),{joueurs:compoJoueurs,updatedAt:Date.now()})}else{await addDoc(collection(db,'compos'),{map:selectedMapCompo,joueurs:compoJoueurs,auteur:pseudo,createdAt:Date.now()})};setShowAddCompo(false);setSelectedMapCompo('');setCompoJoueurs([]);alert('✅')}
@@ -186,9 +205,65 @@ const toggleIndispo=async(mid:string)=>{if(!user)return;const m=matchs.find((x:a
 const ajouterSondage=async()=>{if(!nouveauSondage.question.trim()||nouveauSondage.options.filter((o:string)=>o.trim()).length<2){alert('⚠️ Question + 2 options min!');return};const opts=nouveauSondage.options.filter((o:string)=>o.trim()).reduce((acc:any,o:string)=>{acc[o]={label:o,votes:[]};return acc},{});await addDoc(collection(db,'sondages'),{question:nouveauSondage.question.trim(),options:opts,auteur:pseudo,auteurId:user?.uid,actif:true,createdAt:Date.now()});setNouveauSondage({question:'',options:['','']});setShowAddSondage(false);alert('✅')}
 const voterSondage=async(sid:string,ok:string)=>{if(!user)return;const s=sondages.find((x:any)=>x.id===sid);if(!s)return;const opts={...s.options};Object.keys(opts).forEach(k=>{opts[k]={...opts[k],votes:(opts[k].votes||[]).filter((v:string)=>v!==user.uid)}});opts[ok]={...opts[ok],votes:[...(opts[ok].votes||[]),user.uid]};await updateDoc(doc(db,'sondages',sid),{options:opts})}
 const clotureSondage=async(id:string)=>{await updateDoc(doc(db,'sondages',id),{actif:false})}
-const creerDraft=async()=>{if(!nouvelleDraft.adversaire.trim()){alert('⚠️');return};await addDoc(collection(db,'drafts'),{adversaire:nouvelleDraft.adversaire.trim(),picks:[],bans:[],auteur:pseudo,actif:true,createdAt:Date.now()});setNouvelleDraft({adversaire:''});setShowAddDraft(false);alert('✅')}
-const draftAction=async(draftId:string,map:string,type:'pick'|'ban')=>{if(!user)return;const d=drafts.find((x:any)=>x.id===draftId);if(!d||!d.actif)return;const field=type==='pick'?'picks':'bans';const current=d[field]||[];if(current.includes(map)){await updateDoc(doc(db,'drafts',draftId),{[field]:current.filter((m:string)=>m!==map)})}else{await updateDoc(doc(db,'drafts',draftId),{[field]:[...current,map]})}}
-const clotureDraft=async(id:string)=>{await updateDoc(doc(db,'drafts',id),{actif:false})}
+
+// ✅ DRAFT - Fonctions complètes
+const creerDraft=async()=>{
+  if(!nouvelleDraft.adversaire.trim()||!nouvelleDraft.equipe2.trim()){alert('⚠️ Remplis tous les champs!');return}
+  await addDoc(collection(db,'drafts'),{
+    adversaire:nouvelleDraft.adversaire.trim(),
+    equipe1:nouvelleDraft.equipe1,
+    equipe2:nouvelleDraft.equipe2.trim(),
+    currentStep:0,
+    winner:'',
+    winnerSide:'',
+    loserSkin:'',
+    picks:[],
+    bans:[],
+    actions:[],
+    actif:true,
+    auteur:pseudo,
+    createdAt:Date.now()
+  })
+  setNouvelleDraft({adversaire:'',equipe1:'DYNO',equipe2:''})
+  setShowAddDraft(false)
+  alert('✅ Draft créée!')
+}
+const draftCoinResult=async(draftId:string,winnerId:string)=>{
+  await updateDoc(doc(db,'drafts',draftId),{winner:winnerId,currentStep:1,actions:[{step:0,type:'coin',label:`🪙 ${winnerId} remporte le pile ou face`,at:Date.now()}]})
+}
+const draftSideChoice=async(draftId:string,side:string)=>{
+  const d=drafts.find((x:any)=>x.id===draftId)
+  if(!d)return
+  const actions=[...(d.actions||[]),{step:1,type:'side',label:`🌍 ${d.winner} choisit le côté ${side}`,at:Date.now()}]
+  await updateDoc(doc(db,'drafts',draftId),{winnerSide:side,currentStep:2,actions})
+}
+const draftSkinChoice=async(draftId:string,skin:string)=>{
+  const d=drafts.find((x:any)=>x.id===draftId)
+  if(!d)return
+  const loser=d.winner===d.equipe1?d.equipe2:d.equipe1
+  const actions=[...(d.actions||[]),{step:2,type:'skin',label:`🎨 ${loser} choisit le skin : ${skin}`,at:Date.now()}]
+  await updateDoc(doc(db,'drafts',draftId),{loserSkin:skin,currentStep:3,actions})
+}
+const draftMapAction=async(draftId:string,map:string)=>{
+  const d=drafts.find((x:any)=>x.id===draftId)
+  if(!d||!d.actif)return
+  const step=d.currentStep
+  const seq=DRAFT_SEQUENCE[step]
+  if(!seq||seq.type==='coin'||seq.type==='side'||seq.type==='skin')return
+  const who=seq.who==='winner'?d.winner:(d.winner===d.equipe1?d.equipe2:d.equipe1)
+  const newActions=[...(d.actions||[]),{step,type:seq.type,map,label:`${seq.type==='pick'?'✅ Pick':'❌ Ban'} ${map} par ${who}`,at:Date.now()}]
+  const newPicks=seq.type==='pick'?[...(d.picks||[]),map]:d.picks||[]
+  const newBans=seq.type==='ban'?[...(d.bans||[]),map]:d.bans||[]
+  const nextStep=step+1
+  const isFinished=nextStep>=DRAFT_SEQUENCE.length
+  await updateDoc(doc(db,'drafts',draftId),{picks:newPicks,bans:newBans,actions:newActions,currentStep:nextStep,actif:!isFinished})
+}
+const resetDraft=async(draftId:string)=>{
+  const d=drafts.find((x:any)=>x.id===draftId)
+  if(!d)return
+  await updateDoc(doc(db,'drafts',draftId),{currentStep:0,winner:'',winnerSide:'',loserSkin:'',picks:[],bans:[],actions:[],actif:true})
+}
+
 const fdf=(s:string)=>{if(!s)return'';if(s.includes('/'))return s;const[y,m,d]=s.split('-');return`${d}/${m}/${y}`}
 const fts=(t:number)=>{const d=new Date(t);return`${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`}
 const atc=(m:any)=>{try{if(!m?.date)return;let y:string,mo:string,d:string;if(m.date.includes('/')){const[dd,mm,yy]=m.date.split('/');d=dd;mo=mm;y=yy}else{const[yy,mm,dd]=m.date.split('-');y=yy;mo=mm;d=dd};const md=`${y}${mo}${d}`;let h='20',mi='00';if(m.horaires?.length>0){const[hh,mm]=m.horaires[0].split(':');h=hh;mi=mm||'00'}else if(m.horaire1){const[hh,mm]=m.horaire1.split(':');h=hh;mi=mm||'00'};const st=`${h}${mi}00`,et=`${(parseInt(h)+2).toString().padStart(2,'0')}${mi}00`;if(/iPad|iPhone|iPod/.test(navigator.userAgent)){const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:${m.id}@d\nDTSTAMP:${new Date().toISOString().replace(/[-:]/g,'').split('.')[0]}Z\nDTSTART:${md}T${st}\nDTEND:${md}T${et}\nSUMMARY:DYNO vs ${m.adversaire}\nLOCATION:${m.arene}\nEND:VEVENT\nEND:VCALENDAR`;const b=new Blob([ics],{type:'text/calendar'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`D_${m.adversaire}.ics`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)}else{window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`DYNO vs ${m.adversaire}`)}&dates=${md}T${st}/${md}T${et}&location=${encodeURIComponent(m.arene)}`,'_blank')}}catch(e:any){alert('❌ '+e.message)}}
@@ -271,19 +346,13 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 ::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:${P}40;border-radius:10px}
 `}</style>
 
-{/* FOND ANIMÉ */}
 <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-  {particles.map(p=>(
-    <div key={p.id} className="absolute rounded-full" style={{width:`${p.size}px`,height:`${p.size}px`,left:`${p.x}%`,bottom:'-10px',background:P,opacity:p.opacity,animation:`float ${p.duration}s linear ${p.delay}s infinite`}}/>
-  ))}
+  {particles.map(p=><div key={p.id} className="absolute rounded-full" style={{width:`${p.size}px`,height:`${p.size}px`,left:`${p.x}%`,bottom:'-10px',background:P,opacity:p.opacity,animation:`float ${p.duration}s linear ${p.delay}s infinite`}}/>)}
 </div>
 
-{/* CONFETTIS */}
 {showConfetti&&(
   <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
-    {Array.from({length:80}).map((_,i)=>(
-      <div key={i} className="absolute top-0" style={{left:`${Math.random()*100}%`,width:`${6+Math.random()*8}px`,height:`${6+Math.random()*8}px`,background:['#D4AF37','#FFD700','#ffffff','#f87171','#4ade80','#60a5fa'][Math.floor(Math.random()*6)],borderRadius:Math.random()>.5?'50%':'2px',animation:`conffall ${1.5+Math.random()*2.5}s linear ${Math.random()*1.5}s both`}}/>
-    ))}
+    {Array.from({length:80}).map((_,i)=><div key={i} className="absolute top-0" style={{left:`${Math.random()*100}%`,width:`${6+Math.random()*8}px`,height:`${6+Math.random()*8}px`,background:['#D4AF37','#FFD700','#ffffff','#f87171','#4ade80','#60a5fa'][Math.floor(Math.random()*6)],borderRadius:Math.random()>.5?'50%':'2px',animation:`conffall ${1.5+Math.random()*2.5}s linear ${Math.random()*1.5}s both`}}/>)}
     <div className="absolute inset-0 flex items-center justify-center">
       <div className="rounded-3xl px-8 py-6 text-center" style={{background:'rgba(0,0,0,0.8)',backdropFilter:'blur(20px)',border:`1px solid ${P}40`}}>
         <p className="text-5xl mb-2">🏆</p>
@@ -293,7 +362,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   </div>
 )}
 
-{/* ✅ HEADER CORRIGÉ - 🎨 retiré pour libérer de la place */}
 <header className="sticky top-0 z-50" style={{background:T.header,backdropFilter:'blur(32px)',borderBottom:`1px solid ${T.navBorder}`,boxShadow:'0 4px 32px rgba(0,0,0,0.5)'}}>
   <div className="max-w-lg mx-auto px-3 py-2.5 flex items-center justify-between">
     <div className="flex items-center gap-2 flex-shrink-0">
@@ -302,54 +370,47 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     </div>
     <div className="flex items-center gap-1.5">
       <button onClick={toggleTheme} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 flex-shrink-0" style={{background:`${P}10`,border:`1px solid ${T.cardBorder}`}}><span className="text-sm">{isDark?'☀️':'🌙'}</span></button>
-      {user&&(
-        <button onClick={()=>{setShowNotifSettings(true);markAllRead()}} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 relative flex-shrink-0" style={{background:notificationsEnabled?`${P}15`:'rgba(255,255,255,.05)',border:`1px solid ${T.cardBorder}`}}>
-          <span className="text-sm">{notificationsEnabled?'🔔':'🔕'}</span>
-          {unreadCount>0&&<div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white bdg" style={{background:'#ef4444'}}>{unreadCount>9?'9+':unreadCount}</div>}
-        </button>
-      )}
+      {user&&<button onClick={()=>{setShowNotifSettings(true);markAllRead()}} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 relative flex-shrink-0" style={{background:notificationsEnabled?`${P}15`:'rgba(255,255,255,.05)',border:`1px solid ${T.cardBorder}`}}>
+        <span className="text-sm">{notificationsEnabled?'🔔':'🔕'}</span>
+        {unreadCount>0&&<div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white bdg" style={{background:'#ef4444'}}>{unreadCount>9?'9+':unreadCount}</div>}
+      </button>}
       {showInstall&&<button onClick={handleInstall} className="px-2 py-1.5 rounded-xl text-xs font-bold active:scale-95 flex-shrink-0" style={{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.25)'}}>📲</button>}
-      {user?(<button onClick={handleSignOut} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl active:scale-95 flex-shrink-0" style={{background:`${P}10`,border:`1px solid ${T.cardBorder}`}}>
+      {user?<button onClick={handleSignOut} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl active:scale-95 flex-shrink-0" style={{background:`${P}10`,border:`1px solid ${T.cardBorder}`}}>
         <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0" style={{background:G2,color:'#000'}}>{pseudo[0]?.toUpperCase()||'?'}</div>
         <span className="text-xs font-bold max-w-[55px] truncate" style={{color:P}}>{pseudo}</span>
-      </button>):(<button onClick={()=>setIsSignUp(false)} className="px-3 py-1.5 rounded-xl text-xs font-black active:scale-95 flex-shrink-0" style={{background:G2,color:'#000'}}>Connexion</button>)}
+      </button>:<button onClick={()=>setIsSignUp(false)} className="px-3 py-1.5 rounded-xl text-xs font-black active:scale-95 flex-shrink-0" style={{background:G2,color:'#000'}}>Connexion</button>}
     </div>
   </div>
 </header>
 
-{/* PANNEAU NOTIFS + THÈME INTÉGRÉS */}
-{showNotifSettings&&(
-  <Mo onClose={()=>setShowNotifSettings(false)} title="⚙️ Réglages" sub="Notifications et thème">
-    {/* SÉLECTEUR DE THÈME ICI */}
-    <div className="mb-5">
-      <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🎨 Thème de couleur</p>
-      <div className="grid grid-cols-4 gap-2">
-        {Object.entries(THEMES).map(([key,th])=>(
-          <button key={key} onClick={()=>setTheme(key)} className="p-2.5 rounded-2xl text-center transition-all active:scale-95 relative" style={{background:themeKey===key?`${th.primary}22`:'rgba(255,255,255,0.04)',border:`2px solid ${themeKey===key?th.primary:T.cardBorder}`}}>
-            {themeKey===key&&<div className="absolute top-1 right-1 w-3 h-3 rounded-full flex items-center justify-center text-[8px]" style={{background:th.primary,color:'#000'}}>✓</div>}
-            <p className="text-xl mb-1">{th.icon}</p>
-            <p className="text-[8px] font-black leading-tight" style={{color:th.primary}}>{th.name}</p>
-          </button>
-        ))}
-      </div>
-    </div>
-    <div className="h-px mb-4" style={{background:`linear-gradient(90deg,transparent,${T.cardBorder},transparent)`}}/>
-    {/* NOTIFS */}
-    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🔔 Notifications</p>
-    <div className="space-y-2.5 mb-5">
-      {[{k:'match',label:'📅 Matchs à venir',desc:'1h, 15min et au lancement'},{k:'note',label:'📊 Nouvelles notes',desc:'Quand un joueur note'},{k:'commentaire',label:'💬 Commentaires',desc:"Quand quelqu'un commente"},{k:'strat',label:'🎯 Nouvelles strats',desc:'Quand une strat est ajoutée'},{k:'resultat',label:'🏆 Résultats',desc:'Quand un score est entré'}].map(({k,label,desc})=>(
-        <div key={k} className="flex items-center justify-between p-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}>
-          <div><p className="text-xs font-bold" style={{color:T.text}}>{label}</p><p className="text-[9px] mt-0.5" style={{color:T.textMuted}}>{desc}</p></div>
-          <button onClick={()=>saveNotifSettings({...notifSettings,[k]:!notifSettings[k]})} className="w-11 h-6 rounded-full relative transition-all flex-shrink-0 ml-2" style={{background:notifSettings[k]?G2:'rgba(255,255,255,.12)'}}>
-            <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all" style={{left:notifSettings[k]?'calc(100% - 22px)':'2px'}}/>
-          </button>
-        </div>
+{showNotifSettings&&<Mo onClose={()=>setShowNotifSettings(false)} title="⚙️ Réglages" sub="Thème et notifications">
+  <div className="mb-4">
+    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🎨 Thème</p>
+    <div className="grid grid-cols-4 gap-2">
+      {Object.entries(THEMES).map(([key,th])=>(
+        <button key={key} onClick={()=>setTheme(key)} className="p-2.5 rounded-2xl text-center active:scale-95 relative" style={{background:themeKey===key?`${th.primary}22`:'rgba(255,255,255,0.04)',border:`2px solid ${themeKey===key?th.primary:T.cardBorder}`}}>
+          {themeKey===key&&<div className="absolute top-1 right-1 w-3 h-3 rounded-full flex items-center justify-center text-[8px]" style={{background:th.primary,color:'#000'}}>✓</div>}
+          <p className="text-xl mb-1">{th.icon}</p>
+          <p className="text-[8px] font-black leading-tight" style={{color:th.primary}}>{th.name}</p>
+        </button>
       ))}
     </div>
-    {!notificationsEnabled&&<button onClick={async()=>{await requestNotificationPermission();setShowNotifSettings(false)}} className="w-full py-3 rounded-2xl font-black text-sm text-black mb-3" style={{background:G2}}>🔔 Activer les notifications</button>}
-    <button onClick={()=>setShowNotifSettings(false)} className="w-full py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Fermer</button>
-  </Mo>
-)}
+  </div>
+  <div className="h-px mb-4" style={{background:`linear-gradient(90deg,transparent,${T.cardBorder},transparent)`}}/>
+  <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🔔 Notifications</p>
+  <div className="space-y-2.5 mb-4">
+    {[{k:'match',label:'📅 Matchs'},{k:'note',label:'📊 Notes'},{k:'commentaire',label:'💬 Commentaires'},{k:'strat',label:'🎯 Strats'},{k:'resultat',label:'🏆 Résultats'}].map(({k,label})=>(
+      <div key={k} className="flex items-center justify-between p-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}>
+        <p className="text-xs font-bold" style={{color:T.text}}>{label}</p>
+        <button onClick={()=>saveNotifSettings({...notifSettings,[k]:!notifSettings[k]})} className="w-11 h-6 rounded-full relative transition-all flex-shrink-0" style={{background:notifSettings[k]?G2:'rgba(255,255,255,.12)'}}>
+          <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all" style={{left:notifSettings[k]?'calc(100% - 22px)':'2px'}}/>
+        </button>
+      </div>
+    ))}
+  </div>
+  {!notificationsEnabled&&<button onClick={async()=>{await requestNotificationPermission();setShowNotifSettings(false)}} className="w-full py-3 rounded-2xl font-black text-sm text-black mb-3" style={{background:G2}}>🔔 Activer</button>}
+  <button onClick={()=>setShowNotifSettings(false)} className="w-full py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Fermer</button>
+</Mo>}
 
 <main className="max-w-lg mx-auto px-4 py-5 relative z-10" onTouchStart={hts} onTouchMove={htm} onTouchEnd={hte}>
 {pullDistance>0&&<div className="flex justify-center mb-3" style={{height:pullDistance}}><span className={`text-2xl ${pullDistance>60?'rotate-180':''}`} style={{color:P}}>{isRefreshing?'⏳':'↓'}</span></div>}
@@ -458,10 +519,9 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       </div>
     </div>
   })}</div>}
-  {showAddSondage&&<Mo onClose={()=>setShowAddSondage(false)} title="🗳️ Nouveau Sondage" sub="Vote pour l'équipe">
-    <div className="space-y-3 mb-5">
+  {showAddSondage&&<Mo onClose={()=>setShowAddSondage(false)} title="🗳️ Nouveau Sondage">
+    <div className="space-y-3 mb-4">
       <input type="text" placeholder="Ta question..." value={nouveauSondage.question} onChange={(e:any)=>setNouveauSondage({...nouveauSondage,question:e.target.value})} className={iCls} style={IS}/>
-      <p className="text-[10px] font-black uppercase tracking-widest" style={{color:`${P}70`}}>Options</p>
       {nouveauSondage.options.map((opt:string,i:number)=><div key={i} className="flex gap-2">
         <input type="text" placeholder={`Option ${i+1}`} value={opt} onChange={(e:any)=>{const o=[...nouveauSondage.options];o[i]=e.target.value;setNouveauSondage({...nouveauSondage,options:o})}} className={`flex-1 ${iCls}`} style={IS}/>
         {nouveauSondage.options.length>2&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:nouveauSondage.options.filter((_:string,j:number)=>j!==i)})} className="px-3 rounded-xl font-bold text-xl" style={{background:'rgba(239,68,68,.1)',color:'#f87171'}}>×</button>}
@@ -473,57 +533,168 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 </div>
 )}
 
+{/* ✅ DRAFT COMPLÈTE AVEC VRAIES RÈGLES */}
 {activeTab==='draft'&&(
 <div className="ce"><ST icon="🎲" title="Draft Maps"/>
   {canCreateDraft&&<GBtn onClick={()=>setShowAddDraft(true)} cls="mb-5">➕ Nouvelle Draft</GBtn>}
-  {drafts.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🎲</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune draft</p></div>
-  :<div className="space-y-4">{drafts.map((draft:any,idx:number)=>(
-    <div key={draft.id} className="rounded-3xl overflow-hidden ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
+  {drafts.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🎲</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune draft en cours</p></div>
+  :<div className="space-y-4">{drafts.map((draft:any,idx:number)=>{
+    const currentSeq=DRAFT_SEQUENCE[draft.currentStep]
+    const isFinished=!draft.actif||(draft.currentStep>=DRAFT_SEQUENCE.length)
+    const loser=draft.winner===draft.equipe1?draft.equipe2:draft.equipe1
+    const currentWho=currentSeq?.who==='winner'?draft.winner:loser
+    const availableMaps=DRAFT_MAPS.filter(m=>!(draft.picks||[]).includes(m)&&!(draft.bans||[]).includes(m))
+
+    return<div key={draft.id} className="rounded-3xl overflow-hidden ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
       <div className="h-px w-full" style={{background:`linear-gradient(90deg,transparent,${P}25,transparent)`}}/>
-      <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
-        <div><p className="font-black" style={{color:T.text}}>DYNO vs {draft.adversaire}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {draft.auteur}</p></div>
-        <div className="flex items-center gap-2">
-          {!draft.actif?<span className="px-2 py-1 rounded-full text-[9px] font-black" style={{background:'rgba(255,255,255,.07)',color:T.textMuted}}>Terminée</span>:<span className="px-2 py-1 rounded-full text-[9px] font-black ld" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>🟢 Active</span>}
-          {isAdmin&&draft.actif&&<button onClick={()=>clotureDraft(draft.id)} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(239,68,68,.1)',color:'#f87171'}}>Clôturer</button>}
-          {isAdmin&&<button onClick={()=>del('drafts',draft.id)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
+
+      {/* Header */}
+      <div className="px-5 pt-4 pb-3" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-black text-base" style={{color:T.text}}>{draft.equipe1} vs {draft.equipe2}</p>
+            <p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {draft.auteur}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isFinished?<span className="px-2 py-1 rounded-full text-[9px] font-black" style={{background:'rgba(255,255,255,.07)',color:T.textMuted}}>Terminée</span>:<span className="px-2 py-1 rounded-full text-[9px] font-black ld" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>🟢 Active</span>}
+            {isAdmin&&draft.actif&&<button onClick={()=>resetDraft(draft.id)} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(245,158,11,.1)',color:'#fbbf24'}}>↺ Reset</button>}
+            {isAdmin&&<button onClick={()=>del('drafts',draft.id)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
+          </div>
         </div>
       </div>
-      <div className="p-4">
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="rounded-2xl p-3" style={{background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.15)'}}>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks ({(draft.picks||[]).length})</p>
-            <div className="flex flex-wrap gap-1">{(draft.picks||[]).map((m:string,i:number)=><span key={i} className="px-2 py-0.5 rounded-lg text-[9px] font-bold" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>{m}</span>)}</div>
-            {(draft.picks||[]).length===0&&<p className="text-[9px]" style={{color:T.textMuted}}>Aucun pick</p>}
+
+      <div className="p-4 space-y-4">
+        {/* Barre de progression */}
+        <div>
+          <div className="flex justify-between mb-2">
+            <p className="text-[9px] font-black uppercase tracking-widest" style={{color:T.textMuted}}>Progression</p>
+            <p className="text-[9px] font-black" style={{color:P}}>{Math.min(draft.currentStep,DRAFT_SEQUENCE.length)}/{DRAFT_SEQUENCE.length}</p>
           </div>
-          <div className="rounded-2xl p-3" style={{background:'rgba(248,113,113,.06)',border:'1px solid rgba(248,113,113,.15)'}}>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans ({(draft.bans||[]).length})</p>
-            <div className="flex flex-wrap gap-1">{(draft.bans||[]).map((m:string,i:number)=><span key={i} className="px-2 py-0.5 rounded-lg text-[9px] font-bold" style={{background:'rgba(248,113,113,.15)',color:'#f87171'}}>{m}</span>)}</div>
-            {(draft.bans||[]).length===0&&<p className="text-[9px]" style={{color:T.textMuted}}>Aucun ban</p>}
-          </div>
+          <div className="flex gap-1">{DRAFT_SEQUENCE.map((_,i)=>(
+            <div key={i} className="flex-1 h-1.5 rounded-full" style={{background:i<draft.currentStep?P:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)'}}/>
+          ))}</div>
         </div>
-        {draft.actif&&user&&(
+
+        {/* Étape actuelle */}
+        {!isFinished&&currentSeq&&(
+          <div className="rounded-2xl p-4" style={{background:`${P}08`,border:`1px solid ${P}20`}}>
+            <p className="text-xs font-black mb-1" style={{color:P}}>Étape {draft.currentStep+1} — {currentSeq.label}</p>
+            <p className="text-[10px]" style={{color:T.textMuted}}>{currentSeq.desc}</p>
+            {currentWho&&<p className="text-[10px] font-black mt-1" style={{color:P}}>👤 Tour de : {currentWho}</p>}
+          </div>
+        )}
+
+        {/* ÉTAPE 0 : PILE OU FACE */}
+        {!isFinished&&draft.currentStep===0&&isAdmin&&(
           <div>
-            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>🗺️ Maps — Clique pour pick/ban</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {AM.map(map=>{
-                const isPick=(draft.picks||[]).includes(map)
-                const isBan=(draft.bans||[]).includes(map)
-                return<button key={map} onClick={()=>{if(isPick)draftAction(draft.id,map,'pick');else if(isBan)draftAction(draft.id,map,'ban');else if((draft.picks||[]).length<5)draftAction(draft.id,map,'pick');else draftAction(draft.id,map,'ban')}} className="relative px-2 py-2.5 rounded-xl text-[9px] font-bold transition-all active:scale-95" style={isPick?{background:'rgba(74,222,128,.2)',color:'#4ade80',border:'1px solid rgba(74,222,128,.35)'}:isBan?{background:'rgba(248,113,113,.2)',color:'#f87171',border:'1px solid rgba(248,113,113,.35)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>
-                  {map}
-                  {isPick&&<span className="absolute top-0.5 right-0.5 text-[7px]">✅</span>}
-                  {isBan&&<span className="absolute top-0.5 right-0.5 text-[7px]">❌</span>}
-                </button>
-              })}
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Qui remporte le pile ou face ?</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={()=>draftCoinResult(draft.id,draft.equipe1)} className="py-3 rounded-2xl font-black text-sm active:scale-95" style={{background:`${P}15`,color:P,border:`1px solid ${P}30`}}>{draft.equipe1} 🪙</button>
+              <button onClick={()=>draftCoinResult(draft.id,draft.equipe2)} className="py-3 rounded-2xl font-black text-sm active:scale-95" style={{background:'rgba(96,165,250,.15)',color:'#60a5fa',border:'1px solid rgba(96,165,250,.3)'}}>{draft.equipe2} 🪙</button>
             </div>
-            <p className="text-[8px] mt-2 text-center" style={{color:T.textMuted}}>1er clic = Pick ✅ · Clic sur pick = Retirer · Reste = Ban ❌</p>
+          </div>
+        )}
+
+        {/* ÉTAPE 1 : CHOIX DU CÔTÉ */}
+        {!isFinished&&draft.currentStep===1&&(isAdmin||pseudo===draft.winner)&&(
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>{draft.winner} choisit son côté</p>
+            <div className="grid grid-cols-2 gap-2">
+              {['🟠 Orange','🔵 Bleu'].map(side=>(
+                <button key={side} onClick={()=>draftSideChoice(draft.id,side)} className="py-3 rounded-2xl font-black text-sm active:scale-95" style={side.includes('Orange')?{background:'rgba(245,158,11,.15)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.3)'}:{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.3)'}}>{side}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ÉTAPE 2 : CHOIX DU SKIN */}
+        {!isFinished&&draft.currentStep===2&&(isAdmin||pseudo===loser)&&(
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>{loser} choisit le skin de l'arène</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {['Default','Farmstead','Pillars','Cosmic','Nest','Utopia','Aquadome','Forbidden Temple'].map(skin=>(
+                <button key={skin} onClick={()=>draftSkinChoice(draft.id,skin)} className="py-2.5 rounded-xl text-xs font-bold active:scale-95" style={{background:T.input,color:T.text,border:`1px solid ${T.inputBorder}`}}>{skin}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ÉTAPES 3-9 : PICKS ET BANS */}
+        {!isFinished&&draft.currentStep>=3&&draft.currentStep<DRAFT_SEQUENCE.length&&(
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>
+              {currentSeq?.type==='pick'?'✅ Choisir une map à PICK':'❌ Choisir une map à BANNIR'}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {availableMaps.map(map=>(
+                <button key={map} onClick={()=>draftMapAction(draft.id,map)} disabled={!isAdmin&&pseudo!==currentWho} className="py-3 rounded-2xl text-sm font-bold active:scale-95 transition-all" style={(isAdmin||pseudo===currentWho)?currentSeq?.type==='pick'?{background:'rgba(74,222,128,.15)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`,opacity:0.5}}>{map}</button>
+              ))}
+            </div>
+            {!isAdmin&&pseudo!==currentWho&&<p className="text-center text-[9px] mt-2" style={{color:T.textMuted}}>⏳ En attente de {currentWho}...</p>}
+          </div>
+        )}
+
+        {/* Résumé picks/bans */}
+        {((draft.picks||[]).length>0||(draft.bans||[]).length>0)&&(
+          <div className="grid grid-cols-2 gap-3">
+            {(draft.picks||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.15)'}}>
+              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks ({(draft.picks||[]).length})</p>
+              <div className="space-y-1">{(draft.picks||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#4ade80'}}>{m}</p>)}</div>
+            </div>}
+            {(draft.bans||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(248,113,113,.06)',border:'1px solid rgba(248,113,113,.15)'}}>
+              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans ({(draft.bans||[]).length})</p>
+              <div className="space-y-1">{(draft.bans||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#f87171'}}>{m}</p>)}</div>
+            </div>}
+          </div>
+        )}
+
+        {/* Infos côté/skin */}
+        {(draft.winnerSide||draft.loserSkin)&&(
+          <div className="grid grid-cols-2 gap-2">
+            {draft.winnerSide&&<div className="rounded-xl p-2.5 text-center" style={{background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.15)'}}><p className="text-[8px] text-gray-500 uppercase">Côté</p><p className="text-xs font-black" style={{color:'#fbbf24'}}>{draft.winner} {draft.winnerSide}</p></div>}
+            {draft.loserSkin&&<div className="rounded-xl p-2.5 text-center" style={{background:'rgba(96,165,250,.08)',border:'1px solid rgba(96,165,250,.15)'}}><p className="text-[8px] text-gray-500 uppercase">Skin</p><p className="text-xs font-black" style={{color:'#60a5fa'}}>{draft.loserSkin}</p></div>}
+          </div>
+        )}
+
+        {/* Historique des actions */}
+        {(draft.actions||[]).length>0&&(
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>📋 Historique</p>
+            <div className="space-y-1 max-h-32 overflow-y-auto">{(draft.actions||[]).map((a:any,i:number)=>(
+              <p key={i} className="text-[9px] font-medium" style={{color:T.textMuted}}>• {a.label}</p>
+            ))}</div>
+          </div>
+        )}
+
+        {/* Draft terminée */}
+        {isFinished&&(draft.picks||[]).length>0&&(
+          <div className="rounded-2xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
+            <p className="text-2xl mb-2">🎉</p>
+            <p className="text-sm font-black mb-3" style={{color:P}}>Draft terminée !</p>
+            <p className="text-[10px] font-bold mb-1" style={{color:T.textMuted}}>Maps jouées :</p>
+            <div className="flex flex-wrap justify-center gap-1.5">{(draft.picks||[]).map((m:string,i:number)=><span key={i} className="px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>{m}</span>)}</div>
           </div>
         )}
       </div>
     </div>
-  ))}</div>}
-  {showAddDraft&&<Mo onClose={()=>setShowAddDraft(false)} title="🎲 Nouvelle Draft" sub="Picks/bans en temps réel">
-    <div className="mb-5">
-      <input type="text" placeholder="Nom de l'adversaire" value={nouvelleDraft.adversaire} onChange={(e:any)=>setNouvelleDraft({...nouvelleDraft,adversaire:e.target.value})} className={iCls} style={IS}/>
+  })}</div>}
+
+  {showAddDraft&&<Mo onClose={()=>setShowAddDraft(false)} title="🎲 Nouvelle Draft" sub="Draft officielle Rocket League">
+    <div className="space-y-3 mb-4">
+      <div>
+        <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{color:T.textMuted}}>Équipe 1</p>
+        <input type="text" value={nouvelleDraft.equipe1} onChange={(e:any)=>setNouvelleDraft({...nouvelleDraft,equipe1:e.target.value})} className={iCls} style={IS}/>
+      </div>
+      <div>
+        <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{color:T.textMuted}}>Équipe 2 (Adversaire)</p>
+        <input type="text" placeholder="Nom de l'adversaire" value={nouvelleDraft.equipe2} onChange={(e:any)=>setNouvelleDraft({...nouvelleDraft,equipe2:e.target.value})} className={iCls} style={IS}/>
+      </div>
+      <div className="rounded-2xl p-3" style={{background:isDark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)',border:`1px solid ${T.cardBorder}`}}>
+        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>📋 Séquence officielle</p>
+        {DRAFT_SEQUENCE.map((s,i)=>(
+          <p key={i} className="text-[9px] mb-1" style={{color:T.textMuted}}>{i+1}. {s.label} ({s.who==='winner'?'Gagnant pile/face':'Perdant pile/face'})</p>
+        ))}
+      </div>
     </div>
     <GBtn onClick={creerDraft}>✅ Créer la draft</GBtn>
   </Mo>}
@@ -533,7 +704,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 {activeTab==='strats'&&(
 <div className="ce"><ST icon="🎯" title="Stratégies"/>
   {canAddStrat&&<GBtn onClick={()=>setShowAddStrat(true)} cls="mb-5">➕ Nouvelle Stratégie</GBtn>}
-  {!canAddStrat&&!isAdmin&&<div className="rounded-2xl p-3 mb-4 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔒 Réservé aux Capitaines et Coachs</p></div>}
+  {!canAddStrat&&<div className="rounded-2xl p-3 mb-4 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔒 Réservé aux Capitaines et Coachs</p></div>}
   {strats.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">📝</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune stratégie</p></div>
   :<div className="space-y-3">{strats.map((s:any,idx:number)=><div key={s.id} className="rounded-3xl p-5 ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
     <div className="flex items-start justify-between mb-4">
@@ -544,8 +715,8 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     <div className="mb-4"><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks ({s.picks?.length||0}/4)</p><div className="flex flex-wrap gap-1.5">{s.picks?.map((p:string,i:number)=><Tg key={i} color="green">{p}</Tg>)}</div></div>
     <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans ({s.bans?.length||0}/4)</p><div className="flex flex-wrap gap-1.5">{s.bans?.map((b:string,i:number)=><Tg key={i} color="red">{b}</Tg>)}</div></div>
   </div>)}</div>}
-  {showAddStrat&&<Mo onClose={()=>{setShowAddStrat(false);setNouvelleStrat({adversaire:'',picks:[],bans:[]})}} title="🎯 Nouvelle Stratégie" sub="Picks et bans">
-    <div className="space-y-4 mb-5">
+  {showAddStrat&&<Mo onClose={()=>{setShowAddStrat(false);setNouvelleStrat({adversaire:'',picks:[],bans:[]})}} title="🎯 Nouvelle Stratégie">
+    <div className="space-y-4 mb-4">
       <input type="text" placeholder="Adversaire" value={nouvelleStrat.adversaire} onChange={(e:any)=>setNouvelleStrat({...nouvelleStrat,adversaire:e.target.value})} className={iCls} style={IS}/>
       <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(74,222,128,.8)'}}>✅ Picks (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'picks')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={nouvelleStrat.picks.includes(m)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
       <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.8)'}}>❌ Bans (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'bans')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={nouvelleStrat.bans.includes(m)?{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.28)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
@@ -566,8 +737,8 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     </div>
     <div className="flex flex-wrap gap-1.5">{c.joueurs?.map((j:string,i:number)=><Tg key={i} color="primary">{j}</Tg>)}</div>
   </div>)}</div>}
-  {showAddCompo&&<Mo onClose={()=>{setShowAddCompo(false);setSelectedMapCompo('');setCompoJoueurs([])}} title="📋 Nouvelle Compo" sub="Map et joueurs">
-    <div className="space-y-4 mb-5">
+  {showAddCompo&&<Mo onClose={()=>{setShowAddCompo(false);setSelectedMapCompo('');setCompoJoueurs([])}} title="📋 Nouvelle Compo">
+    <div className="space-y-4 mb-4">
       <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>🗺️ Map</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>setSelectedMapCompo(m)} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={selectedMapCompo===m?{background:`${P}20`,color:P,border:`1px solid ${P}35`}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
       <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>👥 Joueurs</p><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j:any)=>j.actif!==false).map((j:any)=><button key={j.id} onClick={()=>toggleCompoJoueur(j.pseudo)} className="px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95" style={compoJoueurs.includes(j.pseudo)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{j.pseudo}</button>)}</div></div>
     </div>
@@ -579,7 +750,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 {activeTab==='fiches'&&(
 <div className="ce"><ST icon="🔍" title="Fiches Adversaires"/>
   {canAddFiche&&<GBtn onClick={()=>setShowAddFiche(true)} cls="mb-5">➕ Nouvelle Fiche</GBtn>}
-  {!canAddFiche&&!isAdmin&&<div className="rounded-2xl p-3 mb-4 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔒 Réservé aux Coachs et Admins</p></div>}
+  {!canAddFiche&&<div className="rounded-2xl p-3 mb-4 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔒 Réservé aux Coachs</p></div>}
   {fichesAdversaires.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🔍</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune fiche</p></div>
   :<div className="space-y-3">{fichesAdversaires.map((f:any,idx:number)=><div key={f.id} className="rounded-3xl overflow-hidden ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
     <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
@@ -593,8 +764,8 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     </div>
     <p className="px-5 pb-4 text-[9px]" style={{color:T.textMuted}}>par {f.auteur}</p>
   </div>)}</div>}
-  {showAddFiche&&<Mo onClose={()=>{setShowAddFiche(false);setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''})}} title="🔍 Nouvelle Fiche" sub="Analyse adversaire">
-    <div className="space-y-3 mb-5">
+  {showAddFiche&&<Mo onClose={()=>{setShowAddFiche(false);setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''})}} title="🔍 Nouvelle Fiche">
+    <div className="space-y-3 mb-4">
       <input type="text" placeholder="Adversaire" value={nouvelleFiche.adversaire} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,adversaire:e.target.value})} className={iCls} style={IS}/>
       <textarea placeholder="💪 Forces..." value={nouvelleFiche.forces} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,forces:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(74,222,128,.2)'}}/>
       <textarea placeholder="⚠️ Faiblesses..." value={nouvelleFiche.faiblesses} onChange={(e:any)=>setNouvelleFiche({...nouvelleFiche,faiblesses:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(248,113,113,.2)'}}/>
@@ -622,7 +793,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
         </div>
       </div>
       <div className="px-4 py-3 grid grid-cols-3 gap-2">
-        <button onClick={()=>{setSelectedMatchForNotes(match);setNouvelleNote({matchId:match.id,mental:'',communication:'',gameplay:''})}} className="py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={{background:'rgba(168,85,247,.12)',color:'#c084fc',border:'1px solid rgba(168,85,247,.2)'}}>📝 Note</button>
+        <button onClick={()=>{setSelectedMatchForNotes(match);setNouvelleNote({matchId:match.id,mental:0,communication:0,gameplay:0})}} className="py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={{background:'rgba(168,85,247,.12)',color:'#c084fc',border:'1px solid rgba(168,85,247,.2)'}}>📝 Note</button>
         <button onClick={()=>setSelectedMatchForComment(selectedMatchForComment?.id===match.id?null:match)} className="py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={{background:'rgba(34,211,238,.12)',color:'#22d3ee',border:'1px solid rgba(34,211,238,.2)'}}>💬 Comm</button>
         <button onClick={()=>setSelectedMatchForAnalyse(selectedMatchForAnalyse?.id===match.id?null:match)} className="py-2.5 rounded-xl text-[10px] font-bold active:scale-95" style={{background:'rgba(251,146,60,.12)',color:'#fb923c',border:'1px solid rgba(251,146,60,.2)'}}>📋 Analyse</button>
       </div>
@@ -677,40 +848,40 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       {mn.length===0&&mc.length===0&&ma.length===0&&<p className="text-center text-[10px] pb-4" style={{color:T.textMuted}}>Aucune donnée</p>}
     </div>
   })}</div>}
-  {noteEdit&&<Mo onClose={()=>setNoteEdit(null)} title="✏️ Modifier la note" sub={noteEdit.joueur}>
-    <div className="space-y-5 mb-6">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
-      <div key={key}>
-        <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color}}>{label}</p>
-        <div className="flex items-center gap-3">
-          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.max(0,parseInt(noteEdit[key]||'0')-1))})} className="w-12 h-12 rounded-2xl font-black text-xl flex items-center justify-center" style={{background:bg,color,border:`1px solid ${color}35`}}>−</button>
-          <div className="flex-1">
-            <input type="number" min="0" max="10" value={noteEdit[key]} onChange={(e:any)=>setNoteEdit({...noteEdit,[key]:String(Math.min(10,Math.max(0,parseInt(e.target.value)||0)))})} className="w-full rounded-2xl px-4 py-4 text-center text-3xl font-black focus:outline-none" style={{background:bg,border:`1px solid ${color}28`,color}}/>
-            <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{background:'rgba(255,255,255,.08)'}}><div className="h-full rounded-full transition-all duration-300" style={{width:`${(parseInt(noteEdit[key]||'0')/10)*100}%`,background:color}}/></div>
-          </div>
-          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.min(10,parseInt(noteEdit[key]||'0')+1))})} className="w-12 h-12 rounded-2xl font-black text-xl flex items-center justify-center" style={{background:bg,color,border:`1px solid ${color}35`}}>+</button>
-        </div>
-      </div>
-    )}</div>
-    <div className="flex gap-2">
-      <button onClick={()=>setNoteEdit(null)} className="flex-1 py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
-      <button onClick={updateNote} className="flex-1 py-3 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
-    </div>
-  </Mo>}
-  {/* ✅ MODALE NOTE CENTRÉE AVEC INPUTS NUMÉRIQUES CLAIRS */}
-  {selectedMatchForNotes&&<Mo onClose={()=>setSelectedMatchForNotes(null)} title={`📊 ${selectedMatchForNotes.adversaire}`} sub="Évalue la performance (0 à 10)">
-    <div className="space-y-4 mb-6">{[{key:'mental',label:'🧠 Mental',color:'#c084fc'},{key:'communication',label:'💬 Communication',color:'#60a5fa'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80'}].map(({key,label,color})=>
+
+  {/* ✅ MODALE NOTE COMPACTE - Plus besoin de scroller */}
+  {noteEdit&&<Mo onClose={()=>setNoteEdit(null)} title="✏️ Modifier ma note" sub={noteEdit.joueur}>
+    <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
       <div key={key}>
         <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
-        <div className="flex items-center gap-3">
-          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:String(Math.max(0,(parseInt((nouvelleNote as any)[key])||0)-1))})} className="w-12 h-12 rounded-2xl font-black text-xl flex items-center justify-center flex-shrink-0" style={{background:`${color}18`,color,border:`1px solid ${color}30`}}>−</button>
-          <input type="number" min="0" max="10" placeholder="0" value={(nouvelleNote as any)[key]} onChange={(e:any)=>setNouvelleNote({...nouvelleNote,[key]:String(Math.min(10,Math.max(0,parseInt(e.target.value)||0)))})} className="flex-1 rounded-2xl px-4 py-4 text-center text-3xl font-black focus:outline-none" style={{background:`${color}18`,border:`1px solid ${color}28`,color}}/>
-          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:String(Math.min(10,(parseInt((nouvelleNote as any)[key])||0)+1))})} className="w-12 h-12 rounded-2xl font-black text-xl flex items-center justify-center flex-shrink-0" style={{background:`${color}18`,color,border:`1px solid ${color}30`}}>+</button>
+        <div className="flex items-center gap-2">
+          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.max(0,parseInt(noteEdit[key]||'0')-1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>−</button>
+          <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}28`}}>{noteEdit[key]}/10</div>
+          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.min(10,parseInt(noteEdit[key]||'0')+1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>+</button>
         </div>
       </div>
     )}</div>
     <div className="flex gap-2">
-      <button onClick={()=>setSelectedMatchForNotes(null)} className="flex-1 py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
-      <button onClick={ajouterNote} className="flex-1 py-3 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Envoyer</button>
+      <button onClick={()=>setNoteEdit(null)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
+      <button onClick={updateNote} className="flex-1 py-2.5 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
+    </div>
+  </Mo>}
+
+  {/* ✅ MODALE AJOUT NOTE COMPACTE avec boutons +/- */}
+  {selectedMatchForNotes&&<Mo onClose={()=>setSelectedMatchForNotes(null)} title={`📊 ${selectedMatchForNotes.adversaire}`} sub="Évalue la performance (0 à 10)">
+    <div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.12)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.12)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.12)'}].map(({key,label,color,bg})=>
+      <div key={key}>
+        <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
+        <div className="flex items-center gap-2">
+          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.max(0,(nouvelleNote as any)[key]-1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>−</button>
+          <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}28`}}>{(nouvelleNote as any)[key]}/10</div>
+          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.min(10,(nouvelleNote as any)[key]+1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0" style={{background:bg,color,border:`1px solid ${color}35`}}>+</button>
+        </div>
+      </div>
+    )}</div>
+    <div className="flex gap-2">
+      <button onClick={()=>setSelectedMatchForNotes(null)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button>
+      <button onClick={ajouterNote} className="flex-1 py-2.5 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Envoyer</button>
     </div>
   </Mo>}
 </div>
@@ -752,16 +923,10 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl flex-shrink-0" style={{background:`linear-gradient(135deg,${P}25,${P}08)`,border:`1px solid ${P}22`,color:P}}>{j.pseudo[0]?.toUpperCase()}</div>
     <div className="flex-1 min-w-0">
       <p className="font-black" style={{color:T.text}}>{j.pseudo}</p>
-      <div className="flex items-center gap-2 mt-1">
-        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{background:`${ROLE_COLORS[j.role]||'rgba(255,255,255,.15)'}15`,color:ROLE_COLORS[j.role]||T.textMuted,border:`1px solid ${ROLE_COLORS[j.role]||'rgba(255,255,255,.1)'}30`}}>{j.role||'Joueur'}</span>
-      </div>
+      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block" style={{background:`${ROLE_COLORS[j.role]||'rgba(255,255,255,.15)'}15`,color:ROLE_COLORS[j.role]||T.textMuted,border:`1px solid ${ROLE_COLORS[j.role]||'rgba(255,255,255,.1)'}30`}}>{j.role||'Joueur'}</span>
     </div>
     <div className="flex items-center gap-2">
-      {isAdmin&&(
-        <select value={j.role||'Joueur'} onChange={(e:any)=>updatePlayerRole(j.id,j.userId,e.target.value)} className="text-xs rounded-xl px-2 py-1.5 font-bold focus:outline-none" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:T.text}}>
-          {ROLES.map(r=><option key={r} value={r}>{r}</option>)}
-        </select>
-      )}
+      {isAdmin&&<select value={j.role||'Joueur'} onChange={(e:any)=>updatePlayerRole(j.id,j.userId,e.target.value)} className="text-xs rounded-xl px-2 py-1.5 font-bold focus:outline-none" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:T.text}}>{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select>}
       {isAdmin&&<button onClick={()=>del('players',j.id)} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
     </div>
   </div>)}</div>
@@ -795,14 +960,12 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   <GBtn onClick={()=>setShowBilan(true)}>📊 Bilan du mois</GBtn>
   {showBilan&&(()=>{const b=genBilan();return(
     <Mo onClose={()=>setShowBilan(false)} title={`📊 Bilan ${b.nom}`} sub="Performances du mois">
-      <div className="space-y-4 mb-5">
+      <div className="space-y-4 mb-4">
         <div className="grid grid-cols-3 gap-2"><SC value={b.m} label="Matchs"/><SC value={`${b.w}W`} label="Victoires" color="#4ade80"/><SC value={`${b.l}L`} label="Défaites" color="#f87171"/></div>
         <div className="rounded-2xl p-6 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:`${P}60`}}>Win Rate</p><p className="text-6xl font-black sg">{b.wr}%</p></div>
         <div className="rounded-2xl p-4" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}>
           <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{color:T.textMuted}}>Notes moyennes</p>
-          <div className="grid grid-cols-3 gap-2">{[{v:b.am,l:'🧠 Mental',c:'#c084fc'},{v:b.ac,l:'💬 Comm',c:'#60a5fa'},{v:b.ap,l:'🎯 Perf',c:'#4ade80'}].map(({v,l,c})=>
-            <div key={l} className="text-center rounded-xl py-3" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)'}}><p className="text-2xl font-black" style={{color:c}}>{v}</p><p className="text-[8px] mt-1" style={{color:T.textMuted}}>{l}</p></div>
-          )}</div>
+          <div className="grid grid-cols-3 gap-2">{[{v:b.am,l:'🧠',c:'#c084fc'},{v:b.ac,l:'💬',c:'#60a5fa'},{v:b.ap,l:'🎯',c:'#4ade80'}].map(({v,l,c})=><div key={l} className="text-center rounded-xl py-3" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)'}}><p className="text-2xl font-black" style={{color:c}}>{v}</p><p className="text-[8px] mt-1" style={{color:T.textMuted}}>{l}</p></div>)}</div>
         </div>
       </div>
       <button onClick={()=>setShowBilan(false)} className="w-full py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Fermer</button>
@@ -813,13 +976,11 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 
 {activeTab==='admin'&&(
 <div className="ce"><ST icon="⚙️" title="Administration"/>
-  {!isAdmin?(
-    <div className="rounded-3xl p-6" style={CS}>
-      <p className="text-center text-sm mb-5 font-medium" style={{color:T.textMuted}}>🔐 Accès requis</p>
-      <input type="password" placeholder="Mot de passe admin" value={adminPassword} onChange={(e:any)=>setAdminPassword(e.target.value)} className={`${iCls} mb-3`} style={IS}/>
-      <GBtn onClick={handleAdminLogin}>Se connecter</GBtn>
-    </div>
-  ):(
+  {!isAdmin?<div className="rounded-3xl p-6" style={CS}>
+    <p className="text-center text-sm mb-5 font-medium" style={{color:T.textMuted}}>🔐 Accès requis</p>
+    <input type="password" placeholder="Mot de passe admin" value={adminPassword} onChange={(e:any)=>setAdminPassword(e.target.value)} className={`${iCls} mb-3`} style={IS}/>
+    <GBtn onClick={handleAdminLogin}>Se connecter</GBtn>
+  </div>:(
     <div className="space-y-4">
       <div className="rounded-3xl p-5" style={CS}>
         <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>➕ Nouveau Match</p>
@@ -838,7 +999,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
             <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:'rgba(245,158,11,.8)'}}>🏆 Division (BO3)</p>
             {nouveauMatch.sousMatchs.length>0&&<div className="space-y-1.5 mb-3">{nouveauMatch.sousMatchs.map((sm:any,i:number)=>
               <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{background:isDark?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)'}}>
-                <span className="text-xs font-medium" style={{color:T.text}}>DYNO vs {sm.adversaire}</span>
+                <span className="text-xs" style={{color:T.text}}>DYNO vs {sm.adversaire}</span>
                 <div className="flex items-center gap-2"><span className="text-xs font-black" style={{color:P}}>{sm.scoreDyno}</span><span style={{color:T.textMuted}}>—</span><span className="text-xs font-black" style={{color:T.textMuted}}>{sm.scoreAdv}</span><button onClick={()=>supprimerSousMatch(i)} className="ml-1 font-black text-red-400">×</button></div>
               </div>
             )}</div>}
@@ -855,7 +1016,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
         </div>
       </div>
       <div className="rounded-3xl p-5" style={CS}>
-        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>🎬 Ajouter un Replay</p>
+        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>🎬 Replay</p>
         <div className="space-y-2.5">
           <input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={(e:any)=>setNouveauReplay({...nouveauReplay,titre:e.target.value})} className={iCls} style={IS}/>
           <input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={(e:any)=>setNouveauReplay({...nouveauReplay,lien:e.target.value})} className={iCls} style={IS}/>
@@ -878,7 +1039,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
         )}
       </div>
       <div className="rounded-3xl p-5" style={CS}>
-        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:'rgba(239,68,68,.6)'}}>🗑️ Supprimer des Matchs</p>
+        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:'rgba(239,68,68,.6)'}}>🗑️ Supprimer Matchs</p>
         {matchs.length===0?<p className="text-center text-xs py-4" style={{color:T.textMuted}}>Aucun match</p>:(
           <div className="space-y-2">{matchs.map((m:any)=>(
             <div key={m.id} className="flex items-center justify-between p-3.5 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',border:`1px solid ${T.cardBorder}`}}>
@@ -893,8 +1054,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   )}
   {scoreEdit&&<Mo onClose={()=>setScoreEdit(null)} title="✏️ Modifier le score" sub={`DYNO vs ${scoreEdit.adversaire}`}>
     {scoreEdit.type==='Division'?(
-      <div className="space-y-3 mb-5">
-        <p className="text-[10px] font-black uppercase tracking-widest" style={{color:'rgba(245,158,11,.7)'}}>🏆 Division</p>
+      <div className="space-y-3 mb-4">
         {(scoreEdit.sousMatchs||[]).length>0&&<div className="space-y-1.5">{(scoreEdit.sousMatchs||[]).map((sm:any,i:number)=>
           <div key={i} className="flex items-center justify-between px-4 py-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)',border:`1px solid ${T.cardBorder}`}}>
             <span className="text-xs" style={{color:T.text}}>DYNO vs {sm.adversaire}</span>
@@ -902,7 +1062,6 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           </div>
         )}</div>}
         <div className="rounded-2xl p-4 space-y-2" style={{background:'rgba(245,158,11,.07)',border:'1px solid rgba(245,158,11,.18)'}}>
-          <p className="text-[9px] font-black uppercase tracking-widest" style={{color:'rgba(245,158,11,.7)'}}>➕ Ajouter</p>
           <input type="text" placeholder="Adversaire" value={scoreEdit._newSubAdv||''} onChange={(e:any)=>setScoreEdit({...scoreEdit,_newSubAdv:e.target.value})} className={`${iCls} text-xs py-2.5`} style={IS}/>
           <div className="grid grid-cols-2 gap-2">
             <input type="number" placeholder="DYNO" value={scoreEdit._newSubScoreDyno||''} onChange={(e:any)=>setScoreEdit({...scoreEdit,_newSubScoreDyno:e.target.value})} className={`${iCls} text-center font-black py-2.5`} style={{background:`${P}12`,border:`1px solid ${P}28`,color:P}}/>
@@ -911,12 +1070,12 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
           <button onClick={ajouterSousMatchEdit} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:'rgba(245,158,11,.12)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.25)'}}>➕ Ajouter</button>
         </div>
         {(scoreEdit.sousMatchs||[]).length>0&&<div className="rounded-xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
-          <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{color:`${P}60`}}>Total</p>
+          <p className="text-[9px] uppercase mb-1.5" style={{color:`${P}60`}}>Total</p>
           <p className="text-3xl font-black"><span style={{color:P}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0)}</span><span style={{color:T.textMuted}}> — </span><span style={{color:T.textMuted}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)}</span></p>
         </div>}
       </div>
     ):(
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <div><p className="text-[10px] font-bold uppercase mb-2" style={{color:`${P}70`}}>DYNO</p><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={(e:any)=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={{background:`${P}12`,border:`1px solid ${P}25`,color:P}}/></div>
         <div><p className="text-[10px] font-bold uppercase mb-2" style={{color:T.textMuted}}>Adversaire</p><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={(e:any)=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={IS}/></div>
       </div>
