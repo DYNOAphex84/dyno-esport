@@ -30,6 +30,24 @@ const T=isDark?TH.dark:TH.light
 const P=TH.primary,P2=TH.primary2,G=TH.g,G2=TH.g2
 const toggleTheme=()=>{const n=!isDark;setIsDark(n);localStorage.setItem('dyno-theme',n?'dark':'light')}
 const setTheme=(k:string)=>{setThemeKey(k);localStorage.setItem('dyno-theme-color',k);setShowThemePicker(false)}
+
+// ✅ FIX MODALE : centré + onMouseDown pour éviter fermeture clavier
+const Mo=({onClose,children,title,sub}:{onClose:()=>void,children:any,title?:string,sub?:string})=>(
+  <div className="fixed inset-0 z-50 flex items-center justify-center px-3"
+    style={{background:'rgba(0,0,0,0.93)',backdropFilter:'blur(28px)'}}
+    onMouseDown={(e:any)=>{if(e.target===e.currentTarget)onClose()}}>
+    <div className="w-full max-w-sm rounded-3xl max-h-[88vh] overflow-y-auto"
+      style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 32px 80px rgba(0,0,0,0.9)'}}>
+      <div className="sticky top-0 pt-4 pb-3 px-6 z-10" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`}}>
+        <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{background:`${P}50`}}/>
+        {title&&<h3 className="text-lg font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{title}</h3>}
+        {sub&&<p className="text-xs mt-0.5" style={{color:T.textMuted}}>{sub}</p>}
+      </div>
+      <div className="p-6">{children}</div>
+    </div>
+  </div>
+)
+
 const CS={background:T.card,border:`1px solid ${T.cardBorder}`,boxShadow:isDark?'0 8px 40px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.04)':'0 4px 24px rgba(0,0,0,0.08)',backdropFilter:'blur(24px)'}
 const IS={background:T.input,border:`1px solid ${T.inputBorder}`,color:T.text}
 const iCls='w-full rounded-2xl px-4 py-3.5 text-sm font-medium focus:outline-none transition-all'
@@ -161,7 +179,7 @@ const sauvegarderAnniversaire=async()=>{if(!user||!anniversaire)return;await upd
 const ajouterAnalyse=async(mid:string)=>{if(!user)return;await addDoc(collection(db,'analyses'),{matchId:mid,joueur:pseudo,joueurId:user.uid,...nouvelleAnalyse,createdAt:Date.now()});setNouvelleAnalyse({bien:'',mal:'',plan:''});setSelectedMatchForAnalyse(null);alert('✅')}
 const ajouterFiche=async()=>{if(!nouvelleFiche.adversaire.trim())return;await addDoc(collection(db,'fichesAdversaires'),{...nouvelleFiche,auteur:pseudo,auteurId:user?.uid,createdAt:Date.now()});setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''});setShowAddFiche(false);alert('✅')}
 const del=async(col:string,id:string)=>{await deleteDoc(doc(db,col,id))}
-const updateScore=async()=>{if(!scoreEdit)return;if(scoreEdit.type==='Division'){const sm=scoreEdit.sousMatchs||[];const td=sm.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0);const ta=sm.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0);await updateDoc(doc(db,'matchs',scoreEdit.id),{sousMatchs:sm,scoreDyno:sm.length>0?td:parseInt(scoreEdit.scoreDyno||0),scoreAdversaire:sm.length>0?ta:parseInt(scoreEdit.scoreAdv||0),termine:true})}else{const dynoScore=parseInt(scoreEdit.scoreDyno);const advScore=parseInt(scoreEdit.scoreAdv);await updateDoc(doc(db,'matchs',scoreEdit.id),{scoreDyno:dynoScore,scoreAdversaire:advScore,termine:true});if(dynoScore>advScore)triggerConfetti()};setScoreEdit(null);alert('✅')}
+const updateScore=async()=>{if(!scoreEdit)return;if(scoreEdit.type==='Division'){const sm=scoreEdit.sousMatchs||[];const td=sm.reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0);const ta=sm.reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0);await updateDoc(doc(db,'matchs',scoreEdit.id),{sousMatchs:sm,scoreDyno:sm.length>0?td:parseInt(scoreEdit.scoreDyno||0),scoreAdversaire:sm.length>0?ta:parseInt(scoreEdit.scoreAdv||0),termine:true})}else{const ds=parseInt(scoreEdit.scoreDyno);const as2=parseInt(scoreEdit.scoreAdv);await updateDoc(doc(db,'matchs',scoreEdit.id),{scoreDyno:ds,scoreAdversaire:as2,termine:true});if(ds>as2)triggerConfetti()};setScoreEdit(null);alert('✅')}
 const updateNote=async()=>{if(!noteEdit)return;const mental=Math.min(10,Math.max(0,parseInt(noteEdit.mental)||0));const communication=Math.min(10,Math.max(0,parseInt(noteEdit.communication)||0));const gameplay=Math.min(10,Math.max(0,parseInt(noteEdit.gameplay)||0));await updateDoc(doc(db,'notes',noteEdit.id),{mental:String(mental),communication:String(communication),gameplay:String(gameplay),updatedAt:Date.now()});setNoteEdit(null);alert('✅')}
 const toggleDispo=async(mid:string)=>{if(!user)return;const m=matchs.find((x:any)=>x.id===mid);if(!m)return;const d=m.disponibles||[],i=m.indisponibles||[];await updateDoc(doc(db,'matchs',mid),{disponibles:d.includes(pseudo)?d.filter((p:string)=>p!==pseudo):[...d,pseudo],indisponibles:i.filter((p:string)=>p!==pseudo)})}
 const toggleIndispo=async(mid:string)=>{if(!user)return;const m=matchs.find((x:any)=>x.id===mid);if(!m)return;const d=m.disponibles||[],i=m.indisponibles||[];await updateDoc(doc(db,'matchs',mid),{indisponibles:i.includes(pseudo)?i.filter((p:string)=>p!==pseudo):[...i,pseudo],disponibles:d.filter((p:string)=>p!==pseudo)})}
@@ -194,18 +212,6 @@ const genBilan=()=>{const now=new Date();const mm=historique.filter((m:any)=>{co
 const GBtn=({onClick,children,cls='',danger=false,small=false}:{onClick:()=>void,children:any,cls?:string,danger?:boolean,small?:boolean})=>(
   <button onClick={onClick} className={`${small?'py-2.5 text-xs':'py-4 text-sm'} w-full rounded-2xl font-black tracking-wide transition-all active:scale-[0.97] select-none ${cls}`} style={danger?{background:'rgba(239,68,68,0.1)',color:'#f87171',border:'1px solid rgba(239,68,68,0.2)'}:{background:G2,color:'#000',boxShadow:`0 4px 24px ${P}50`}}>{children}</button>
 )
-const Mo=({onClose,children,title,sub}:{onClose:()=>void,children:any,title?:string,sub?:string})=>(
-  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{background:'rgba(0,0,0,0.93)',backdropFilter:'blur(28px)'}} onClick={onClose}>
-    <div className="w-full sm:max-w-sm rounded-t-[2.5rem] sm:rounded-3xl max-h-[94vh] overflow-y-auto" style={{background:isDark?'linear-gradient(170deg,#161208,#0d0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`,boxShadow:'0 -32px 80px rgba(0,0,0,0.9)'}} onClick={(e:any)=>e.stopPropagation()}>
-      <div className="sticky top-0 pt-4 pb-3 px-6 z-10" style={{background:isDark?'rgba(14,11,3,0.98)':'rgba(255,252,224,0.98)',borderBottom:`1px solid ${T.cardBorder}`}}>
-        <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{background:`${P}50`}}/>
-        {title&&<h3 className="text-lg font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{title}</h3>}
-        {sub&&<p className="text-xs mt-0.5" style={{color:T.textMuted}}>{sub}</p>}
-      </div>
-      <div className="p-6">{children}</div>
-    </div>
-  </div>
-)
 const Bdg=({type}:{type:string})=>{const map:Record<string,{bg:string,color:string}>={Ligue:{bg:'rgba(59,130,246,0.15)',color:'#60a5fa'},Scrim:{bg:'rgba(34,197,94,0.15)',color:'#4ade80'},Tournoi:{bg:'rgba(168,85,247,0.15)',color:'#c084fc'},Division:{bg:'rgba(245,158,11,0.15)',color:'#fbbf24'}};const s=map[type]||{bg:'rgba(255,255,255,0.08)',color:T.textMuted};return<span className="px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest" style={{background:s.bg,color:s.color,border:`1px solid ${s.color}30`}}>{type}</span>}
 const ST=({icon,title}:{icon:string,title:string})=>(
   <div className="relative rounded-3xl p-7 mb-6 text-center overflow-hidden" style={{background:isDark?`linear-gradient(145deg,${P}12,${P}05,transparent)`:`linear-gradient(145deg,${P}25,${P}10)`,border:`1px solid ${T.cardBorder}`}}>
@@ -227,7 +233,6 @@ const Tg=({children,color='gold'}:{children:any,color?:'gold'|'green'|'red'|'blu
   return<span className="px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{background:c.bg,color:c.text,border:`1px solid ${c.border}`}}>{children}</span>
 }
 const navItems=[{t:'matchs',i:'📅',l:'Matchs'},{t:'historique',i:'🏆',l:'Résultats'},{t:'sondages',i:'🗳️',l:'Votes'},{t:'draft',i:'🎲',l:'Draft'},{t:'strats',i:'🎯',l:'Strats'},{t:'compos',i:'📋',l:'Compos'},{t:'fiches',i:'🔍',l:'Fiches'},{t:'notes',i:'📊',l:'Notes'},{t:'rec',i:'🎬',l:'Replays'},{t:'roster',i:'👥',l:'Roster'},{t:'stats',i:'📈',l:'Stats'},{t:'admin',i:'⚙️',l:'Admin'}]
-
 const particles=Array.from({length:15}).map((_,i)=>({id:i,size:Math.random()*3+1,x:Math.random()*100,delay:Math.random()*8,duration:8+Math.random()*12,opacity:0.2+Math.random()*0.3}))
 
 if(showSplash)return(
@@ -273,11 +278,11 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   ))}
 </div>
 
-{/* CONFETTIS VICTOIRE */}
+{/* CONFETTIS */}
 {showConfetti&&(
   <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
     {Array.from({length:80}).map((_,i)=>(
-      <div key={i} className="absolute top-0" style={{left:`${Math.random()*100}%`,width:`${6+Math.random()*8}px`,height:`${6+Math.random()*8}px`,background:['#D4AF37','#FFD700','#ffffff','#f87171','#4ade80','#60a5fa'][Math.floor(Math.random()*6)],borderRadius:Math.random()>.5?'50%':'2px',animation:`conffall ${1.5+Math.random()*2.5}s linear ${Math.random()*1.5}s both`,transform:`rotate(${Math.random()*360}deg)`}}/>
+      <div key={i} className="absolute top-0" style={{left:`${Math.random()*100}%`,width:`${6+Math.random()*8}px`,height:`${6+Math.random()*8}px`,background:['#D4AF37','#FFD700','#ffffff','#f87171','#4ade80','#60a5fa'][Math.floor(Math.random()*6)],borderRadius:Math.random()>.5?'50%':'2px',animation:`conffall ${1.5+Math.random()*2.5}s linear ${Math.random()*1.5}s both`}}/>
     ))}
     <div className="absolute inset-0 flex items-center justify-center">
       <div className="rounded-3xl px-8 py-6 text-center" style={{background:'rgba(0,0,0,0.8)',backdropFilter:'blur(20px)',border:`1px solid ${P}40`}}>
@@ -288,59 +293,60 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
   </div>
 )}
 
+{/* ✅ HEADER CORRIGÉ - 🎨 retiré pour libérer de la place */}
 <header className="sticky top-0 z-50" style={{background:T.header,backdropFilter:'blur(32px)',borderBottom:`1px solid ${T.navBorder}`,boxShadow:'0 4px 32px rgba(0,0,0,0.5)'}}>
-  <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-    <div className="flex items-center gap-3">
-      <img src={LG} alt="D" className="w-9 h-9 rounded-xl"/>
-      <div><h1 className="text-xl font-black leading-none sg">DYNO</h1><p className="text-[8px] tracking-[.3em] uppercase font-bold" style={{color:`${P}80`}}>Esport</p></div>
+  <div className="max-w-lg mx-auto px-3 py-2.5 flex items-center justify-between">
+    <div className="flex items-center gap-2 flex-shrink-0">
+      <img src={LG} alt="D" className="w-8 h-8 rounded-xl flex-shrink-0"/>
+      <div><h1 className="text-lg font-black leading-none sg">DYNO</h1><p className="text-[7px] tracking-[.3em] uppercase font-bold" style={{color:`${P}80`}}>Esport</p></div>
     </div>
-    <div className="flex items-center gap-2">
-      <button onClick={()=>setShowThemePicker(true)} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90" style={{background:`${P}12`,border:`1px solid ${T.cardBorder}`}}><span className="text-base">🎨</span></button>
-      <button onClick={toggleTheme} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90" style={{background:`${P}10`,border:`1px solid ${T.cardBorder}`}}><span className="text-base">{isDark?'☀️':'🌙'}</span></button>
+    <div className="flex items-center gap-1.5">
+      <button onClick={toggleTheme} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 flex-shrink-0" style={{background:`${P}10`,border:`1px solid ${T.cardBorder}`}}><span className="text-sm">{isDark?'☀️':'🌙'}</span></button>
       {user&&(
-        <button onClick={()=>{setShowNotifSettings(true);markAllRead()}} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 relative" style={{background:notificationsEnabled?`${P}15`:'rgba(255,255,255,.05)',border:`1px solid ${T.cardBorder}`}}>
+        <button onClick={()=>{setShowNotifSettings(true);markAllRead()}} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 relative flex-shrink-0" style={{background:notificationsEnabled?`${P}15`:'rgba(255,255,255,.05)',border:`1px solid ${T.cardBorder}`}}>
           <span className="text-sm">{notificationsEnabled?'🔔':'🔕'}</span>
           {unreadCount>0&&<div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white bdg" style={{background:'#ef4444'}}>{unreadCount>9?'9+':unreadCount}</div>}
         </button>
       )}
-      {showInstall&&<button onClick={handleInstall} className="px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95" style={{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.25)'}}>📲</button>}
-      {user?(<button onClick={handleSignOut} className="flex items-center gap-2 px-3 py-2 rounded-xl active:scale-95" style={{background:`${P}10`,border:`1px solid ${T.cardBorder}`}}>
-        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-black" style={{background:G2,color:'#000'}}>{pseudo[0]?.toUpperCase()||'?'}</div>
-        <span className="text-xs font-bold max-w-[64px] truncate" style={{color:P}}>{pseudo}</span>
-      </button>):(<button onClick={()=>setIsSignUp(false)} className="px-4 py-2 rounded-xl text-xs font-black active:scale-95" style={{background:G2,color:'#000'}}>Connexion</button>)}
+      {showInstall&&<button onClick={handleInstall} className="px-2 py-1.5 rounded-xl text-xs font-bold active:scale-95 flex-shrink-0" style={{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.25)'}}>📲</button>}
+      {user?(<button onClick={handleSignOut} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl active:scale-95 flex-shrink-0" style={{background:`${P}10`,border:`1px solid ${T.cardBorder}`}}>
+        <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0" style={{background:G2,color:'#000'}}>{pseudo[0]?.toUpperCase()||'?'}</div>
+        <span className="text-xs font-bold max-w-[55px] truncate" style={{color:P}}>{pseudo}</span>
+      </button>):(<button onClick={()=>setIsSignUp(false)} className="px-3 py-1.5 rounded-xl text-xs font-black active:scale-95 flex-shrink-0" style={{background:G2,color:'#000'}}>Connexion</button>)}
     </div>
   </div>
 </header>
 
-{showThemePicker&&(
-  <Mo onClose={()=>setShowThemePicker(false)} title="🎨 Thème" sub="Choisis ta couleur">
-    <div className="grid grid-cols-2 gap-3 mb-4">
-      {Object.entries(THEMES).map(([key,th])=>(
-        <button key={key} onClick={()=>setTheme(key)} className="p-4 rounded-2xl text-center transition-all active:scale-95 relative" style={{background:themeKey===key?`${th.primary}20`:'rgba(255,255,255,0.04)',border:`2px solid ${themeKey===key?th.primary:T.cardBorder}`}}>
-          {themeKey===key&&<div className="absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center text-[10px]" style={{background:th.primary,color:'#000'}}>✓</div>}
-          <p className="text-3xl mb-2">{th.icon}</p>
-          <p className="text-xs font-black" style={{color:th.primary}}>{th.name}</p>
-          <div className="mt-2 h-1.5 rounded-full" style={{background:`linear-gradient(90deg,${th.primary},${th.primary2})`}}/>
-        </button>
-      ))}
-    </div>
-    <button onClick={()=>setShowThemePicker(false)} className="w-full py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Fermer</button>
-  </Mo>
-)}
-
+{/* PANNEAU NOTIFS + THÈME INTÉGRÉS */}
 {showNotifSettings&&(
-  <Mo onClose={()=>setShowNotifSettings(false)} title="🔔 Notifications" sub="Choisis ce que tu veux recevoir">
-    <div className="space-y-3 mb-5">
+  <Mo onClose={()=>setShowNotifSettings(false)} title="⚙️ Réglages" sub="Notifications et thème">
+    {/* SÉLECTEUR DE THÈME ICI */}
+    <div className="mb-5">
+      <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🎨 Thème de couleur</p>
+      <div className="grid grid-cols-4 gap-2">
+        {Object.entries(THEMES).map(([key,th])=>(
+          <button key={key} onClick={()=>setTheme(key)} className="p-2.5 rounded-2xl text-center transition-all active:scale-95 relative" style={{background:themeKey===key?`${th.primary}22`:'rgba(255,255,255,0.04)',border:`2px solid ${themeKey===key?th.primary:T.cardBorder}`}}>
+            {themeKey===key&&<div className="absolute top-1 right-1 w-3 h-3 rounded-full flex items-center justify-center text-[8px]" style={{background:th.primary,color:'#000'}}>✓</div>}
+            <p className="text-xl mb-1">{th.icon}</p>
+            <p className="text-[8px] font-black leading-tight" style={{color:th.primary}}>{th.name}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+    <div className="h-px mb-4" style={{background:`linear-gradient(90deg,transparent,${T.cardBorder},transparent)`}}/>
+    {/* NOTIFS */}
+    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🔔 Notifications</p>
+    <div className="space-y-2.5 mb-5">
       {[{k:'match',label:'📅 Matchs à venir',desc:'1h, 15min et au lancement'},{k:'note',label:'📊 Nouvelles notes',desc:'Quand un joueur note'},{k:'commentaire',label:'💬 Commentaires',desc:"Quand quelqu'un commente"},{k:'strat',label:'🎯 Nouvelles strats',desc:'Quand une strat est ajoutée'},{k:'resultat',label:'🏆 Résultats',desc:'Quand un score est entré'}].map(({k,label,desc})=>(
-        <div key={k} className="flex items-center justify-between p-4 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}>
-          <div><p className="text-sm font-bold" style={{color:T.text}}>{label}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>{desc}</p></div>
-          <button onClick={()=>saveNotifSettings({...notifSettings,[k]:!notifSettings[k]})} className="w-12 h-6 rounded-full relative transition-all flex-shrink-0" style={{background:notifSettings[k]?G2:'rgba(255,255,255,.12)'}}>
+        <div key={k} className="flex items-center justify-between p-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}>
+          <div><p className="text-xs font-bold" style={{color:T.text}}>{label}</p><p className="text-[9px] mt-0.5" style={{color:T.textMuted}}>{desc}</p></div>
+          <button onClick={()=>saveNotifSettings({...notifSettings,[k]:!notifSettings[k]})} className="w-11 h-6 rounded-full relative transition-all flex-shrink-0 ml-2" style={{background:notifSettings[k]?G2:'rgba(255,255,255,.12)'}}>
             <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all" style={{left:notifSettings[k]?'calc(100% - 22px)':'2px'}}/>
           </button>
         </div>
       ))}
     </div>
-    {!notificationsEnabled&&<button onClick={async()=>{await requestNotificationPermission();setShowNotifSettings(false)}} className="w-full py-3.5 rounded-2xl font-black text-sm text-black mb-3" style={{background:G2}}>🔔 Activer les notifications</button>}
+    {!notificationsEnabled&&<button onClick={async()=>{await requestNotificationPermission();setShowNotifSettings(false)}} className="w-full py-3 rounded-2xl font-black text-sm text-black mb-3" style={{background:G2}}>🔔 Activer les notifications</button>}
     <button onClick={()=>setShowNotifSettings(false)} className="w-full py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Fermer</button>
   </Mo>
 )}
@@ -475,10 +481,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
     <div key={draft.id} className="rounded-3xl overflow-hidden ce" style={{...CS,animationDelay:`${idx*.05}s`}}>
       <div className="h-px w-full" style={{background:`linear-gradient(90deg,transparent,${P}25,transparent)`}}/>
       <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
-        <div>
-          <p className="font-black" style={{color:T.text}}>DYNO vs {draft.adversaire}</p>
-          <p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {draft.auteur}</p>
-        </div>
+        <div><p className="font-black" style={{color:T.text}}>DYNO vs {draft.adversaire}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {draft.auteur}</p></div>
         <div className="flex items-center gap-2">
           {!draft.actif?<span className="px-2 py-1 rounded-full text-[9px] font-black" style={{background:'rgba(255,255,255,.07)',color:T.textMuted}}>Terminée</span>:<span className="px-2 py-1 rounded-full text-[9px] font-black ld" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>🟢 Active</span>}
           {isAdmin&&draft.actif&&<button onClick={()=>clotureDraft(draft.id)} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(239,68,68,.1)',color:'#f87171'}}>Clôturer</button>}
@@ -505,20 +508,20 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
               {AM.map(map=>{
                 const isPick=(draft.picks||[]).includes(map)
                 const isBan=(draft.bans||[]).includes(map)
-                return<button key={map} onClick={()=>{if(isPick)draftAction(draft.id,map,'pick');else if(isBan)draftAction(draft.id,map,'ban');else if((draft.picks||[]).length<5)draftAction(draft.id,map,'pick');else draftAction(draft.id,map,'ban')}} className="relative px-2 py-2.5 rounded-xl text-[9px] font-bold transition-all active:scale-95 overflow-hidden" style={isPick?{background:'rgba(74,222,128,.2)',color:'#4ade80',border:'1px solid rgba(74,222,128,.35)'}:isBan?{background:'rgba(248,113,113,.2)',color:'#f87171',border:'1px solid rgba(248,113,113,.35)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>
+                return<button key={map} onClick={()=>{if(isPick)draftAction(draft.id,map,'pick');else if(isBan)draftAction(draft.id,map,'ban');else if((draft.picks||[]).length<5)draftAction(draft.id,map,'pick');else draftAction(draft.id,map,'ban')}} className="relative px-2 py-2.5 rounded-xl text-[9px] font-bold transition-all active:scale-95" style={isPick?{background:'rgba(74,222,128,.2)',color:'#4ade80',border:'1px solid rgba(74,222,128,.35)'}:isBan?{background:'rgba(248,113,113,.2)',color:'#f87171',border:'1px solid rgba(248,113,113,.35)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>
                   {map}
                   {isPick&&<span className="absolute top-0.5 right-0.5 text-[7px]">✅</span>}
                   {isBan&&<span className="absolute top-0.5 right-0.5 text-[7px]">❌</span>}
                 </button>
               })}
             </div>
-            <p className="text-[8px] mt-2 text-center" style={{color:T.textMuted}}>1er clic = Pick ✅ · Clic sur un pick = Retirer · Les maps restantes = Ban ❌</p>
+            <p className="text-[8px] mt-2 text-center" style={{color:T.textMuted}}>1er clic = Pick ✅ · Clic sur pick = Retirer · Reste = Ban ❌</p>
           </div>
         )}
       </div>
     </div>
   ))}</div>}
-  {showAddDraft&&<Mo onClose={()=>setShowAddDraft(false)} title="🎲 Nouvelle Draft" sub="Session de picks/bans en temps réel">
+  {showAddDraft&&<Mo onClose={()=>setShowAddDraft(false)} title="🎲 Nouvelle Draft" sub="Picks/bans en temps réel">
     <div className="mb-5">
       <input type="text" placeholder="Nom de l'adversaire" value={nouvelleDraft.adversaire} onChange={(e:any)=>setNouvelleDraft({...nouvelleDraft,adversaire:e.target.value})} className={iCls} style={IS}/>
     </div>
@@ -693,11 +696,16 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <button onClick={updateNote} className="flex-1 py-3 rounded-2xl font-black text-sm text-black" style={{background:G2}}>✅ Sauvegarder</button>
     </div>
   </Mo>}
-  {selectedMatchForNotes&&<Mo onClose={()=>setSelectedMatchForNotes(null)} title={`📊 Note — ${selectedMatchForNotes.adversaire}`} sub="Évalue la performance">
+  {/* ✅ MODALE NOTE CENTRÉE AVEC INPUTS NUMÉRIQUES CLAIRS */}
+  {selectedMatchForNotes&&<Mo onClose={()=>setSelectedMatchForNotes(null)} title={`📊 ${selectedMatchForNotes.adversaire}`} sub="Évalue la performance (0 à 10)">
     <div className="space-y-4 mb-6">{[{key:'mental',label:'🧠 Mental',color:'#c084fc'},{key:'communication',label:'💬 Communication',color:'#60a5fa'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80'}].map(({key,label,color})=>
       <div key={key}>
         <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
-        <input type="number" min="0" max="10" placeholder="0–10" value={(nouvelleNote as any)[key]} onChange={(e:any)=>setNouvelleNote({...nouvelleNote,[key]:e.target.value})} className="w-full rounded-2xl px-4 py-4 text-center text-3xl font-black focus:outline-none" style={{background:'rgba(255,255,255,.05)',border:`1px solid ${color}28`,color}}/>
+        <div className="flex items-center gap-3">
+          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:String(Math.max(0,(parseInt((nouvelleNote as any)[key])||0)-1))})} className="w-12 h-12 rounded-2xl font-black text-xl flex items-center justify-center flex-shrink-0" style={{background:`${color}18`,color,border:`1px solid ${color}30`}}>−</button>
+          <input type="number" min="0" max="10" placeholder="0" value={(nouvelleNote as any)[key]} onChange={(e:any)=>setNouvelleNote({...nouvelleNote,[key]:String(Math.min(10,Math.max(0,parseInt(e.target.value)||0)))})} className="flex-1 rounded-2xl px-4 py-4 text-center text-3xl font-black focus:outline-none" style={{background:`${color}18`,border:`1px solid ${color}28`,color}}/>
+          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:String(Math.min(10,(parseInt((nouvelleNote as any)[key])||0)+1))})} className="w-12 h-12 rounded-2xl font-black text-xl flex items-center justify-center flex-shrink-0" style={{background:`${color}18`,color,border:`1px solid ${color}30`}}>+</button>
+        </div>
       </div>
     )}</div>
     <div className="flex gap-2">
@@ -807,7 +815,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 <div className="ce"><ST icon="⚙️" title="Administration"/>
   {!isAdmin?(
     <div className="rounded-3xl p-6" style={CS}>
-      <p className="text-center text-sm mb-5 font-medium" style={{color:T.textMuted}}>🔐 Accès administrateur requis</p>
+      <p className="text-center text-sm mb-5 font-medium" style={{color:T.textMuted}}>🔐 Accès requis</p>
       <input type="password" placeholder="Mot de passe admin" value={adminPassword} onChange={(e:any)=>setAdminPassword(e.target.value)} className={`${iCls} mb-3`} style={IS}/>
       <GBtn onClick={handleAdminLogin}>Se connecter</GBtn>
     </div>
@@ -849,7 +857,7 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
       <div className="rounded-3xl p-5" style={CS}>
         <p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>🎬 Ajouter un Replay</p>
         <div className="space-y-2.5">
-          <input type="text" placeholder="Titre du replay" value={nouveauReplay.titre} onChange={(e:any)=>setNouveauReplay({...nouveauReplay,titre:e.target.value})} className={iCls} style={IS}/>
+          <input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={(e:any)=>setNouveauReplay({...nouveauReplay,titre:e.target.value})} className={iCls} style={IS}/>
           <input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={(e:any)=>setNouveauReplay({...nouveauReplay,lien:e.target.value})} className={iCls} style={IS}/>
           <GBtn onClick={ajouterReplay}>Ajouter</GBtn>
         </div>
@@ -936,9 +944,8 @@ select option{background:${isDark?'#0d0900':'#fffbea'};color:${T.text}}
 </nav>
 
 {!user&&(
-  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{background:'rgba(0,0,0,0.97)',backdropFilter:'blur(32px)'}}>
-    <div className="w-full sm:max-w-sm rounded-t-[2.5rem] sm:rounded-3xl" style={{background:isDark?'linear-gradient(170deg,#181208,#0e0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`}}>
-      <div className="w-10 h-1 rounded-full mx-auto mt-4 sm:hidden" style={{background:`${P}30`}}/>
+  <div className="fixed inset-0 z-50 flex items-center justify-center px-3" style={{background:'rgba(0,0,0,0.97)',backdropFilter:'blur(32px)'}}>
+    <div className="w-full max-w-sm rounded-3xl" style={{background:isDark?'linear-gradient(170deg,#181208,#0e0a04,#080500)':'linear-gradient(170deg,#fffdf0,#fff8d6)',border:`1px solid ${T.cardBorder}`}}>
       <div className="p-8">
         <div className="text-center mb-8">
           <img src={LG} alt="D" className="w-20 h-20 mx-auto mb-4 rounded-3xl"/>
