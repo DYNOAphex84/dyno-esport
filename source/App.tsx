@@ -33,7 +33,6 @@ const THEMES:Record<string,any>={
   purple:{name:'Violet/Noir',icon:'🟣',primary:'#a855f7',primary2:'#c084fc',g:`linear-gradient(135deg,#a855f7,#c084fc,#a855f7)`,g2:`linear-gradient(135deg,#9333ea 0%,#a855f7 50%,#7c3aed 100%)`,dark:{bg:'#020008',card:'rgba(10,2,20,0.75)',cardBorder:'rgba(168,85,247,0.2)',text:'#f3e8ff',textMuted:'rgba(243,232,255,0.4)',input:'rgba(168,85,247,0.06)',inputBorder:'rgba(168,85,247,0.25)',navBg:'rgba(2,0,8,0.95)',navBorder:'rgba(168,85,247,0.12)',header:'rgba(2,0,8,0.9)'},light:{bg:'#faf5ff',card:'rgba(250,245,255,0.8)',cardBorder:'rgba(147,51,234,0.25)',text:'#1a0030',textMuted:'rgba(26,0,48,0.5)',input:'rgba(147,51,234,0.08)',inputBorder:'rgba(147,51,234,0.25)',navBg:'rgba(250,245,255,0.95)',navBorder:'rgba(147,51,234,0.2)',header:'rgba(250,245,255,0.95)'}}
 }
 
-// Gradient de fond dynamique par onglet
 const TAB_GRADIENTS:Record<string,string>={
   matchs:'radial-gradient(ellipse 80% 50% at 20% 20%,rgba(212,175,55,0.12) 0%,transparent 60%), radial-gradient(ellipse 60% 40% at 80% 80%,rgba(180,100,0,0.08) 0%,transparent 50%)',
   historique:'radial-gradient(ellipse 70% 50% at 50% 30%,rgba(212,175,55,0.06) 0%,transparent 60%)',
@@ -45,15 +44,28 @@ const TAB_GRADIENTS:Record<string,string>={
   notes:'radial-gradient(ellipse 80% 50% at 50% 30%,rgba(168,85,247,0.1) 0%,transparent 60%)',
   rec:'radial-gradient(ellipse 70% 50% at 70% 60%,rgba(239,68,68,0.08) 0%,transparent 60%)',
   roster:'radial-gradient(ellipse 80% 50% at 40% 40%,rgba(212,175,55,0.08) 0%,transparent 60%)',
-  stats:'radial-gradient(ellipse 80% 50% at 60% 30%,rgba(59,130,246,0.1) 0%,transparent 60%), radial-gradient(ellipse 60% 40% at 30% 80%,rgba(96,165,250,0.06) 0%,transparent 50%)',
+  stats:'radial-gradient(ellipse 80% 50% at 60% 30%,rgba(59,130,246,0.1) 0%,transparent 60%)',
   admin:'radial-gradient(ellipse 70% 50% at 50% 50%,rgba(239,68,68,0.08) 0%,transparent 60%)',
 }
 
 const ROLES=['Joueur','Capitaine','Coach','Admin']
 const ROLE_COLORS:Record<string,string>={Joueur:'rgba(255,255,255,0.3)',Capitaine:'rgba(212,175,55,0.8)',Coach:'rgba(96,165,250,0.8)',Admin:'rgba(239,68,68,0.8)'}
-const navItems=[{t:'matchs',i:'📅',l:'Matchs'},{t:'historique',i:'🏆',l:'Résultats'},{t:'sondages',i:'🗳️',l:'Votes'},{t:'draft',i:'🎲',l:'Draft'},{t:'strats',i:'🎯',l:'Strats'},{t:'compos',i:'📋',l:'Compos'},{t:'fiches',i:'🔍',l:'Fiches'},{t:'notes',i:'📊',l:'Notes'},{t:'rec',i:'🎬',l:'Replays'},{t:'roster',i:'👥',l:'Roster'},{t:'stats',i:'📈',l:'Stats'},{t:'admin',i:'⚙️',l:'Admin'}]
 
-// Hook compteur animé
+const navItems=[
+  {t:'matchs',i:'📅',l:'Matchs',desc:'Prochains matchs et disponibilités'},
+  {t:'historique',i:'🏆',l:'Résultats',desc:'Historique des scores'},
+  {t:'sondages',i:'🗳️',l:'Votes',desc:'Sondages de l\'équipe'},
+  {t:'draft',i:'🎲',l:'Draft',desc:'Draft Eva Esport Arena'},
+  {t:'strats',i:'🎯',l:'Strats',desc:'Picks et bans'},
+  {t:'compos',i:'📋',l:'Compos',desc:'Compositions par map'},
+  {t:'fiches',i:'🔍',l:'Fiches',desc:'Analyse des adversaires'},
+  {t:'notes',i:'📊',l:'Notes',desc:'Notes et analyses de matchs'},
+  {t:'rec',i:'🎬',l:'Replays',desc:'Vidéos et replays'},
+  {t:'roster',i:'👥',l:'Roster',desc:'Joueurs et rôles'},
+  {t:'stats',i:'📈',l:'Stats',desc:'Statistiques globales'},
+  {t:'admin',i:'⚙️',l:'Admin',desc:'Administration'},
+]
+
 function useAnimatedCounter(target:number,duration=800){
   const[count,setCount]=useState(0)
   useEffect(()=>{
@@ -73,28 +85,37 @@ const P=TH.primary,P2=TH.primary2,G=TH.g,G2=TH.g2
 const toggleTheme=()=>{const n=!isDark;setIsDark(n);localStorage.setItem('dyno-theme',n?'dark':'light')}
 const setTheme=(k:string)=>{setThemeKey(k);localStorage.setItem('dyno-theme-color',k)}
 
-// Slide direction pour transitions
+// ✅ MENU BURGER STATE
+const[menuOpen,setMenuOpen]=useState(false)
+const menuRef=useRef<HTMLDivElement>(null)
+const swipeStartX=useRef(0)
+
+const openMenu=()=>setMenuOpen(true)
+const closeMenu=()=>setMenuOpen(false)
+
+const handleMenuSwipeStart=(e:React.TouchEvent)=>{swipeStartX.current=e.touches[0].clientX}
+const handleMenuSwipeEnd=(e:React.TouchEvent)=>{
+  const dx=e.changedTouches[0].clientX-swipeStartX.current
+  if(dx<-50)closeMenu() // swipe gauche ferme
+}
+
+// Slide direction
 const[slideDir,setSlideDir]=useState<'left'|'right'|null>(null)
 const[displayTab,setDisplayTab]=useState('matchs')
 const[activeTab,setActiveTab]=useState('matchs')
 const[isTransitioning,setIsTransitioning]=useState(false)
 
 const changeTab=(newTab:string)=>{
+  closeMenu()
   if(newTab===activeTab||isTransitioning)return
   const currentIdx=navItems.findIndex(n=>n.t===activeTab)
   const newIdx=navItems.findIndex(n=>n.t===newTab)
   const dir=newIdx>currentIdx?'left':'right'
   setSlideDir(dir)
   setIsTransitioning(true)
-  setTimeout(()=>{
-    setActiveTab(newTab)
-    setDisplayTab(newTab)
-    setSlideDir(null)
-    setIsTransitioning(false)
-  },260)
+  setTimeout(()=>{setActiveTab(newTab);setDisplayTab(newTab);setSlideDir(null);setIsTransitioning(false)},260)
 }
 
-// Swipe gesture
 const swipeStart=useRef({x:0,y:0,time:0})
 const handleTouchStartSwipe=(e:React.TouchEvent)=>{swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY,time:Date.now()}}
 const handleTouchEndSwipe=(e:React.TouchEvent)=>{
@@ -108,10 +129,9 @@ const handleTouchEndSwipe=(e:React.TouchEvent)=>{
   }
 }
 
-// Modal helper — JSX pur, aucun composant
 const modal=(onClose:()=>void,title:string,sub:string,content:any)=>(
   <div className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[5vh]" style={{background:'rgba(0,0,0,0.92)',backdropFilter:'blur(24px)'}}>
-    <div className="w-full max-w-sm rounded-3xl max-h-[88vh] overflow-y-auto" style={{background:isDark?'linear-gradient(170deg,rgba(20,16,2,0.98),rgba(10,8,0,0.99))':'linear-gradient(170deg,rgba(255,253,240,0.98),rgba(255,248,220,0.99))',border:`1px solid ${P}25`,boxShadow:`0 32px 80px rgba(0,0,0,0.8),0 0 0 1px ${P}10,inset 0 1px 0 ${P}15`}}>
+    <div className="w-full max-w-sm rounded-3xl max-h-[88vh] overflow-y-auto" style={{background:isDark?'linear-gradient(170deg,rgba(20,16,2,0.98),rgba(10,8,0,0.99))':'linear-gradient(170deg,rgba(255,253,240,0.98),rgba(255,248,220,0.99))',border:`1px solid ${P}25`,boxShadow:`0 32px 80px rgba(0,0,0,0.8),inset 0 1px 0 ${P}15`}}>
       <div className="sticky top-0 pt-4 pb-3 px-5 z-10 flex items-start justify-between" style={{background:isDark?'rgba(12,10,0,0.98)':'rgba(255,252,228,0.98)',borderBottom:`1px solid ${P}20`}}>
         <div className="flex-1 pr-3">
           <div className="w-10 h-0.5 rounded-full mb-3" style={{background:`linear-gradient(90deg,transparent,${P},transparent)`}}/>
@@ -290,47 +310,29 @@ const notesData=notes.reduce((acc:any,n:any)=>{const j=n.joueur;if(!acc[j])acc[j
 const notesChartData=Object.values(notesData).map((d:any)=>({name:d.joueur.substring(0,8),mental:Math.round(d.mental/d.count),comm:Math.round(d.comm/d.count),perf:Math.round(d.perf/d.count)}))
 const genBilan=()=>{const now=new Date();const mm=historique.filter((m:any)=>{const d=new Date(m.createdAt);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()});const w=mm.filter((m:any)=>Number(m.scoreDyno||0)>Number(m.scoreAdversaire||0)).length,l=mm.filter((m:any)=>Number(m.scoreDyno||0)<Number(m.scoreAdversaire||0)).length;const mn=notes.filter((n:any)=>{const d=new Date(n.createdAt);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()});const am=mn.length>0?Math.round(mn.reduce((a:number,n:any)=>a+parseInt(n.mental||0),0)/mn.length):0,ac=mn.length>0?Math.round(mn.reduce((a:number,n:any)=>a+parseInt(n.communication||0),0)/mn.length):0,ap=mn.length>0?Math.round(mn.reduce((a:number,n:any)=>a+parseInt(n.gameplay||0),0)/mn.length):0;return{nom:['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][now.getMonth()],m:mm.length,w,l,wr:mm.length>0?Math.round((w/(w+l||1))*100):0,am,ac,ap}}
 
-// Compteurs animés pour les stats
 const animVictoires=useAnimatedCounter(victoires)
 const animDefaites=useAnimatedCounter(defaites)
 const animWinRate=useAnimatedCounter(winRate)
 const animTotal=useAnimatedCounter(totalMatchs)
 
-// Composants UI
 const GBtn=({onClick,children,cls='',danger=false}:{onClick:()=>void,children:any,cls?:string,danger?:boolean})=>(
   <button onClick={onClick} className={`py-4 text-sm w-full rounded-2xl font-black tracking-wide transition-all active:scale-[0.97] select-none ${cls}`} style={danger?{background:'rgba(239,68,68,0.1)',color:'#f87171',border:'1px solid rgba(239,68,68,0.2)'}:{background:G2,color:'#000',boxShadow:`0 4px 20px ${P}40,0 0 0 1px ${P}20`}}>{children}</button>
 )
 const Bdg=({type}:{type:string})=>{const map:Record<string,{bg:string,color:string}>={Ligue:{bg:'rgba(59,130,246,0.12)',color:'#60a5fa'},Scrim:{bg:'rgba(34,197,94,0.12)',color:'#4ade80'},Tournoi:{bg:'rgba(168,85,247,0.12)',color:'#c084fc'},Division:{bg:'rgba(245,158,11,0.12)',color:'#fbbf24'}};const s=map[type]||{bg:'rgba(255,255,255,0.06)',color:T.textMuted};return<span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest" style={{background:s.bg,color:s.color,border:`1px solid ${s.color}30`,boxShadow:`0 0 8px ${s.color}20`}}>{type}</span>}
-
-// Section title avec effet cyber
 const ST=({icon,title}:{icon:string,title:string})=>(
-  <div className="relative rounded-3xl p-6 mb-6 overflow-hidden" style={{background:isDark?`linear-gradient(135deg,rgba(0,0,0,0.8),rgba(${P==='#D4AF37'?'212,175,55':'0,0,0'},0.05))`:T.card,border:`1px solid ${P}20`,backdropFilter:'blur(40px)',boxShadow:`0 0 40px ${P}08,inset 0 1px 0 ${P}15`}}>
-    {/* Coins décoratifs cyber */}
+  <div className="relative rounded-3xl p-6 mb-6 overflow-hidden" style={{background:isDark?`linear-gradient(135deg,rgba(0,0,0,0.8),rgba(0,0,0,0.4))`:T.card,border:`1px solid ${P}20`,backdropFilter:'blur(40px)',boxShadow:`0 0 40px ${P}08,inset 0 1px 0 ${P}15`}}>
     <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 rounded-tl-lg" style={{borderColor:P}}/>
     <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 rounded-tr-lg" style={{borderColor:P}}/>
     <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 rounded-bl-lg" style={{borderColor:P}}/>
     <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 rounded-br-lg" style={{borderColor:P}}/>
-    {/* Ligne scan */}
-    <div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none">
-      <div className="scan-line"/>
-    </div>
+    <div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none"><div className="scan-line"/></div>
     <div className="relative flex items-center gap-4">
-      <div className="relative flex-shrink-0">
-        <div className="absolute inset-0 rounded-xl blur-md opacity-40" style={{background:P}}/>
-        <img src={LG} alt="D" className="relative w-10 h-10 rounded-xl"/>
-      </div>
-      <div>
-        <h2 className="text-lg font-black uppercase tracking-[0.15em]" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',textShadow:'none'}}>{icon} {title}</h2>
-        <div className="h-px mt-1" style={{background:`linear-gradient(90deg,${P}80,transparent)`}}/>
-      </div>
+      <div className="relative flex-shrink-0"><div className="absolute inset-0 rounded-xl blur-md opacity-40" style={{background:P}}/><img src={LG} alt="D" className="relative w-10 h-10 rounded-xl"/></div>
+      <div><h2 className="text-lg font-black uppercase tracking-[0.15em]" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{icon} {title}</h2><div className="h-px mt-1" style={{background:`linear-gradient(90deg,${P}80,transparent)`}}/></div>
     </div>
   </div>
 )
-
-// Stat card avec compteur animé
-const SC=({value,label,color,icon,animated=false}:{value:any,label:string,color?:string,icon?:string,animated?:boolean})=>{
-  const c=color||P
-  return(
+const SC=({value,label,color,icon}:{value:any,label:string,color?:string,icon?:string})=>{const c=color||P;return(
   <div className="rounded-2xl p-5 text-center relative overflow-hidden" style={{...CS,border:`1px solid ${c}20`}}>
     <div className="absolute inset-0 opacity-20" style={{background:`radial-gradient(ellipse at 50% 0%,${c}40,transparent 70%)`}}/>
     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-px" style={{background:`linear-gradient(90deg,transparent,${c},transparent)`}}/>
@@ -339,42 +341,36 @@ const SC=({value,label,color,icon,animated=false}:{value:any,label:string,color?
     <p className="text-[9px] uppercase tracking-widest mt-1.5 font-bold relative" style={{color:T.textMuted}}>{label}</p>
   </div>
 )}
-
 const Tg=({children,color='gold'}:{children:any,color?:'gold'|'green'|'red'|'blue'|'gray'|'primary'})=>{
   const c={gold:{bg:'rgba(212,175,55,0.1)',text:'#D4AF37',border:'rgba(212,175,55,0.2)'},green:{bg:'rgba(74,222,128,0.1)',text:'#4ade80',border:'rgba(74,222,128,0.2)'},red:{bg:'rgba(248,113,113,0.1)',text:'#f87171',border:'rgba(248,113,113,0.2)'},blue:{bg:'rgba(96,165,250,0.1)',text:'#60a5fa',border:'rgba(96,165,250,0.2)'},gray:{bg:'rgba(255,255,255,0.05)',text:T.textMuted,border:'rgba(255,255,255,0.08)'},primary:{bg:`${P}12`,text:P,border:`${P}25`}}[color]
   return<span className="px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{background:c.bg,color:c.text,border:`1px solid ${c.border}`}}>{children}</span>
 }
+
+const sondagesActifs=sondages.filter((s:any)=>s.actif).length
+const prochainsCount=prochainsMatchs.length
 
 if(showSplash)return(
   <div className="min-h-screen flex items-center justify-center" style={{background:'#000'}}>
     <style>{`
       @keyframes blob1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-20px) scale(1.1)}66%{transform:translate(-20px,10px) scale(0.9)}}
       @keyframes blob2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-25px,15px) scale(1.05)}66%{transform:translate(20px,-25px) scale(0.95)}}
-      @keyframes blob3{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(15px,25px) scale(0.9)}66%{transform:translate(-15px,-15px) scale(1.1)}}
       @keyframes splashPulse{0%,100%{opacity:0.3;transform:scale(1)}50%{opacity:0.6;transform:scale(1.05)}}
       @keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
       @keyframes shimmer{0%{background-position:-300% center}100%{background-position:300% center}}
-      .splash-logo{animation:fadeUp 0.8s ease both}
-      .splash-title{animation:fadeUp 0.8s ease 0.3s both}
-      .splash-sub{animation:fadeUp 0.8s ease 0.5s both}
-      .splash-dots{animation:fadeUp 0.8s ease 0.7s both}
       .shimmer-gold{background:linear-gradient(90deg,#B8860B,#D4AF37,#FFD700,#B8860B);background-size:300% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 3s linear infinite}
     `}</style>
-    {/* Blobs */}
     <div className="absolute inset-0 overflow-hidden">
       <div className="absolute w-96 h-96 rounded-full blur-3xl opacity-15" style={{background:'radial-gradient(circle,#D4AF37,transparent)',top:'10%',left:'10%',animation:'blob1 8s ease-in-out infinite'}}/>
       <div className="absolute w-80 h-80 rounded-full blur-3xl opacity-10" style={{background:'radial-gradient(circle,#FFD700,transparent)',top:'50%',right:'10%',animation:'blob2 10s ease-in-out infinite'}}/>
-      <div className="absolute w-64 h-64 rounded-full blur-3xl opacity-8" style={{background:'radial-gradient(circle,#B8860B,transparent)',bottom:'10%',left:'30%',animation:'blob3 12s ease-in-out infinite'}}/>
     </div>
     <div className="text-center relative z-10 px-8">
-      <div className="relative inline-block mb-8 splash-logo">
+      <div className="relative inline-block mb-8" style={{animation:'fadeUp 0.8s ease both'}}>
         <div className="absolute inset-0 rounded-full blur-2xl opacity-40" style={{background:'#D4AF37',animation:'splashPulse 2s ease-in-out infinite'}}/>
-        <div className="absolute inset-0 rounded-full blur-3xl opacity-20" style={{background:'#FFD700',transform:'scale(1.5)',animation:'splashPulse 2s ease-in-out 0.5s infinite'}}/>
         <img src={LG} alt="DYNO" className="relative w-28 h-28 rounded-3xl" style={{filter:'drop-shadow(0 0 20px rgba(212,175,55,0.5))'}}/>
       </div>
-      <h1 className="text-7xl font-black tracking-[0.2em] shimmer-gold mb-3 splash-title">DYNO</h1>
-      <p className="text-[11px] tracking-[0.5em] uppercase font-bold mb-10 splash-sub" style={{color:'rgba(212,175,55,0.4)'}}>Esport Team</p>
-      <div className="flex items-center justify-center gap-3 splash-dots">
+      <h1 className="text-7xl font-black tracking-[0.2em] shimmer-gold mb-3" style={{animation:'fadeUp 0.8s ease 0.3s both'}}>DYNO</h1>
+      <p className="text-[11px] tracking-[0.5em] uppercase font-bold mb-10" style={{color:'rgba(212,175,55,0.4)',animation:'fadeUp 0.8s ease 0.5s both'}}>Esport Team</p>
+      <div className="flex items-center justify-center gap-3" style={{animation:'fadeUp 0.8s ease 0.7s both'}}>
         {[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full" style={{background:'#D4AF37',opacity:0.6,animation:`splashPulse 1.2s ease-in-out ${i*0.2}s infinite`}}/>)}
       </div>
     </div>
@@ -384,50 +380,45 @@ if(showSplash)return(
 return(
 <div className="min-h-screen pb-20 relative" style={{background:T.bg}}>
 <style>{`
-  /* Blobs animés fond */
   @keyframes blob1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.1)}66%{transform:translate(-25px,20px) scale(0.9)}}
   @keyframes blob2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-35px,25px) scale(1.05)}66%{transform:translate(30px,-35px) scale(0.95)}}
   @keyframes blob3{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(20px,35px) scale(0.9)}66%{transform:translate(-20px,-20px) scale(1.1)}}
-
-  /* Slide transitions */
-  @keyframes slideInFromRight{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
-  @keyframes slideInFromLeft{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:translateX(0)}}
-  @keyframes slideOutToLeft{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-40px)}}
-  @keyframes slideOutToRight{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}
-
-  /* Micro-animations */
+  @keyframes slideInRight{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes slideInLeft{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:translateX(0)}}
   @keyframes lp{0%,100%{opacity:1}50%{opacity:.3}}
   @keyframes sh{0%{background-position:-300% center}100%{background-position:300% center}}
-  @keyframes popBadge{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
-  @keyframes glowPulse{0%,100%{box-shadow:0 0 8px rgba(212,175,55,0.3)}50%{box-shadow:0 0 20px rgba(212,175,55,0.6),0 0 40px rgba(212,175,55,0.2)}}
+  @keyframes popBadge{0%{transform:scale(0)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
   @keyframes scanLine{0%{transform:translateY(-100%)}100%{transform:translateY(400%)}}
   @keyframes float2{0%{transform:translateY(100vh) rotate(0deg);opacity:0}5%{opacity:1}95%{opacity:0.3}100%{transform:translateY(-10px) rotate(720deg);opacity:0}}
   @keyframes conffall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
-  @keyframes bdgPop{0%{transform:scale(0)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
-  @keyframes bounceBar{0%{width:0}70%{width:110%}85%{width:95%}100%{width:var(--target-width)}}
-
-  .tab-slide-in-right{animation:slideInFromRight 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both}
-  .tab-slide-in-left{animation:slideInFromLeft 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both}
+  @keyframes menuSlideIn{from{transform:translateX(-100%);opacity:0}to{transform:translateX(0);opacity:1}}
+  @keyframes menuSlideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(-100%);opacity:0}}
+  @keyframes overlayIn{from{opacity:0}to{opacity:1}}
+  @keyframes burgerLine1Open{from{transform:rotate(0) translateY(0)}to{transform:rotate(45deg) translateY(6px)}}
+  @keyframes burgerLine2Open{from{opacity:1;transform:scaleX(1)}to{opacity:0;transform:scaleX(0)}}
+  @keyframes burgerLine3Open{from{transform:rotate(0) translateY(0)}to{transform:rotate(-45deg) translateY(-6px)}}
+  @keyframes burgerLine1Close{from{transform:rotate(45deg) translateY(6px)}to{transform:rotate(0) translateY(0)}}
+  @keyframes burgerLine3Close{from{transform:rotate(-45deg) translateY(-6px)}to{transform:rotate(0) translateY(0)}}
+  .tab-slide-in-right{animation:slideInRight 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both}
+  .tab-slide-in-left{animation:slideInLeft 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both}
   .ld{animation:lp 1s ease-in-out infinite}
   .sg{background:linear-gradient(90deg,#B8860B,${P},${P2},${P},#B8860B);background-size:300% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:sh 4s linear infinite}
-  .glow-pulse{animation:glowPulse 2s ease-in-out infinite}
   .scan-line{position:absolute;width:100%;height:2px;background:linear-gradient(90deg,transparent,${P}30,transparent);animation:scanLine 3s linear infinite}
-  .badge-pop{animation:bdgPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both}
-
+  .badge-pop{animation:popBadge 0.4s cubic-bezier(0.34,1.56,0.64,1) both}
+  .menu-open{animation:menuSlideIn 0.3s cubic-bezier(0.25,0.46,0.45,0.94) both}
+  .menu-overlay{animation:overlayIn 0.3s ease both}
   input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-calendar-picker-indicator{filter:${isDark?'invert(.7) sepia(1) saturate(5) hue-rotate(5deg)':'invert(.3) sepia(1) saturate(3) hue-rotate(5deg)'}}
   select option{background:${isDark?'#0a0800':'#fffbea'};color:${T.text}}
   ::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:${P}30;border-radius:10px}
 `}</style>
 
-{/* BLOBS ANIMÉS FOND */}
+{/* BLOBS FOND */}
 <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-  <div className="absolute w-[600px] h-[600px] rounded-full blur-3xl" style={{background:`radial-gradient(circle,${P}15,transparent)`,top:'-10%',left:'-10%',animation:'blob1 12s ease-in-out infinite'}}/>
-  <div className="absolute w-[400px] h-[400px] rounded-full blur-3xl" style={{background:`radial-gradient(circle,${P2}10,transparent)`,top:'40%',right:'-5%',animation:'blob2 15s ease-in-out infinite'}}/>
-  <div className="absolute w-[350px] h-[350px] rounded-full blur-3xl" style={{background:`radial-gradient(circle,rgba(180,100,0,0.08),transparent)`,bottom:'10%',left:'30%',animation:'blob3 18s ease-in-out infinite'}}/>
-  {/* Gradient dynamique par onglet */}
+  <div className="absolute w-[600px] h-[600px] rounded-full blur-3xl" style={{background:`radial-gradient(circle,${P}12,transparent)`,top:'-10%',left:'-10%',animation:'blob1 12s ease-in-out infinite'}}/>
+  <div className="absolute w-[400px] h-[400px] rounded-full blur-3xl" style={{background:`radial-gradient(circle,${P2}08,transparent)`,top:'40%',right:'-5%',animation:'blob2 15s ease-in-out infinite'}}/>
+  <div className="absolute w-[350px] h-[350px] rounded-full blur-3xl" style={{background:`radial-gradient(circle,rgba(180,100,0,0.06),transparent)`,bottom:'10%',left:'30%',animation:'blob3 18s ease-in-out infinite'}}/>
   <div className="absolute inset-0 transition-all duration-700" style={{background:TAB_GRADIENTS[activeTab]||''}}/>
-  {/* Particules */}
-  {Array.from({length:12}).map((_,i)=><div key={i} className="absolute rounded-full" style={{width:`${Math.random()*3+1}px`,height:`${Math.random()*3+1}px`,left:`${Math.random()*100}%`,bottom:'-5px',background:P,opacity:Math.random()*0.3+0.1,animation:`float2 ${Math.random()*15+10}s linear ${Math.random()*10}s infinite`}}/>)}
+  {Array.from({length:10}).map((_,i)=><div key={i} className="absolute rounded-full" style={{width:`${Math.random()*3+1}px`,height:`${Math.random()*3+1}px`,left:`${Math.random()*100}%`,bottom:'-5px',background:P,opacity:Math.random()*0.25+0.05,animation:`float2 ${Math.random()*15+10}s linear ${Math.random()*10}s infinite`}}/>)}
 </div>
 
 {/* CONFETTIS */}
@@ -435,8 +426,8 @@ return(
   <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
     {Array.from({length:80}).map((_,i)=><div key={i} className="absolute top-0" style={{left:`${Math.random()*100}%`,width:`${6+Math.random()*8}px`,height:`${6+Math.random()*8}px`,background:['#D4AF37','#FFD700','#ffffff','#f87171','#4ade80','#60a5fa'][Math.floor(Math.random()*6)],borderRadius:Math.random()>.5?'50%':'2px',animation:`conffall ${1.5+Math.random()*2.5}s linear ${Math.random()*1.5}s both`}}/>)}
     <div className="absolute inset-0 flex items-center justify-center">
-      <div className="rounded-3xl px-10 py-8 text-center relative" style={{background:'rgba(0,0,0,0.85)',backdropFilter:'blur(20px)',border:`1px solid ${P}30`,boxShadow:`0 0 40px ${P}30`}}>
-        <div className="absolute inset-0 rounded-3xl overflow-hidden"><div className="scan-line"/></div>
+      <div className="rounded-3xl px-10 py-8 text-center relative" style={{background:'rgba(0,0,0,0.85)',backdropFilter:'blur(20px)',border:`1px solid ${P}30`}}>
+        <div className="scan-line"/>
         <p className="text-5xl mb-3 relative">🏆</p>
         <p className="text-2xl font-black relative" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>VICTOIRE !</p>
       </div>
@@ -444,76 +435,153 @@ return(
   </div>
 )}
 
+{/* ✅ MENU BURGER OVERLAY */}
+{menuOpen&&(
+  <div className="fixed inset-0 z-[80] menu-overlay" style={{background:'rgba(0,0,0,0.7)',backdropFilter:'blur(8px)'}} onClick={closeMenu}/>
+)}
+
+{/* ✅ MENU BURGER PANNEAU */}
+{menuOpen&&(
+  <div
+    ref={menuRef}
+    className="fixed top-0 left-0 bottom-0 z-[90] menu-open flex flex-col"
+    style={{width:'82%',maxWidth:'320px',background:isDark?'linear-gradient(170deg,rgba(6,5,0,0.99),rgba(3,2,0,0.99))':'linear-gradient(170deg,rgba(255,253,240,0.99),rgba(255,248,220,0.99))',borderRight:`1px solid ${P}20`,boxShadow:`4px 0 40px rgba(0,0,0,0.5),0 0 0 1px ${P}08`}}
+    onTouchStart={handleMenuSwipeStart}
+    onTouchEnd={handleMenuSwipeEnd}
+  >
+    {/* Ligne décorative top */}
+    <div className="absolute top-0 left-0 right-0 h-px" style={{background:`linear-gradient(90deg,transparent,${P}60,transparent)`}}/>
+    {/* Scan line */}
+    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10"><div className="scan-line"/></div>
+    {/* Coins déco */}
+    <div className="absolute top-3 left-3 w-3 h-3 border-t border-l" style={{borderColor:`${P}60`}}/>
+    <div className="absolute top-3 right-3 w-3 h-3 border-t border-r" style={{borderColor:`${P}60`}}/>
+
+    {/* HEADER MENU */}
+    <div className="relative z-10 p-5 pb-4" style={{borderBottom:`1px solid ${P}15`}}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-xl blur-md opacity-30" style={{background:P}}/>
+            <img src={LG} alt="DYNO" className="relative w-10 h-10 rounded-xl"/>
+          </div>
+          <div>
+            <h2 className="text-base font-black sg">DYNO</h2>
+            <p className="text-[8px] tracking-[0.3em] uppercase font-bold" style={{color:`${P}60`}}>Esport Team</p>
+          </div>
+        </div>
+        <button onClick={closeMenu} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90" style={{background:`${P}12`,color:P,border:`1px solid ${P}25`,fontSize:'14px'}}>✕</button>
+      </div>
+
+      {/* Profil utilisateur */}
+      {user?(
+        <div className="rounded-2xl p-3.5 relative overflow-hidden" style={{background:`${P}08`,border:`1px solid ${P}18`}}>
+          <div className="scan-line opacity-20"/>
+          <div className="relative flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg flex-shrink-0" style={{background:G2,color:'#000',boxShadow:`0 0 12px ${P}40`}}>{pseudo[0]?.toUpperCase()||'?'}</div>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-sm truncate" style={{color:T.text}}>{pseudo}</p>
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full inline-block mt-0.5" style={{background:`${ROLE_COLORS[userRole]||'rgba(255,255,255,0.15)'}18`,color:ROLE_COLORS[userRole]||T.textMuted,border:`1px solid ${ROLE_COLORS[userRole]||'rgba(255,255,255,0.1)'}30`}}>{userRole}</span>
+            </div>
+            <button onClick={()=>{handleSignOut();closeMenu()}} className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 active:scale-90" style={{background:'rgba(239,68,68,0.1)',color:'#f87171',border:'1px solid rgba(239,68,68,0.2)'}}>↪</button>
+          </div>
+        </div>
+      ):(
+        <button onClick={()=>{closeMenu();setIsSignUp(false)}} className="w-full py-3 rounded-2xl font-black text-sm text-black" style={{background:G2,boxShadow:`0 4px 16px ${P}40`}}>🔐 Se connecter</button>
+      )}
+    </div>
+
+    {/* LISTE DES ONGLETS */}
+    <div className="flex-1 overflow-y-auto relative z-10 py-3">
+      <div className="px-3 space-y-1">
+        {navItems.map((item,idx)=>{
+          const isActive=activeTab===item.t
+          const badge=item.t==='sondages'&&sondagesActifs>0?sondagesActifs:item.t==='matchs'&&prochainsCount>0?prochainsCount:0
+          return(
+          <button key={item.t} onClick={()=>changeTab(item.t)} className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left transition-all active:scale-[0.98] relative overflow-hidden" style={{background:isActive?`${P}15`:'transparent',border:isActive?`1px solid ${P}25`:'1px solid transparent',boxShadow:isActive?`0 0 16px ${P}10`:undefined,animationDelay:`${idx*0.02}s`}}>
+            {isActive&&<div className="scan-line opacity-20"/>}
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 relative" style={{background:isActive?`${P}20`:'rgba(255,255,255,0.04)',border:`1px solid ${isActive?P+'30':'rgba(255,255,255,0.06)'}`,boxShadow:isActive?`0 0 10px ${P}20`:undefined}}>
+              <span className="text-base">{item.i}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black" style={{color:isActive?P:T.text}}>{item.l}</p>
+              <p className="text-[10px] truncate" style={{color:T.textMuted}}>{item.desc}</p>
+            </div>
+            {badge>0&&<div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white flex-shrink-0 badge-pop" style={{background:item.t==='matchs'?P:'#ef4444',boxShadow:item.t==='matchs'?`0 0 8px ${P}60`:'0 0 8px rgba(239,68,68,0.6)'}}>{badge}</div>}
+            {isActive&&<div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{background:P,boxShadow:`0 0 6px ${P}`}}/>}
+          </button>
+        )})}
+      </div>
+    </div>
+
+    {/* FOOTER MENU */}
+    <div className="relative z-10 p-4 space-y-3" style={{borderTop:`1px solid ${P}15`}}>
+      {/* Thèmes */}
+      <div>
+        <p className="text-[9px] font-black uppercase tracking-widest mb-2 px-1" style={{color:`${P}60`}}>🎨 Thème</p>
+        <div className="grid grid-cols-4 gap-1.5">
+          {Object.entries(THEMES).map(([key,th])=>(
+            <button key={key} onClick={()=>setTheme(key)} className="py-2 rounded-xl text-center active:scale-95 transition-all" style={{background:themeKey===key?`${th.primary}22`:'rgba(255,255,255,0.04)',border:`1.5px solid ${themeKey===key?th.primary:T.cardBorder}`,boxShadow:themeKey===key?`0 0 10px ${th.primary}30`:undefined}}>
+              <p className="text-lg">{th.icon}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Toggles */}
+      <div className="flex gap-2">
+        <button onClick={toggleTheme} className="flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 font-bold text-xs transition-all active:scale-95" style={{background:`${P}10`,border:`1px solid ${P}20`,color:P}}>
+          <span>{isDark?'☀️':'🌙'}</span>
+          <span>{isDark?'Clair':'Sombre'}</span>
+        </button>
+        {user&&<button onClick={async()=>{await requestNotificationPermission()}} className="flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 font-bold text-xs transition-all active:scale-95" style={{background:notificationsEnabled?`${P}10`:'rgba(255,255,255,0.04)',border:`1px solid ${notificationsEnabled?P+'20':T.cardBorder}`,color:notificationsEnabled?P:T.textMuted}}>
+          <span>{notificationsEnabled?'🔔':'🔕'}</span>
+          <span>Notifs</span>
+        </button>}
+      </div>
+    </div>
+  </div>
+)}
+
 {/* HEADER CYBER */}
 <header className="sticky top-0 z-50 relative" style={{background:T.header,backdropFilter:'blur(40px)',borderBottom:`1px solid ${P}15`,boxShadow:`0 4px 24px rgba(0,0,0,0.4),0 0 0 1px ${P}08`}}>
-  {/* Scan line header */}
   <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10"><div className="scan-line"/></div>
-  {/* Ligne décorative top */}
   <div className="absolute top-0 left-0 right-0 h-px" style={{background:`linear-gradient(90deg,transparent,${P}60,${P2}40,transparent)`}}/>
   <div className="max-w-lg mx-auto px-3 py-2.5 flex items-center justify-between relative z-10">
-    <div className="flex items-center gap-2.5 flex-shrink-0">
-      <div className="relative">
-        <div className="absolute inset-0 rounded-xl blur-md opacity-30" style={{background:P}}/>
-        <img src={LG} alt="D" className="relative w-8 h-8 rounded-xl flex-shrink-0" style={{filter:`drop-shadow(0 0 6px ${P}60)`}}/>
-      </div>
-      <div>
-        <h1 className="text-lg font-black leading-none sg">DYNO</h1>
-        <p className="text-[7px] tracking-[0.4em] uppercase font-bold" style={{color:`${P}70`}}>ESPORT</p>
+    <div className="flex items-center gap-2.5">
+      {/* ✅ BOUTON BURGER */}
+      <button onClick={menuOpen?closeMenu:openMenu} className="w-9 h-9 rounded-xl flex flex-col items-center justify-center gap-1.5 active:scale-90 transition-all flex-shrink-0" style={{background:menuOpen?`${P}20`:`${P}10`,border:`1px solid ${P}20`,boxShadow:menuOpen?`0 0 12px ${P}30`:undefined}}>
+        <div className="w-4.5 h-0.5 rounded-full transition-all duration-300" style={{background:P,width:'18px',transformOrigin:'center',transform:menuOpen?'rotate(45deg) translateY(6px)':'none'}}/>
+        <div className="h-0.5 rounded-full transition-all duration-300" style={{background:P,width:'18px',opacity:menuOpen?0:1,transform:menuOpen?'scaleX(0)':'scaleX(1)'}}/>
+        <div className="w-4.5 h-0.5 rounded-full transition-all duration-300" style={{background:P,width:'18px',transformOrigin:'center',transform:menuOpen?'rotate(-45deg) translateY(-6px)':'none'}}/>
+      </button>
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-xl blur-md opacity-30" style={{background:P}}/>
+          <img src={LG} alt="D" className="relative w-8 h-8 rounded-xl flex-shrink-0"/>
+        </div>
+        <div><h1 className="text-lg font-black leading-none sg">DYNO</h1><p className="text-[7px] tracking-[0.4em] uppercase font-bold" style={{color:`${P}70`}}>ESPORT</p></div>
       </div>
     </div>
     <div className="flex items-center gap-1.5">
-      <button onClick={toggleTheme} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 flex-shrink-0 transition-all" style={{background:`${P}10`,border:`1px solid ${P}20`,boxShadow:`0 0 10px ${P}10`}}><span className="text-sm">{isDark?'☀️':'🌙'}</span></button>
-      {user&&<button onClick={()=>{setShowNotifSettings(true);markAllRead()}} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 relative flex-shrink-0 transition-all" style={{background:notificationsEnabled?`${P}15`:'rgba(255,255,255,.05)',border:`1px solid ${P}20`}}>
+      <button onClick={toggleTheme} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 flex-shrink-0" style={{background:`${P}10`,border:`1px solid ${P}20`}}><span className="text-sm">{isDark?'☀️':'🌙'}</span></button>
+      {user&&<button onClick={()=>{markAllRead()}} className="w-8 h-8 rounded-xl flex items-center justify-center active:scale-90 relative flex-shrink-0" style={{background:notificationsEnabled?`${P}15`:'rgba(255,255,255,.05)',border:`1px solid ${P}20`}}>
         <span className="text-sm">{notificationsEnabled?'🔔':'🔕'}</span>
         {unreadCount>0&&<div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white badge-pop" style={{background:'#ef4444',boxShadow:'0 0 8px rgba(239,68,68,0.6)'}}>{unreadCount>9?'9+':unreadCount}</div>}
       </button>}
-      {showInstall&&<button onClick={handleInstall} className="px-2 py-1.5 rounded-xl text-xs font-bold active:scale-95 flex-shrink-0" style={{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.25)'}}>📲</button>}
-      {user?<button onClick={handleSignOut} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl active:scale-95 flex-shrink-0 transition-all" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
-        <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0" style={{background:G2,color:'#000',boxShadow:`0 0 8px ${P}40`}}>{pseudo[0]?.toUpperCase()||'?'}</div>
-        <span className="text-xs font-bold max-w-[55px] truncate" style={{color:P}}>{pseudo}</span>
+      {user?<button onClick={handleSignOut} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl active:scale-95 flex-shrink-0" style={{background:`${P}10`,border:`1px solid ${P}20`}}>
+        <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0" style={{background:G2,color:'#000'}}>{pseudo[0]?.toUpperCase()||'?'}</div>
+        <span className="text-xs font-bold max-w-[50px] truncate" style={{color:P}}>{pseudo}</span>
       </button>:<button onClick={()=>setIsSignUp(false)} className="px-3 py-1.5 rounded-xl text-xs font-black active:scale-95 flex-shrink-0" style={{background:G2,color:'#000',boxShadow:`0 4px 12px ${P}40`}}>Connexion</button>}
     </div>
   </div>
 </header>
 
-{/* PANNEAU RÉGLAGES */}
-{showNotifSettings&&modal(()=>setShowNotifSettings(false),'⚙️ Réglages','Thème et notifications',
-  <div>
-    <div className="mb-5">
-      <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🎨 Thème de couleur</p>
-      <div className="grid grid-cols-4 gap-2">
-        {Object.entries(THEMES).map(([key,th])=>(
-          <button key={key} onClick={()=>setTheme(key)} className="p-3 rounded-2xl text-center active:scale-95 relative transition-all" style={{background:themeKey===key?`${th.primary}20`:'rgba(255,255,255,0.04)',border:`2px solid ${themeKey===key?th.primary:T.cardBorder}`,boxShadow:themeKey===key?`0 0 12px ${th.primary}30`:undefined}}>
-            {themeKey===key&&<div className="absolute top-1 right-1 w-3 h-3 rounded-full flex items-center justify-center text-[8px] badge-pop" style={{background:th.primary,color:'#000'}}>✓</div>}
-            <p className="text-xl mb-1">{th.icon}</p>
-            <p className="text-[8px] font-black" style={{color:th.primary}}>{th.name}</p>
-          </button>
-        ))}
-      </div>
-    </div>
-    <div className="h-px mb-4" style={{background:`linear-gradient(90deg,transparent,${P}30,transparent)`}}/>
-    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:`${P}80`}}>🔔 Notifications</p>
-    <div className="space-y-2 mb-4">
-      {[{k:'match',label:'📅 Matchs'},{k:'note',label:'📊 Notes'},{k:'commentaire',label:'💬 Commentaires'},{k:'strat',label:'🎯 Strats'},{k:'resultat',label:'🏆 Résultats'}].map(({k,label})=>(
-        <div key={k} className="flex items-center justify-between p-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}>
-          <p className="text-xs font-bold" style={{color:T.text}}>{label}</p>
-          <button onClick={()=>saveNotifSettings({...notifSettings,[k]:!notifSettings[k]})} className="w-11 h-6 rounded-full relative transition-all flex-shrink-0" style={{background:notifSettings[k]?G2:'rgba(255,255,255,.12)'}}>
-            <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all" style={{left:notifSettings[k]?'calc(100% - 22px)':'2px'}}/>
-          </button>
-        </div>
-      ))}
-    </div>
-    {!notificationsEnabled&&<button onClick={async()=>{await requestNotificationPermission();setShowNotifSettings(false)}} className="w-full py-3 rounded-2xl font-black text-sm text-black mb-3" style={{background:G2,boxShadow:`0 4px 16px ${P}40`}}>🔔 Activer les notifications</button>}
-  </div>
-)}
-
 <main className="max-w-lg mx-auto px-4 py-5 relative z-10"
-  onTouchStart={(e)=>{handleTouchStartSwipe(e);ty.current=e.touches[0].clientY}}
-  onTouchMove={(e)=>{if(window.scrollY>0)return;const d=e.touches[0].clientY-ty.current;if(d>0)setPullDistance(Math.min(d*0.4,80))}}
-  onTouchEnd={(e)=>{handleTouchEndSwipe(e);if(pullDistance>60){setIsRefreshing(true);setTimeout(()=>window.location.reload(),500)};setPullDistance(0)}}>
-{pullDistance>0&&<div className="flex justify-center mb-3" style={{height:pullDistance}}><span className={`text-2xl transition-transform ${pullDistance>60?'rotate-180':''}`} style={{color:P}}>{isRefreshing?'⏳':'↓'}</span></div>}
+  onTouchStart={(e)=>{handleTouchStartSwipe(e);hts(e as any)}}
+  onTouchMove={(e)=>{htm(e as any)}}
+  onTouchEnd={(e)=>{handleTouchEndSwipe(e);hte()}}>
+{pullDistance>0&&<div className="flex justify-center mb-3" style={{height:pullDistance}}><span className={`text-2xl ${pullDistance>60?'rotate-180':''}`} style={{color:P}}>{isRefreshing?'⏳':'↓'}</span></div>}
 
-{/* CONTENU DES ONGLETS avec transition slide */}
 <div className={slideDir==='left'?'tab-slide-in-right':slideDir==='right'?'tab-slide-in-left':''}>
 
 {displayTab==='matchs'&&(
@@ -527,8 +595,7 @@ return(
   {loading?<div className="space-y-3">{[1,2].map(i=><div key={i} className="h-72 rounded-3xl" style={{background:'rgba(255,255,255,.02)',animation:'lp 2s ease-in-out infinite'}}/>)}</div>
   :prochainsMatchs.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">📭</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucun match à venir</p></div>
   :<div className={viewMode==='grid'?'grid grid-cols-2 gap-3':'space-y-4'}>{prochainsMatchs.map((match:any,idx:number)=>(
-    <div key={match.id} className="rounded-3xl overflow-hidden relative" style={{...CS,animation:`slideInFromRight 0.3s ease ${idx*0.05}s both`}}>
-      {/* Coin décoratifs */}
+    <div key={match.id} className="rounded-3xl overflow-hidden relative" style={{...CS,animation:`slideInRight 0.3s ease ${idx*0.05}s both`}}>
       <div className="absolute top-0 left-0 w-3 h-3 border-t border-l" style={{borderColor:`${P}40`}}/>
       <div className="absolute top-0 right-0 w-3 h-3 border-t border-r" style={{borderColor:`${P}40`}}/>
       <div className="h-px w-full" style={{background:`linear-gradient(90deg,transparent,${P}40,transparent)`}}/>
@@ -536,7 +603,7 @@ return(
       {countdowns[match.id]&&<div className="mx-4 mb-3 rounded-2xl px-4 py-3 text-center relative overflow-hidden" style={countdowns[match.id]==='EN COURS'?{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.2)'}:{background:`${P}06`,border:`1px solid ${P}15`}}>
         {countdowns[match.id]==='EN COURS'&&<div className="scan-line"/>}
         <p className="text-[8px] uppercase tracking-widest mb-1.5 font-bold" style={{color:T.textMuted}}>Countdown</p>
-        {countdowns[match.id]==='EN COURS'?<div className="flex items-center justify-center gap-2"><div className="w-2 h-2 rounded-full ld" style={{background:'#f87171'}}/><p className="text-base font-black" style={{color:'#f87171'}}>EN COURS</p></div>:<p className="text-xl font-black font-mono" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',textShadow:'none'}}>{countdowns[match.id]}</p>}
+        {countdowns[match.id]==='EN COURS'?<div className="flex items-center justify-center gap-2"><div className="w-2 h-2 rounded-full ld" style={{background:'#f87171'}}/><p className="text-base font-black" style={{color:'#f87171'}}>EN COURS</p></div>:<p className="text-xl font-black font-mono" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{countdowns[match.id]}</p>}
       </div>}
       <div className="px-5 pb-4 flex items-center gap-4">
         <div className="relative flex-shrink-0"><div className="absolute inset-0 rounded-2xl blur-md opacity-20" style={{background:P}}/><img src={LG} alt="D" className="relative w-12 h-12 rounded-2xl"/></div>
@@ -546,10 +613,10 @@ return(
       {(match.disponibles||[]).length>0&&<div className="mx-4 mb-2 rounded-xl px-4 py-3" style={{background:`${P}05`,border:`1px solid ${P}10`}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:`${P}60`}}>✅ Dispo ({(match.disponibles||[]).length})</p><div className="flex flex-wrap gap-1.5">{(match.disponibles||[]).map((p:string,i:number)=><Tg key={i} color="primary">{p}</Tg>)}</div></div>}
       {(match.indisponibles||[]).length>0&&<div className="mx-4 mb-3 rounded-xl px-4 py-3" style={{background:'rgba(239,68,68,.05)',border:'1px solid rgba(239,68,68,.1)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(239,68,68,.55)'}}>🚫 Indispo ({(match.indisponibles||[]).length})</p><div className="flex flex-wrap gap-1.5">{(match.indisponibles||[]).map((p:string,i:number)=><Tg key={i} color="red">{p}</Tg>)}</div></div>}
       <div className="px-4 pb-5 space-y-2.5">
-        <button onClick={()=>atc(match)} className="w-full py-3 rounded-2xl text-xs font-bold active:scale-95 transition-all" style={{background:'rgba(59,130,246,.1)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.2)'}}>📅 Ajouter au calendrier</button>
+        <button onClick={()=>atc(match)} className="w-full py-3 rounded-2xl text-xs font-bold active:scale-95" style={{background:'rgba(59,130,246,.1)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.2)'}}>📅 Ajouter au calendrier</button>
         <div className="grid grid-cols-2 gap-2.5">
           <button onClick={()=>toggleDispo(match.id)} disabled={!user} className="py-4 rounded-2xl font-black text-sm active:scale-95 transition-all" style={!user?{background:'rgba(255,255,255,.03)',color:'rgba(255,255,255,.15)'}:(match.disponibles||[]).includes(pseudo)?{background:G2,color:'#000',boxShadow:`0 4px 16px ${P}40`}:{background:`${P}10`,color:P,border:`1px solid ${P}20`}}>{!user?'🔐':(match.disponibles||[]).includes(pseudo)?'✅ Dispo':'📅 Dispo'}</button>
-          <button onClick={()=>toggleIndispo(match.id)} disabled={!user} className="py-4 rounded-2xl font-black text-sm active:scale-95 transition-all" style={!user?{background:'rgba(255,255,255,.03)',color:'rgba(255,255,255,.15)'}:(match.indisponibles||[]).includes(pseudo)?{background:'rgba(239,68,68,.2)',color:'#f87171',border:'1px solid rgba(239,68,68,.3)',boxShadow:'0 4px 16px rgba(239,68,68,0.3)'}:{background:'rgba(239,68,68,.06)',color:'rgba(239,68,68,.7)',border:'1px solid rgba(239,68,68,.15)'}}>{!user?'🔐':(match.indisponibles||[]).includes(pseudo)?'❌ Indispo':'🚫 Indispo'}</button>
+          <button onClick={()=>toggleIndispo(match.id)} disabled={!user} className="py-4 rounded-2xl font-black text-sm active:scale-95 transition-all" style={!user?{background:'rgba(255,255,255,.03)',color:'rgba(255,255,255,.15)'}:(match.indisponibles||[]).includes(pseudo)?{background:'rgba(239,68,68,.2)',color:'#f87171',border:'1px solid rgba(239,68,68,.3)'}:{background:'rgba(239,68,68,.06)',color:'rgba(239,68,68,.7)',border:'1px solid rgba(239,68,68,.15)'}}>{!user?'🔐':(match.indisponibles||[]).includes(pseudo)?'❌ Indispo':'🚫 Indispo'}</button>
         </div>
       </div>
     </div>
@@ -560,17 +627,11 @@ return(
 {displayTab==='historique'&&(
 <div>
   <ST icon="🏆" title="Résultats"/>
-  {/* Stats avec compteurs animés */}
-  <div className="grid grid-cols-2 gap-3 mb-6">
-    <SC value={animVictoires} label="Victoires" icon="🏆"/>
-    <SC value={animDefaites} label="Défaites" color="#f87171" icon="❌"/>
-  </div>
+  <div className="grid grid-cols-2 gap-3 mb-6"><SC value={animVictoires} label="Victoires" icon="🏆"/><SC value={animDefaites} label="Défaites" color="#f87171" icon="❌"/></div>
   {historique.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">📜</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucun résultat</p></div>
   :<div className="space-y-3">{historique.map((match:any,idx:number)=>{
     const win=Number(match.scoreDyno||0)>Number(match.scoreAdversaire||0)
-    return<div key={match.id} className="rounded-3xl overflow-hidden relative" style={{...CS,animation:`slideInFromLeft 0.3s ease ${idx*0.04}s both`}}>
-      <div className="absolute top-0 left-0 w-3 h-3 border-t border-l" style={{borderColor:win?`${P}50`:'rgba(239,68,68,0.4)'}}/>
-      <div className="absolute top-0 right-0 w-3 h-3 border-t border-r" style={{borderColor:win?`${P}50`:'rgba(239,68,68,0.4)'}}/>
+    return<div key={match.id} className="rounded-3xl overflow-hidden relative" style={{...CS,animation:`slideInLeft 0.3s ease ${idx*0.04}s both`}}>
       <div className="h-px w-full" style={{background:win?`linear-gradient(90deg,transparent,${P}50,transparent)`:'linear-gradient(90deg,transparent,rgba(239,68,68,.3),transparent)'}}/>
       <div className="px-5 pt-4 pb-3 flex items-center justify-between">
         <span className="px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest" style={win?{background:`${P}15`,color:P,border:`1px solid ${P}30`,boxShadow:`0 0 10px ${P}20`}:{background:'rgba(239,68,68,.12)',color:'#f87171',border:'1px solid rgba(239,68,68,.25)'}}>{win?'🏆 Victoire':'❌ Défaite'}</span>
@@ -580,17 +641,11 @@ return(
         </div>
       </div>
       <div className="px-6 pb-5 flex items-center justify-between">
-        <div className="text-center flex-1"><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:`${P}50`}}>DYNO</p><p className="text-7xl font-black leading-none" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',textShadow:'none'}}>{match.scoreDyno}</p></div>
-        <div className="px-4 flex flex-col items-center gap-1"><div className="w-px h-8" style={{background:`${P}15`}}/><p className="text-xs font-thin" style={{color:`${P}20`}}>vs</p><div className="w-px h-8" style={{background:`${P}15`}}/></div>
+        <div className="text-center flex-1"><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:`${P}50`}}>DYNO</p><p className="text-7xl font-black leading-none" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{match.scoreDyno}</p></div>
+        <div className="px-4 flex flex-col items-center gap-1"><div className="w-px h-8" style={{background:`${P}15`}}/><p className="text-xs" style={{color:`${P}20`}}>vs</p><div className="w-px h-8" style={{background:`${P}15`}}/></div>
         <div className="text-center flex-1"><p className="text-[9px] font-black uppercase tracking-widest mb-2 truncate" style={{color:T.textMuted}}>{match.adversaire}</p><p className="text-7xl font-black leading-none" style={{color:isDark?'rgba(255,255,255,.3)':'rgba(0,0,0,.25)'}}>{match.scoreAdversaire}</p></div>
       </div>
-      {match.sousMatchs?.length>0&&<div className="mx-4 mb-4 rounded-2xl overflow-hidden" style={{border:'1px solid rgba(245,158,11,.15)'}}>
-        <div className="px-4 py-2.5" style={{background:'rgba(245,158,11,.07)',borderBottom:'1px solid rgba(245,158,11,.1)'}}><p className="text-[9px] font-black uppercase tracking-widest" style={{color:'rgba(245,158,11,.7)'}}>🏆 Division</p></div>
-        {match.sousMatchs.map((sm:any,i:number)=><div key={i} className="px-4 py-2.5 flex items-center justify-between" style={{borderTop:i>0?`1px solid ${T.cardBorder}`:'none'}}>
-          <span className="text-xs" style={{color:T.textMuted}}>DYNO vs {sm.adversaire}</span>
-          <span className="text-xs font-black"><span style={{color:P}}>{sm.scoreDyno}</span><span style={{color:T.textMuted}}> — </span><span style={{color:T.textMuted}}>{sm.scoreAdv}</span></span>
-        </div>)}
-      </div>}
+      {match.sousMatchs?.length>0&&<div className="mx-4 mb-4 rounded-2xl overflow-hidden" style={{border:'1px solid rgba(245,158,11,.15)'}}><div className="px-4 py-2.5" style={{background:'rgba(245,158,11,.07)',borderBottom:'1px solid rgba(245,158,11,.1)'}}><p className="text-[9px] font-black uppercase tracking-widest" style={{color:'rgba(245,158,11,.7)'}}>🏆 Division</p></div>{match.sousMatchs.map((sm:any,i:number)=><div key={i} className="px-4 py-2.5 flex items-center justify-between" style={{borderTop:i>0?`1px solid ${T.cardBorder}`:'none'}}><span className="text-xs" style={{color:T.textMuted}}>DYNO vs {sm.adversaire}</span><span className="text-xs font-black"><span style={{color:P}}>{sm.scoreDyno}</span><span style={{color:T.textMuted}}> — </span><span style={{color:T.textMuted}}>{sm.scoreAdv}</span></span></div>)}</div>}
       {match.type&&<p className="text-center text-[9px] uppercase tracking-widest pb-4 font-medium" style={{color:T.textMuted}}>{match.type} · {match.arene}</p>}
     </div>
   })}</div>}
@@ -604,13 +659,13 @@ return(
   {sondages.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🗳️</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucun sondage</p></div>
   :<div className="space-y-4">{sondages.map((s:any,idx:number)=>{
     const opts=s.options||{};const totalVotes=Object.values(opts).reduce((a:number,o:any)=>a+(o.votes?.length||0),0);const userVote=Object.keys(opts).find(k=>(opts[k].votes||[]).includes(user?.uid));const isFinished=!s.actif
-    return<div key={s.id} className="rounded-3xl overflow-hidden" style={{...CS,animation:`slideInFromRight 0.3s ease ${idx*0.05}s both`}}>
+    return<div key={s.id} className="rounded-3xl overflow-hidden" style={{...CS,animation:`slideInRight 0.3s ease ${idx*0.05}s both`}}>
       <div className="h-px w-full" style={{background:`linear-gradient(90deg,transparent,${P}30,transparent)`}}/>
       <div className="px-5 pt-4 pb-3" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
         <div className="flex items-start justify-between gap-3">
           <p className="font-black text-base flex-1" style={{color:T.text}}>{s.question}</p>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {isFinished?<span className="px-2 py-1 rounded-full text-[9px] font-black" style={{background:'rgba(255,255,255,.07)',color:T.textMuted}}>Clôturé</span>:<span className="px-2 py-1 rounded-full text-[9px] font-black ld" style={{background:'rgba(74,222,128,.15)',color:'#4ade80',boxShadow:'0 0 8px rgba(74,222,128,0.2)'}}>🟢 Actif</span>}
+            {isFinished?<span className="px-2 py-1 rounded-full text-[9px] font-black" style={{background:'rgba(255,255,255,.07)',color:T.textMuted}}>Clôturé</span>:<span className="px-2 py-1 rounded-full text-[9px] font-black ld" style={{background:'rgba(74,222,128,.15)',color:'#4ade80'}}>🟢 Actif</span>}
             {isAdmin&&s.actif&&<button onClick={()=>clotureSondage(s.id)} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(239,68,68,.1)',color:'#f87171'}}>Clôturer</button>}
             {isAdmin&&<button onClick={()=>del('sondages',s.id)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
           </div>
@@ -621,7 +676,6 @@ return(
         {Object.keys(opts).map(k=>{const o=opts[k],votes=o.votes?.length||0,pct=totalVotes>0?Math.round((votes/totalVotes)*100):0,isMyVote=userVote===k
           return<button key={k} onClick={()=>!isFinished&&user&&voterSondage(s.id,k)} disabled={isFinished||!user} className="w-full text-left rounded-2xl overflow-hidden transition-all active:scale-[.98]" style={{border:`1px solid ${isMyVote?P+'40':T.cardBorder}`,boxShadow:isMyVote?`0 0 12px ${P}15`:undefined}}>
             <div className="px-4 py-3 relative">
-              {/* Barre avec animation bounce */}
               <div className="absolute inset-0 rounded-2xl" style={{background:isMyVote?`${P}12`:'rgba(255,255,255,.02)',width:`${userVote?pct:0}%`,transition:'width 0.8s cubic-bezier(0.34,1.56,0.64,1)'}}/>
               <div className="relative flex items-center justify-between">
                 <div className="flex items-center gap-2.5">{isMyVote&&<span className="text-xs">✅</span>}<span className="text-sm font-bold" style={{color:isMyVote?P:T.text}}>{o.label}</span></div>
@@ -635,17 +689,7 @@ return(
     </div>
   })}</div>}
   {showAddSondage&&modal(()=>setShowAddSondage(false),'🗳️ Nouveau Sondage','',
-    <div>
-      <div className="space-y-3 mb-4">
-        <input type="text" placeholder="Ta question..." value={nouveauSondage.question} onChange={e=>setNouveauSondage({...nouveauSondage,question:e.target.value})} className={iCls} style={IS}/>
-        {nouveauSondage.options.map((opt:string,i:number)=><div key={i} className="flex gap-2">
-          <input type="text" placeholder={`Option ${i+1}`} value={opt} onChange={e=>{const o=[...nouveauSondage.options];o[i]=e.target.value;setNouveauSondage({...nouveauSondage,options:o})}} className={`flex-1 ${iCls}`} style={IS}/>
-          {nouveauSondage.options.length>2&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:nouveauSondage.options.filter((_:string,j:number)=>j!==i)})} className="px-3 rounded-xl font-bold text-xl" style={{background:'rgba(239,68,68,.1)',color:'#f87171'}}>×</button>}
-        </div>)}
-        {nouveauSondage.options.length<6&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:[...nouveauSondage.options,'']})} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:`${P}10`,color:P,border:`1px solid ${P}20`}}>➕ Option</button>}
-      </div>
-      <GBtn onClick={ajouterSondage}>✅ Créer</GBtn>
-    </div>
+    <div><div className="space-y-3 mb-4"><input type="text" placeholder="Ta question..." value={nouveauSondage.question} onChange={e=>setNouveauSondage({...nouveauSondage,question:e.target.value})} className={iCls} style={IS}/>{nouveauSondage.options.map((opt:string,i:number)=><div key={i} className="flex gap-2"><input type="text" placeholder={`Option ${i+1}`} value={opt} onChange={e=>{const o=[...nouveauSondage.options];o[i]=e.target.value;setNouveauSondage({...nouveauSondage,options:o})}} className={`flex-1 ${iCls}`} style={IS}/>{nouveauSondage.options.length>2&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:nouveauSondage.options.filter((_:string,j:number)=>j!==i)})} className="px-3 rounded-xl font-bold text-xl" style={{background:'rgba(239,68,68,.1)',color:'#f87171'}}>×</button>}</div>)}{nouveauSondage.options.length<6&&<button onClick={()=>setNouveauSondage({...nouveauSondage,options:[...nouveauSondage.options,'']})} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:`${P}10`,color:P,border:`1px solid ${P}20`}}>➕ Option</button>}</div><GBtn onClick={ajouterSondage}>✅ Créer</GBtn></div>
   )}
 </div>
 )}
@@ -655,25 +699,14 @@ return(
   <ST icon="🎲" title="Draft — Eva Esport Arena"/>
   {user?<GBtn onClick={()=>setShowAddDraft(true)} cls="mb-5">➕ Nouvelle Draft</GBtn>:<div className="rounded-2xl p-3 mb-5 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔐 Connecte-toi pour créer une draft</p></div>}
   {showAddDraft&&modal(()=>{setShowAddDraft(false);setDraftAdversaire('')},'🎲 Nouvelle Draft','Eva Esport Arena',
-    <div>
-      <div className="space-y-4 mb-5">
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 1</p>
-          <div className="rounded-2xl px-4 py-3.5 text-sm font-black" style={{background:`${P}10`,border:`1px solid ${P}25`,color:P}}>DYNO</div>
-        </div>
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 2 (Adversaire)</p>
-          <input type="text" placeholder="Nom de l'adversaire" value={draftAdversaire} onChange={e=>setDraftAdversaire(e.target.value)} className={iCls} style={IS}/>
-        </div>
-        <div className="rounded-2xl p-3" style={{background:isDark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)',border:`1px solid ${T.cardBorder}`}}>
-          <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>🤖 Comment ça marche</p>
-          <div className="space-y-1">
-            {['• 🪙 Tu lances la pièce → résultat aléatoire','• Si DYNO gagne → tu choisis le côté','• L\'adversaire joue automatiquement 🤖','• DYNO choisit ses picks/bans manuellement'].map((t,i)=><p key={i} className="text-[9px]" style={{color:T.textMuted}}>{t}</p>)}
-          </div>
-        </div>
+    <div><div className="space-y-4 mb-5">
+      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 1</p><div className="rounded-2xl px-4 py-3.5 text-sm font-black" style={{background:`${P}10`,border:`1px solid ${P}25`,color:P}}>DYNO</div></div>
+      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Équipe 2 (Adversaire)</p><input type="text" placeholder="Nom de l'adversaire" value={draftAdversaire} onChange={e=>setDraftAdversaire(e.target.value)} className={iCls} style={IS}/></div>
+      <div className="rounded-2xl p-3" style={{background:isDark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)',border:`1px solid ${T.cardBorder}`}}>
+        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>🤖 Comment ça marche</p>
+        {['• 🪙 Tu lances la pièce → résultat aléatoire','• Si DYNO gagne → tu choisis le côté','• L\'adversaire joue automatiquement 🤖','• DYNO choisit ses picks/bans manuellement'].map((t,i)=><p key={i} className="text-[9px]" style={{color:T.textMuted}}>{t}</p>)}
       </div>
-      <GBtn onClick={creerDraft}>✅ Créer la draft</GBtn>
-    </div>
+    </div><GBtn onClick={creerDraft}>✅ Créer la draft</GBtn></div>
   )}
   {drafts.length===0&&!showAddDraft?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🎲</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune draft en cours</p></div>
   :<div className="space-y-4">{drafts.map((draft:any,idx:number)=>{
@@ -681,8 +714,8 @@ return(
     let isDynoTurn=false
     if(!isFinished&&seq){if(seq.type==='coin')isDynoTurn=true;else if(seq.type==='side'&&draft.winnerIsDyno)isDynoTurn=true;else if(seq.type==='skin'&&!draft.winnerIsDyno)isDynoTurn=true;else if(seq.type==='pick'||seq.type==='ban'){if(seq.who==='winner'&&draft.winnerIsDyno)isDynoTurn=true;if(seq.who==='loser'&&!draft.winnerIsDyno)isDynoTurn=true}}
     const usedMaps=[...(draft.picks||[]),...(draft.bans||[])];const availableMaps=DRAFT_MAPS.filter(m=>!usedMaps.includes(m))
-    return<div key={draft.id} className="rounded-3xl overflow-hidden relative" style={{...CS,animation:`slideInFromRight 0.3s ease ${idx*0.05}s both`}}>
-      <div className="h-px w-full" style={{background:`linear-gradient(90deg,transparent,${P}30,transparent)`}}/>
+    return<div key={draft.id} className="rounded-3xl overflow-hidden relative" style={{...CS,animation:`slideInRight 0.3s ease ${idx*0.05}s both`}}>
+      <div className="h-px w-full" style={{background:`linear-gradient(90deg,transparent,${P}25,transparent)`}}/>
       <div className="px-5 pt-4 pb-3" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
         <div className="flex items-center justify-between">
           <div><p className="font-black text-base" style={{color:T.text}}>DYNO vs {draft.equipe2}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {draft.auteur} · Eva Esport Arena</p></div>
@@ -694,28 +727,17 @@ return(
         </div>
       </div>
       <div className="p-4 space-y-4">
-        {/* Barre de progression avec animation bounce */}
-        <div>
-          <div className="flex justify-between mb-1.5"><p className="text-[9px] font-black uppercase tracking-widest" style={{color:T.textMuted}}>Progression</p><p className="text-[9px] font-black" style={{color:P}}>{Math.min(step,DRAFT_SEQUENCE.length)}/{DRAFT_SEQUENCE.length}</p></div>
-          <div className="flex gap-0.5">{DRAFT_SEQUENCE.map((_,i)=><div key={i} className="flex-1 h-1.5 rounded-full transition-all duration-500" style={{background:i<step?P:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)',boxShadow:i<step?`0 0 4px ${P}60`:undefined}}/>)}</div>
-        </div>
+        <div><div className="flex justify-between mb-1.5"><p className="text-[9px] font-black uppercase tracking-widest" style={{color:T.textMuted}}>Progression</p><p className="text-[9px] font-black" style={{color:P}}>{Math.min(step,DRAFT_SEQUENCE.length)}/{DRAFT_SEQUENCE.length}</p></div><div className="flex gap-0.5">{DRAFT_SEQUENCE.map((_,i)=><div key={i} className="flex-1 h-1.5 rounded-full transition-all duration-500" style={{background:i<step?P:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)',boxShadow:i<step?`0 0 4px ${P}60`:undefined}}/>)}</div></div>
         {isAdvWaiting&&<div className="rounded-2xl p-3 text-center relative overflow-hidden" style={{background:'rgba(168,85,247,.08)',border:'1px solid rgba(168,85,247,.2)'}}><div className="scan-line"/><p className="text-sm font-black relative" style={{color:'#c084fc'}}>⏳ {draft.equipe2} réfléchit...</p></div>}
-        {!isFinished&&!isAdvWaiting&&seq&&<div className="rounded-2xl p-3 relative overflow-hidden" style={{background:isDynoTurn?`${P}10`:'rgba(168,85,247,.08)',border:`1px solid ${isDynoTurn?P+'25':'rgba(168,85,247,.2)'}`,boxShadow:isDynoTurn?`0 0 16px ${P}10`:undefined}}>{isDynoTurn&&<div className="scan-line"/>}<p className="text-xs font-black relative" style={{color:isDynoTurn?P:'#c084fc'}}>{isDynoTurn?'👤 Ton tour — DYNO':'🤖 Tour adversaire'}</p><p className="text-[10px] mt-0.5 relative" style={{color:T.textMuted}}>{seq.label}</p></div>}
+        {!isFinished&&!isAdvWaiting&&seq&&<div className="rounded-2xl p-3 relative overflow-hidden" style={{background:isDynoTurn?`${P}10`:'rgba(168,85,247,.08)',border:`1px solid ${isDynoTurn?P+'25':'rgba(168,85,247,.2)'}`}}>{isDynoTurn&&<div className="scan-line"/>}<p className="text-xs font-black relative" style={{color:isDynoTurn?P:'#c084fc'}}>{isDynoTurn?'👤 Ton tour — DYNO':'🤖 Tour adversaire'}</p><p className="text-[10px] mt-0.5 relative" style={{color:T.textMuted}}>{seq.label}</p></div>}
         {!isFinished&&!isAdvWaiting&&step===0&&user&&<button onClick={()=>draftCoin(draft.id)} className="w-full py-4 rounded-2xl font-black text-base active:scale-95 relative overflow-hidden" style={{background:G2,color:'#000',boxShadow:`0 4px 16px ${P}40`}}><div className="scan-line opacity-20"/>🪙 Lancer la pièce !</button>}
-        {!isFinished&&!isAdvWaiting&&step===1&&isDynoTurn&&user&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le côté de DYNO</p><div className="grid grid-cols-2 gap-2">{['🟠 Orange','🔵 Bleu'].map(side=><button key={side} onClick={()=>draftDynoSide(draft.id,side)} className="py-3 rounded-2xl font-black text-sm active:scale-95 transition-all" style={side.includes('Orange')?{background:'rgba(245,158,11,.15)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.3)',boxShadow:'0 0 12px rgba(245,158,11,0.15)'}:{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.3)',boxShadow:'0 0 12px rgba(59,130,246,0.15)'}}>{side}</button>)}</div></div>}
+        {!isFinished&&!isAdvWaiting&&step===1&&isDynoTurn&&user&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le côté de DYNO</p><div className="grid grid-cols-2 gap-2">{['🟠 Orange','🔵 Bleu'].map(side=><button key={side} onClick={()=>draftDynoSide(draft.id,side)} className="py-3 rounded-2xl font-black text-sm active:scale-95 transition-all" style={side.includes('Orange')?{background:'rgba(245,158,11,.15)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.3)'}:{background:'rgba(59,130,246,.15)',color:'#60a5fa',border:'1px solid rgba(59,130,246,.3)'}}>{side}</button>)}</div></div>}
         {!isFinished&&!isAdvWaiting&&step===2&&isDynoTurn&&user&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>Choisir le skin de l'arène</p><div className="grid grid-cols-2 gap-1.5">{SKINS.map(skin=><button key={skin} onClick={()=>draftDynoSkin(draft.id,skin)} className="py-2.5 rounded-xl text-xs font-bold active:scale-95 transition-all" style={{background:T.input,color:T.text,border:`1px solid ${T.inputBorder}`}}>{skin}</button>)}</div></div>}
-        {!isFinished&&!isAdvWaiting&&step>=3&&step<DRAFT_SEQUENCE.length&&isDynoTurn&&user&&availableMaps.length>0&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>{seq?.type==='pick'?'✅ Choisis une map à PICK':'❌ Choisis une map à BANNIR'}</p><div className="grid grid-cols-2 gap-2">{availableMaps.map(map=><button key={map} onClick={()=>draftDynoAction(draft.id,map)} className="py-3 rounded-2xl text-sm font-bold active:scale-95 transition-all" style={seq?.type==='pick'?{background:'rgba(74,222,128,.15)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)',boxShadow:'0 0 10px rgba(74,222,128,0.15)'}:{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)',boxShadow:'0 0 10px rgba(248,113,113,0.15)'}}>{map}</button>)}</div></div>}
-        {((draft.picks||[]).length>0||(draft.bans||[]).length>0)&&<div className="grid grid-cols-2 gap-3">
-          {(draft.picks||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.15)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks</p><div className="space-y-1">{(draft.picks||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#4ade80'}}>{m}</p>)}</div></div>}
-          {(draft.bans||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(248,113,113,.06)',border:'1px solid rgba(248,113,113,.15)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans</p><div className="space-y-1">{(draft.bans||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#f87171'}}>{m}</p>)}</div></div>}
-        </div>}
-        {(draft.winner||draft.winnerSide||draft.loserSkin)&&<div className="space-y-1.5">
-          {draft.winner&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:`${P}08`}}><span className="text-[10px]" style={{color:T.textMuted}}>🪙 Pile ou face</span><span className="text-[10px] font-black" style={{color:P}}>{draft.winner} a gagné</span></div>}
-          {draft.winnerSide&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(245,158,11,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🌍 Côté DYNO</span><span className="text-[10px] font-black" style={{color:'#fbbf24'}}>{draft.winnerSide}</span></div>}
-          {draft.loserSkin&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(96,165,250,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🎨 Skin</span><span className="text-[10px] font-black" style={{color:'#60a5fa'}}>{draft.loserSkin}</span></div>}
-        </div>}
+        {!isFinished&&!isAdvWaiting&&step>=3&&step<DRAFT_SEQUENCE.length&&isDynoTurn&&user&&availableMaps.length>0&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>{seq?.type==='pick'?'✅ Choisis une map à PICK':'❌ Choisis une map à BANNIR'}</p><div className="grid grid-cols-2 gap-2">{availableMaps.map(map=><button key={map} onClick={()=>draftDynoAction(draft.id,map)} className="py-3 rounded-2xl text-sm font-bold active:scale-95 transition-all" style={seq?.type==='pick'?{background:'rgba(74,222,128,.15)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)'}}>{map}</button>)}</div></div>}
+        {((draft.picks||[]).length>0||(draft.bans||[]).length>0)&&<div className="grid grid-cols-2 gap-3">{(draft.picks||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.15)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(74,222,128,.7)'}}>✅ Picks</p><div className="space-y-1">{(draft.picks||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#4ade80'}}>{m}</p>)}</div></div>}{(draft.bans||[]).length>0&&<div className="rounded-2xl p-3" style={{background:'rgba(248,113,113,.06)',border:'1px solid rgba(248,113,113,.15)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans</p><div className="space-y-1">{(draft.bans||[]).map((m:string,i:number)=><p key={i} className="text-[10px] font-bold" style={{color:'#f87171'}}>{m}</p>)}</div></div>}</div>}
+        {(draft.winner||draft.winnerSide||draft.loserSkin)&&<div className="space-y-1.5">{draft.winner&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:`${P}08`}}><span className="text-[10px]" style={{color:T.textMuted}}>🪙 Pile ou face</span><span className="text-[10px] font-black" style={{color:P}}>{draft.winner} a gagné</span></div>}{draft.winnerSide&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(245,158,11,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🌍 Côté DYNO</span><span className="text-[10px] font-black" style={{color:'#fbbf24'}}>{draft.winnerSide}</span></div>}{draft.loserSkin&&<div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{background:'rgba(96,165,250,.08)'}}><span className="text-[10px]" style={{color:T.textMuted}}>🎨 Skin</span><span className="text-[10px] font-black" style={{color:'#60a5fa'}}>{draft.loserSkin}</span></div>}</div>}
         {(draft.actions||[]).length>0&&<div><p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{color:T.textMuted}}>📋 Historique</p><div className="space-y-0.5 max-h-28 overflow-y-auto">{(draft.actions||[]).map((a:any,i:number)=><p key={i} className="text-[9px]" style={{color:T.textMuted}}>• {a.label}</p>)}</div></div>}
-        {isFinished&&(draft.picks||[]).length>0&&<div className="rounded-2xl p-4 text-center relative overflow-hidden" style={{background:`${P}08`,border:`1px solid ${P}20`,boxShadow:`0 0 20px ${P}10`}}><div className="scan-line opacity-10"/><p className="text-2xl mb-2 relative">🎉</p><p className="text-sm font-black mb-3 relative" style={{color:P}}>Draft terminée !</p><div className="flex flex-wrap justify-center gap-1.5 relative">{(draft.picks||[]).map((m:string,i:number)=><span key={i} className="px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{background:'rgba(74,222,128,.15)',color:'#4ade80',border:'1px solid rgba(74,222,128,0.3)'}}>{m}</span>)}</div></div>}
+        {isFinished&&(draft.picks||[]).length>0&&<div className="rounded-2xl p-4 text-center relative overflow-hidden" style={{background:`${P}08`,border:`1px solid ${P}20`}}><div className="scan-line opacity-10"/><p className="text-2xl mb-2 relative">🎉</p><p className="text-sm font-black mb-3 relative" style={{color:P}}>Draft terminée !</p><div className="flex flex-wrap justify-center gap-1.5 relative">{(draft.picks||[]).map((m:string,i:number)=><span key={i} className="px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{background:'rgba(74,222,128,.15)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}}>{m}</span>)}</div></div>}
       </div>
     </div>
   })}</div>}
@@ -728,7 +750,7 @@ return(
   {canAddStrat&&<GBtn onClick={()=>setShowAddStrat(true)} cls="mb-5">➕ Nouvelle Stratégie</GBtn>}
   {!canAddStrat&&<div className="rounded-2xl p-3 mb-4 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔒 Réservé aux Capitaines et Coachs</p></div>}
   {strats.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">📝</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune stratégie</p></div>
-  :<div className="space-y-3">{strats.map((s:any,idx:number)=><div key={s.id} className="rounded-3xl p-5 relative overflow-hidden" style={{...CS,animation:`slideInFromLeft 0.3s ease ${idx*0.05}s both`}}>
+  :<div className="space-y-3">{strats.map((s:any,idx:number)=><div key={s.id} className="rounded-3xl p-5 relative overflow-hidden" style={{...CS,animation:`slideInLeft 0.3s ease ${idx*0.05}s both`}}>
     <div className="absolute top-0 left-0 w-3 h-3 border-t border-l" style={{borderColor:`${P}40`}}/>
     <div className="absolute top-0 right-0 w-3 h-3 border-t border-r" style={{borderColor:`${P}40`}}/>
     <div className="flex items-start justify-between mb-4"><div><p className="font-black text-base" style={{color:T.text}}>DYNO vs {s.adversaire}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {s.auteur||'?'}</p></div>{(isAdmin||user?.uid===s.auteurId)&&<button onClick={()=>del('strats',s.id)} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}</div>
@@ -737,11 +759,7 @@ return(
     <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.7)'}}>❌ Bans ({s.bans?.length||0}/4)</p><div className="flex flex-wrap gap-1.5">{s.bans?.map((b:string,i:number)=><Tg key={i} color="red">{b}</Tg>)}</div></div>
   </div>)}</div>}
   {showAddStrat&&modal(()=>{setShowAddStrat(false);setNouvelleStrat({adversaire:'',picks:[],bans:[]})},'🎯 Nouvelle Stratégie','',
-    <div><div className="space-y-4 mb-4">
-      <input type="text" placeholder="Adversaire" value={nouvelleStrat.adversaire} onChange={e=>setNouvelleStrat({...nouvelleStrat,adversaire:e.target.value})} className={iCls} style={IS}/>
-      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(74,222,128,.8)'}}>✅ Picks (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'picks')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95 transition-all" style={nouvelleStrat.picks.includes(m)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)',boxShadow:'0 0 8px rgba(74,222,128,0.2)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
-      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.8)'}}>❌ Bans (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'bans')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95 transition-all" style={nouvelleStrat.bans.includes(m)?{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)',boxShadow:'0 0 8px rgba(248,113,113,0.2)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
-    </div><GBtn onClick={ajouterStrat}>✅ Sauvegarder</GBtn></div>
+    <div><div className="space-y-4 mb-4"><input type="text" placeholder="Adversaire" value={nouvelleStrat.adversaire} onChange={e=>setNouvelleStrat({...nouvelleStrat,adversaire:e.target.value})} className={iCls} style={IS}/><div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(74,222,128,.8)'}}>✅ Picks (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'picks')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95 transition-all" style={nouvelleStrat.picks.includes(m)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div><div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(248,113,113,.8)'}}>❌ Bans (max 4)</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>toggleMap(m,'bans')} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95 transition-all" style={nouvelleStrat.bans.includes(m)?{background:'rgba(248,113,113,.15)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div></div><GBtn onClick={ajouterStrat}>✅ Sauvegarder</GBtn></div>
   )}
 </div>
 )}
@@ -751,15 +769,12 @@ return(
   <ST icon="📋" title="Compositions"/>
   {user&&<GBtn onClick={()=>setShowAddCompo(true)} cls="mb-5">➕ Nouvelle Compo</GBtn>}
   {compos.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">📋</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune compo</p></div>
-  :<div className="space-y-3">{compos.map((c:any,idx:number)=><div key={c.id} className="rounded-3xl p-5 relative overflow-hidden" style={{...CS,animation:`slideInFromRight 0.3s ease ${idx*0.05}s both`}}>
+  :<div className="space-y-3">{compos.map((c:any,idx:number)=><div key={c.id} className="rounded-3xl p-5 relative overflow-hidden" style={{...CS,animation:`slideInRight 0.3s ease ${idx*0.05}s both`}}>
     <div className="flex items-center justify-between mb-4"><div><p className="font-black" style={{color:T.text}}>🗺️ {c.map}</p><p className="text-[10px] mt-0.5" style={{color:T.textMuted}}>par {c.auteur||'?'}</p></div>{(isAdmin||user?.uid===c.auteurId)&&<button onClick={()=>del('compos',c.id)} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}</div>
     <div className="flex flex-wrap gap-1.5">{c.joueurs?.map((j:string,i:number)=><Tg key={i} color="primary">{j}</Tg>)}</div>
   </div>)}</div>}
   {showAddCompo&&modal(()=>{setShowAddCompo(false);setSelectedMapCompo('');setCompoJoueurs([])},'📋 Nouvelle Compo','',
-    <div><div className="space-y-4 mb-4">
-      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>🗺️ Map</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>setSelectedMapCompo(m)} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95 transition-all" style={selectedMapCompo===m?{background:`${P}20`,color:P,border:`1px solid ${P}35`,boxShadow:`0 0 8px ${P}20`}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div>
-      <div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>👥 Joueurs</p><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j:any)=>j.actif!==false).map((j:any)=><button key={j.id} onClick={()=>toggleCompoJoueur(j.pseudo)} className="px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95 transition-all" style={compoJoueurs.includes(j.pseudo)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)',boxShadow:'0 0 8px rgba(74,222,128,0.15)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{j.pseudo}</button>)}</div></div>
-    </div><GBtn onClick={ajouterCompo}>✅ Sauvegarder</GBtn></div>
+    <div><div className="space-y-4 mb-4"><div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>🗺️ Map</p><div className="grid grid-cols-3 gap-1.5">{AM.map(m=><button key={m} onClick={()=>setSelectedMapCompo(m)} className="px-2 py-2.5 rounded-xl text-[10px] font-bold active:scale-95 transition-all" style={selectedMapCompo===m?{background:`${P}20`,color:P,border:`1px solid ${P}35`}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{m}</button>)}</div></div><div><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:`${P}80`}}>👥 Joueurs</p><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j:any)=>j.actif!==false).map((j:any)=><button key={j.id} onClick={()=>toggleCompoJoueur(j.pseudo)} className="px-3 py-2.5 rounded-xl text-xs font-bold active:scale-95 transition-all" style={compoJoueurs.includes(j.pseudo)?{background:'rgba(74,222,128,.18)',color:'#4ade80',border:'1px solid rgba(74,222,128,.3)'}:{background:T.input,color:T.textMuted,border:`1px solid ${T.inputBorder}`}}>{j.pseudo}</button>)}</div></div></div><GBtn onClick={ajouterCompo}>✅ Sauvegarder</GBtn></div>
   )}
 </div>
 )}
@@ -770,7 +785,7 @@ return(
   {canAddFiche&&<GBtn onClick={()=>setShowAddFiche(true)} cls="mb-5">➕ Nouvelle Fiche</GBtn>}
   {!canAddFiche&&<div className="rounded-2xl p-3 mb-4 text-center" style={{background:'rgba(255,255,255,.03)',border:`1px solid ${T.cardBorder}`}}><p className="text-xs" style={{color:T.textMuted}}>🔒 Réservé aux Coachs</p></div>}
   {fichesAdversaires.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">🔍</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucune fiche</p></div>
-  :<div className="space-y-3">{fichesAdversaires.map((f:any,idx:number)=><div key={f.id} className="rounded-3xl overflow-hidden relative" style={{...CS,animation:`slideInFromLeft 0.3s ease ${idx*0.05}s both`}}>
+  :<div className="space-y-3">{fichesAdversaires.map((f:any,idx:number)=><div key={f.id} className="rounded-3xl overflow-hidden relative" style={{...CS,animation:`slideInLeft 0.3s ease ${idx*0.05}s both`}}>
     <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{borderBottom:`1px solid ${T.cardBorder}`}}><p className="font-black" style={{color:T.text}}>⚔️ {f.adversaire}</p>{(isAdmin||user?.uid===f.auteurId)&&<button onClick={()=>del('fichesAdversaires',f.id)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}</div>
     <div className="p-5 space-y-3">
       <div className="rounded-2xl p-4" style={{background:'rgba(74,222,128,.05)',border:'1px solid rgba(74,222,128,.12)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{color:'rgba(74,222,128,.7)'}}>💪 Forces</p><p className="text-xs leading-relaxed" style={{color:T.textMuted}}>{f.forces||'—'}</p></div>
@@ -780,12 +795,7 @@ return(
     <p className="px-5 pb-4 text-[9px]" style={{color:T.textMuted}}>par {f.auteur}</p>
   </div>)}</div>}
   {showAddFiche&&modal(()=>{setShowAddFiche(false);setNouvelleFiche({adversaire:'',forces:'',faiblesses:'',notes:''})},'🔍 Nouvelle Fiche','',
-    <div><div className="space-y-3 mb-4">
-      <input type="text" placeholder="Adversaire" value={nouvelleFiche.adversaire} onChange={e=>setNouvelleFiche({...nouvelleFiche,adversaire:e.target.value})} className={iCls} style={IS}/>
-      <textarea placeholder="💪 Forces..." value={nouvelleFiche.forces} onChange={e=>setNouvelleFiche({...nouvelleFiche,forces:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(74,222,128,.2)'}}/>
-      <textarea placeholder="⚠️ Faiblesses..." value={nouvelleFiche.faiblesses} onChange={e=>setNouvelleFiche({...nouvelleFiche,faiblesses:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(248,113,113,.2)'}}/>
-      <textarea placeholder="📝 Notes..." value={nouvelleFiche.notes} onChange={e=>setNouvelleFiche({...nouvelleFiche,notes:e.target.value})} rows={2} className={`${iCls} resize-none`} style={IS}/>
-    </div><GBtn onClick={ajouterFiche}>✅ Sauvegarder</GBtn></div>
+    <div><div className="space-y-3 mb-4"><input type="text" placeholder="Adversaire" value={nouvelleFiche.adversaire} onChange={e=>setNouvelleFiche({...nouvelleFiche,adversaire:e.target.value})} className={iCls} style={IS}/><textarea placeholder="💪 Forces..." value={nouvelleFiche.forces} onChange={e=>setNouvelleFiche({...nouvelleFiche,forces:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(74,222,128,.2)'}}/><textarea placeholder="⚠️ Faiblesses..." value={nouvelleFiche.faiblesses} onChange={e=>setNouvelleFiche({...nouvelleFiche,faiblesses:e.target.value})} rows={2} className={`${iCls} resize-none`} style={{...IS,border:'1px solid rgba(248,113,113,.2)'}}/><textarea placeholder="📝 Notes..." value={nouvelleFiche.notes} onChange={e=>setNouvelleFiche({...nouvelleFiche,notes:e.target.value})} rows={2} className={`${iCls} resize-none`} style={IS}/></div><GBtn onClick={ajouterFiche}>✅ Sauvegarder</GBtn></div>
   )}
 </div>
 )}
@@ -797,7 +807,7 @@ return(
   :<div className="space-y-4">{historique.map((match:any,idx:number)=>{
     const mn=notes.filter((n:any)=>n.matchId===match.id),mc=commentaires.filter((c:any)=>c.matchId===match.id),ma=analyses.filter((a:any)=>a.matchId===match.id)
     const win=Number(match.scoreDyno||0)>Number(match.scoreAdversaire||0)
-    return<div key={match.id} className="rounded-3xl overflow-hidden" style={{...CS,animation:`slideInFromLeft 0.3s ease ${idx*0.04}s both`}}>
+    return<div key={match.id} className="rounded-3xl overflow-hidden" style={{...CS,animation:`slideInLeft 0.3s ease ${idx*0.04}s both`}}>
       <div className="px-5 pt-4 pb-3" style={{borderBottom:`1px solid ${T.cardBorder}`}}>
         <div className="flex items-center justify-between">
           <p className="font-black" style={{color:T.text}}>DYNO vs {match.adversaire}</p>
@@ -815,15 +825,12 @@ return(
       {selectedMatchForComment?.id===match.id&&user&&<div className="px-4 pb-3"><textarea placeholder="Ton commentaire..." value={nouveauCommentaire} onChange={e=>setNouveauCommentaire(e.target.value)} rows={2} className="w-full rounded-xl px-4 py-3 text-xs resize-none focus:outline-none mb-2" style={{background:'rgba(34,211,238,.06)',border:'1px solid rgba(34,211,238,.15)',color:T.text}}/><button onClick={()=>ajouterCommentaire(match.id)} className="w-full py-2 rounded-xl text-xs font-bold" style={{background:'rgba(34,211,238,.15)',color:'#22d3ee',border:'1px solid rgba(34,211,238,.25)'}}>💬 Envoyer</button></div>}
       {selectedMatchForAnalyse?.id===match.id&&user&&<div className="px-4 pb-3 space-y-2">{[{k:'bien',label:"✅ Ce qui a bien marché",bg:'rgba(74,222,128,.07)',border:'rgba(74,222,128,.2)',tc:'#4ade80'},{k:'mal',label:"❌ Ce qui a mal marché",bg:'rgba(248,113,113,.07)',border:'rgba(248,113,113,.2)',tc:'#f87171'},{k:'plan',label:"🎯 Plan d'action",bg:'rgba(96,165,250,.07)',border:'rgba(96,165,250,.2)',tc:'#60a5fa'}].map(({k,label,bg,border,tc})=><div key={k}><p className="text-[9px] font-black uppercase mb-1" style={{color:tc}}>{label}</p><textarea value={(nouvelleAnalyse as any)[k]} onChange={e=>setNouvelleAnalyse({...nouvelleAnalyse,[k]:e.target.value})} rows={2} className="w-full rounded-xl px-4 py-2.5 text-xs resize-none focus:outline-none" style={{background:bg,border:`1px solid ${border}`,color:T.text}}/></div>)}<button onClick={()=>ajouterAnalyse(match.id)} className="w-full py-2 rounded-xl text-xs font-bold" style={{background:'rgba(251,146,60,.15)',color:'#fb923c',border:'1px solid rgba(251,146,60,.25)'}}>📋 Sauvegarder</button></div>}
       {mn.length>0&&<div className="px-4 pb-3">
-        <p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(168,85,247,.7)'}}>📊 Notes
-          {/* Badge animé */}
-          <span className="ml-2 px-1.5 py-0.5 rounded-md text-[8px] font-black badge-pop inline-block" style={{background:'rgba(168,85,247,.2)',color:'#c084fc'}}>{mn.length}</span>
-        </p>
+        <p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(168,85,247,.7)'}}>📊 Notes<span className="ml-2 px-1.5 py-0.5 rounded-md text-[8px] font-black badge-pop inline-block" style={{background:'rgba(168,85,247,.2)',color:'#c084fc'}}>{mn.length}</span></p>
         <div className="space-y-2">{mn.map((n:any)=><div key={n.id} className="rounded-2xl p-3.5" style={{background:'rgba(168,85,247,.06)',border:'1px solid rgba(168,85,247,.12)'}}>
           <div className="flex items-center justify-between mb-3">
             <p className="font-black text-xs" style={{color:P}}>{n.joueur}</p>
             <div className="flex items-center gap-1.5">
-              {user&&(isAdmin||user.uid===n.joueurId)&&<button onClick={()=>{setNoteEdit({id:n.id,mental:String(Math.min(10,Math.max(0,parseInt(n.mental)||0))),communication:String(Math.min(10,Math.max(0,parseInt(n.communication)||0))),gameplay:String(Math.min(10,Math.max(0,parseInt(n.gameplay)||0))),joueur:n.joueur});window.scrollTo({top:0,behavior:'smooth'})}} className="px-2 py-1 rounded-lg text-[9px] font-bold transition-all" style={{background:'rgba(168,85,247,.18)',color:'#c084fc',border:'1px solid rgba(168,85,247,.25)'}}>✏️</button>}
+              {user&&(isAdmin||user.uid===n.joueurId)&&<button onClick={()=>{setNoteEdit({id:n.id,mental:String(Math.min(10,Math.max(0,parseInt(n.mental)||0))),communication:String(Math.min(10,Math.max(0,parseInt(n.communication)||0))),gameplay:String(Math.min(10,Math.max(0,parseInt(n.gameplay)||0))),joueur:n.joueur});window.scrollTo({top:0,behavior:'smooth'})}} className="px-2 py-1 rounded-lg text-[9px] font-bold" style={{background:'rgba(168,85,247,.18)',color:'#c084fc',border:'1px solid rgba(168,85,247,.25)'}}>✏️</button>}
               {isAdmin&&<button onClick={()=>del('notes',n.id)} className="w-6 h-6 rounded-lg flex items-center justify-center text-xs" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
             </div>
           </div>
@@ -833,33 +840,13 @@ return(
               <p className="text-sm mb-0.5">{icon}</p>
               <p className="text-lg font-black" style={{color,textShadow:`0 0 10px ${color}40`}}>{val}</p>
               <p className="text-[8px]" style={{color:T.textMuted}}>{label}</p>
-              {/* Barre avec animation bounce */}
-              <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{background:'rgba(255,255,255,.08)'}}>
-                <div className="h-full rounded-full" style={{width:`${(val/10)*100}%`,background:color,boxShadow:`0 0 4px ${color}60`,transition:'width 1s cubic-bezier(0.34,1.56,0.64,1)'}}/>
-              </div>
+              <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{background:'rgba(255,255,255,.06)'}}><div className="h-full rounded-full" style={{width:`${(val/10)*100}%`,background:color,transition:'width 1s cubic-bezier(0.34,1.56,0.64,1)'}}/></div>
             </div>
           })}</div>
         </div>)}</div>
       </div>}
-      {mc.length>0&&<div className="px-4 pb-3">
-        <p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(34,211,238,.7)'}}>💬 Commentaires
-          <span className="ml-2 px-1.5 py-0.5 rounded-md text-[8px] font-black badge-pop inline-block" style={{background:'rgba(34,211,238,.2)',color:'#22d3ee'}}>{mc.length}</span>
-        </p>
-        <div className="space-y-2">{mc.map((c:any)=><div key={c.id} className="rounded-xl p-3.5" style={{background:'rgba(34,211,238,.05)',border:'1px solid rgba(34,211,238,.1)'}}>
-          <div className="flex items-center justify-between mb-1.5"><p className="text-xs font-black" style={{color:'#22d3ee'}}>{c.joueur}</p><div className="flex items-center gap-2"><p className="text-[9px]" style={{color:T.textMuted}}>{fts(c.createdAt)}</p>{(isAdmin||user?.uid===c.joueurId)&&<button onClick={()=>del('commentaires',c.id)} className="text-red-400/50 text-xs">🗑️</button>}</div></div>
-          <p className="text-xs leading-relaxed" style={{color:T.textMuted}}>{c.texte}</p>
-        </div>)}</div>
-      </div>}
-      {ma.length>0&&<div className="px-4 pb-4"><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(251,146,60,.7)'}}>📋 Analyses<span className="ml-2 px-1.5 py-0.5 rounded-md text-[8px] font-black badge-pop inline-block" style={{background:'rgba(251,146,60,.2)',color:'#fb923c'}}>{ma.length}</span></p>
-        <div className="space-y-2">{ma.map((a:any)=><div key={a.id} className="rounded-xl p-3.5" style={{background:'rgba(251,146,60,.05)',border:'1px solid rgba(251,146,60,.1)'}}>
-          <div className="flex items-center justify-between mb-2"><p className="text-xs font-black" style={{color:'#fb923c'}}>{a.joueur}</p>{(isAdmin||user?.uid===a.joueurId)&&<button onClick={()=>del('analyses',a.id)} className="text-red-400/50 text-xs">🗑️</button>}</div>
-          <div className="space-y-2">
-            {a.bien&&<div className="rounded-lg p-2.5" style={{background:'rgba(74,222,128,.07)'}}><p className="text-[8px] font-black text-green-400 mb-1">✅</p><p className="text-xs" style={{color:T.textMuted}}>{a.bien}</p></div>}
-            {a.mal&&<div className="rounded-lg p-2.5" style={{background:'rgba(248,113,113,.07)'}}><p className="text-[8px] font-black text-red-400 mb-1">❌</p><p className="text-xs" style={{color:T.textMuted}}>{a.mal}</p></div>}
-            {a.plan&&<div className="rounded-lg p-2.5" style={{background:'rgba(96,165,250,.07)'}}><p className="text-[8px] font-black text-blue-400 mb-1">🎯</p><p className="text-xs" style={{color:T.textMuted}}>{a.plan}</p></div>}
-          </div>
-        </div>)}</div>
-      </div>}
+      {mc.length>0&&<div className="px-4 pb-3"><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(34,211,238,.7)'}}>💬 Commentaires<span className="ml-2 px-1.5 py-0.5 rounded-md text-[8px] font-black badge-pop inline-block" style={{background:'rgba(34,211,238,.2)',color:'#22d3ee'}}>{mc.length}</span></p><div className="space-y-2">{mc.map((c:any)=><div key={c.id} className="rounded-xl p-3.5" style={{background:'rgba(34,211,238,.05)',border:'1px solid rgba(34,211,238,.1)'}}><div className="flex items-center justify-between mb-1.5"><p className="text-xs font-black" style={{color:'#22d3ee'}}>{c.joueur}</p><div className="flex items-center gap-2"><p className="text-[9px]" style={{color:T.textMuted}}>{fts(c.createdAt)}</p>{(isAdmin||user?.uid===c.joueurId)&&<button onClick={()=>del('commentaires',c.id)} className="text-red-400/50 text-xs">🗑️</button>}</div></div><p className="text-xs leading-relaxed" style={{color:T.textMuted}}>{c.texte}</p></div>)}</div></div>}
+      {ma.length>0&&<div className="px-4 pb-4"><p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{color:'rgba(251,146,60,.7)'}}>📋 Analyses<span className="ml-2 px-1.5 py-0.5 rounded-md text-[8px] font-black badge-pop inline-block" style={{background:'rgba(251,146,60,.2)',color:'#fb923c'}}>{ma.length}</span></p><div className="space-y-2">{ma.map((a:any)=><div key={a.id} className="rounded-xl p-3.5" style={{background:'rgba(251,146,60,.05)',border:'1px solid rgba(251,146,60,.1)'}}><div className="flex items-center justify-between mb-2"><p className="text-xs font-black" style={{color:'#fb923c'}}>{a.joueur}</p>{(isAdmin||user?.uid===a.joueurId)&&<button onClick={()=>del('analyses',a.id)} className="text-red-400/50 text-xs">🗑️</button>}</div><div className="space-y-2">{a.bien&&<div className="rounded-lg p-2.5" style={{background:'rgba(74,222,128,.07)'}}><p className="text-[8px] font-black text-green-400 mb-1">✅</p><p className="text-xs" style={{color:T.textMuted}}>{a.bien}</p></div>}{a.mal&&<div className="rounded-lg p-2.5" style={{background:'rgba(248,113,113,.07)'}}><p className="text-[8px] font-black text-red-400 mb-1">❌</p><p className="text-xs" style={{color:T.textMuted}}>{a.mal}</p></div>}{a.plan&&<div className="rounded-lg p-2.5" style={{background:'rgba(96,165,250,.07)'}}><p className="text-[8px] font-black text-blue-400 mb-1">🎯</p><p className="text-xs" style={{color:T.textMuted}}>{a.plan}</p></div>}</div></div>)}</div></div>}
       {mn.length===0&&mc.length===0&&ma.length===0&&<p className="text-center text-[10px] pb-4" style={{color:T.textMuted}}>Aucune donnée</p>}
     </div>
   })}</div>}
@@ -867,9 +854,9 @@ return(
     <div><div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.1)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.1)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.1)'}].map(({key,label,color,bg})=>
       <div key={key}><p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
         <div className="flex items-center gap-2">
-          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.max(0,parseInt(noteEdit[key]||'0')-1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{background:bg,color,border:`1px solid ${color}30`,boxShadow:`0 0 8px ${color}20`}}>−</button>
-          <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}25`,textShadow:`0 0 10px ${color}40`}}>{noteEdit[key]}/10</div>
-          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.min(10,parseInt(noteEdit[key]||'0')+1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{background:bg,color,border:`1px solid ${color}30`,boxShadow:`0 0 8px ${color}20`}}>+</button>
+          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.max(0,parseInt(noteEdit[key]||'0')-1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{background:bg,color,border:`1px solid ${color}30`}}>−</button>
+          <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}25`}}>{noteEdit[key]}/10</div>
+          <button onClick={()=>setNoteEdit({...noteEdit,[key]:String(Math.min(10,parseInt(noteEdit[key]||'0')+1))})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{background:bg,color,border:`1px solid ${color}30`}}>+</button>
         </div>
       </div>
     )}</div>
@@ -879,9 +866,9 @@ return(
     <div><div className="space-y-3 mb-5">{[{key:'mental',label:'🧠 Mental',color:'#c084fc',bg:'rgba(168,85,247,.1)'},{key:'communication',label:'💬 Communication',color:'#60a5fa',bg:'rgba(96,165,250,.1)'},{key:'gameplay',label:'🎯 Performance',color:'#4ade80',bg:'rgba(74,222,128,.1)'}].map(({key,label,color,bg})=>
       <div key={key}><p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color}}>{label}</p>
         <div className="flex items-center gap-2">
-          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.max(0,(nouvelleNote as any)[key]-1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{background:bg,color,border:`1px solid ${color}30`,boxShadow:`0 0 8px ${color}20`}}>−</button>
-          <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}25`,textShadow:`0 0 10px ${color}40`}}>{(nouvelleNote as any)[key]}/10</div>
-          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.min(10,(nouvelleNote as any)[key]+1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{background:bg,color,border:`1px solid ${color}30`,boxShadow:`0 0 8px ${color}20`}}>+</button>
+          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.max(0,(nouvelleNote as any)[key]-1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{background:bg,color,border:`1px solid ${color}30`}}>−</button>
+          <div className="flex-1 text-center py-2.5 rounded-xl text-2xl font-black" style={{background:bg,color,border:`1px solid ${color}25`}}>{(nouvelleNote as any)[key]}/10</div>
+          <button onClick={()=>setNouvelleNote({...nouvelleNote,[key]:Math.min(10,(nouvelleNote as any)[key]+1)})} className="w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{background:bg,color,border:`1px solid ${color}30`}}>+</button>
         </div>
       </div>
     )}</div>
@@ -897,7 +884,7 @@ return(
     <span className="w-2 h-2 rounded-full ld" style={{background:'#f87171'}}/>Chaîne YouTube DYNO
   </a>
   {replays.length===0?<div className="rounded-3xl p-14 text-center" style={CS}><p className="text-5xl mb-4">📹</p><p className="text-sm font-bold" style={{color:T.textMuted}}>Aucun replay</p></div>
-  :<div className="space-y-3">{replays.map((r:any,idx:number)=><div key={r.id} className="rounded-3xl overflow-hidden" style={{...CS,animation:`slideInFromRight 0.3s ease ${idx*0.05}s both`}}>
+  :<div className="space-y-3">{replays.map((r:any,idx:number)=><div key={r.id} className="rounded-3xl overflow-hidden" style={{...CS,animation:`slideInRight 0.3s ease ${idx*0.05}s both`}}>
     <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{borderBottom:`1px solid ${T.cardBorder}`}}><h3 className="font-black" style={{color:T.text}}>{r.titre}</h3>{isAdmin&&<button onClick={()=>del('replays',r.id)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}</div>
     <div className="p-4">{ytId(r.lien)?<div className="relative w-full rounded-2xl overflow-hidden" style={{paddingBottom:'56.25%'}}><iframe src={`https://www.youtube.com/embed/${ytId(r.lien)}`} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen/></div>:<a href={r.lien} target="_blank" rel="noreferrer" className="block w-full py-3.5 rounded-2xl font-bold text-center text-sm" style={{background:G2,color:'#000',boxShadow:`0 4px 12px ${P}40`}}>▶️ Voir le replay</a>}</div>
   </div>)}</div>}
@@ -910,28 +897,13 @@ return(
   <div className="rounded-2xl p-4 mb-5 relative overflow-hidden" style={{...CS,border:`1px solid ${P}20`}}>
     <div className="scan-line opacity-10"/>
     <p className="text-[9px] font-black uppercase tracking-widest mb-2 relative" style={{color:`${P}80`}}>👮 Ton rôle</p>
-    <div className="flex items-center gap-2 relative">
-      <span className="px-3 py-1.5 rounded-full text-xs font-black" style={{background:`${P}18`,color:P,border:`1px solid ${P}30`,boxShadow:`0 0 10px ${P}20`}}>{userRole}</span>
-      <p className="text-[10px]" style={{color:T.textMuted}}>{userRole==='Admin'?'Accès complet':userRole==='Coach'?'Strats + Fiches':userRole==='Capitaine'?'Strats uniquement':'Voir + Voter'}</p>
-    </div>
+    <div className="flex items-center gap-2 relative"><span className="px-3 py-1.5 rounded-full text-xs font-black" style={{background:`${P}18`,color:P,border:`1px solid ${P}30`,boxShadow:`0 0 10px ${P}20`}}>{userRole}</span><p className="text-[10px]" style={{color:T.textMuted}}>{userRole==='Admin'?'Accès complet':userRole==='Coach'?'Strats + Fiches':userRole==='Capitaine'?'Strats uniquement':'Voir + Voter'}</p></div>
   </div>
-  {user&&<div className="rounded-2xl p-4 mb-5" style={{background:'rgba(236,72,153,.07)',border:'1px solid rgba(236,72,153,.15)'}}>
-    <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{color:'rgba(236,72,153,.7)'}}>🎂 Anniversaire</p>
-    <div className="flex gap-2"><input type="date" value={anniversaire} onChange={e=>setAnniversaire(e.target.value)} className={`flex-1 ${iCls} py-2.5`} style={{...IS,border:'1px solid rgba(236,72,153,.25)'}}/><button onClick={sauvegarderAnniversaire} className="px-4 py-2.5 rounded-2xl font-black text-xs active:scale-95 transition-all" style={{background:'rgba(236,72,153,.18)',color:'#f472b6',border:'1px solid rgba(236,72,153,.25)'}}>💾</button></div>
-  </div>}
-  <div className="space-y-2.5">{joueurs.filter((j:any)=>j.actif!==false).map((j:any,idx:number)=><div key={j.id} className="rounded-2xl p-4 flex items-center gap-4 relative overflow-hidden" style={{...CS,animation:`slideInFromLeft 0.3s ease ${idx*0.04}s both`}}>
-    <div className="relative flex-shrink-0">
-      <div className="absolute inset-0 rounded-2xl blur-md opacity-20" style={{background:P}}/>
-      <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl" style={{background:`linear-gradient(135deg,${P}25,${P}08)`,border:`1px solid ${P}22`,color:P,textShadow:`0 0 10px ${P}50`}}>{j.pseudo[0]?.toUpperCase()}</div>
-    </div>
-    <div className="flex-1 min-w-0">
-      <p className="font-black" style={{color:T.text}}>{j.pseudo}</p>
-      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block" style={{background:`${ROLE_COLORS[j.role]||'rgba(255,255,255,.15)'}15`,color:ROLE_COLORS[j.role]||T.textMuted,border:`1px solid ${ROLE_COLORS[j.role]||'rgba(255,255,255,.1)'}30`}}>{j.role||'Joueur'}</span>
-    </div>
-    <div className="flex items-center gap-2">
-      {isAdmin&&<select value={j.role||'Joueur'} onChange={e=>updatePlayerRole(j.id,j.userId,e.target.value)} className="text-xs rounded-xl px-2 py-1.5 font-bold focus:outline-none" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:T.text}}>{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select>}
-      {isAdmin&&<button onClick={()=>del('players',j.id)} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}
-    </div>
+  {user&&<div className="rounded-2xl p-4 mb-5" style={{background:'rgba(236,72,153,.07)',border:'1px solid rgba(236,72,153,.15)'}}><p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{color:'rgba(236,72,153,.7)'}}>🎂 Anniversaire</p><div className="flex gap-2"><input type="date" value={anniversaire} onChange={e=>setAnniversaire(e.target.value)} className={`flex-1 ${iCls} py-2.5`} style={{...IS,border:'1px solid rgba(236,72,153,.25)'}}/><button onClick={sauvegarderAnniversaire} className="px-4 py-2.5 rounded-2xl font-black text-xs active:scale-95 transition-all" style={{background:'rgba(236,72,153,.18)',color:'#f472b6',border:'1px solid rgba(236,72,153,.25)'}}>💾</button></div></div>}
+  <div className="space-y-2.5">{joueurs.filter((j:any)=>j.actif!==false).map((j:any,idx:number)=><div key={j.id} className="rounded-2xl p-4 flex items-center gap-4 relative overflow-hidden" style={{...CS,animation:`slideInLeft 0.3s ease ${idx*0.04}s both`}}>
+    <div className="relative flex-shrink-0"><div className="absolute inset-0 rounded-2xl blur-md opacity-20" style={{background:P}}/><div className="relative w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl" style={{background:`linear-gradient(135deg,${P}25,${P}08)`,border:`1px solid ${P}22`,color:P,textShadow:`0 0 10px ${P}50`}}>{j.pseudo[0]?.toUpperCase()}</div></div>
+    <div className="flex-1 min-w-0"><p className="font-black" style={{color:T.text}}>{j.pseudo}</p><span className="text-[9px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block" style={{background:`${ROLE_COLORS[j.role]||'rgba(255,255,255,.15)'}15`,color:ROLE_COLORS[j.role]||T.textMuted,border:`1px solid ${ROLE_COLORS[j.role]||'rgba(255,255,255,.1)'}30`}}>{j.role||'Joueur'}</span></div>
+    <div className="flex items-center gap-2">{isAdmin&&<select value={j.role||'Joueur'} onChange={e=>updatePlayerRole(j.id,j.userId,e.target.value)} className="text-xs rounded-xl px-2 py-1.5 font-bold focus:outline-none" style={{background:T.input,border:`1px solid ${T.inputBorder}`,color:T.text}}>{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select>}{isAdmin&&<button onClick={()=>del('players',j.id)} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'rgba(239,68,68,.1)'}}>🗑️</button>}</div>
   </div>)}</div>
 </div>
 )}
@@ -939,52 +911,14 @@ return(
 {displayTab==='stats'&&(
 <div>
   <ST icon="📈" title="Statistiques"/>
-  {/* Compteurs animés */}
-  <div className="grid grid-cols-3 gap-3 mb-5">
-    <SC value={`${animWinRate}%`} label="Win Rate"/>
-    <SC value={animVictoires} label="Victoires" color="#4ade80"/>
-    <SC value={animDefaites} label="Défaites" color="#f87171"/>
-  </div>
-  {winRateData.length>1&&<div className="rounded-3xl p-5 mb-4 relative overflow-hidden" style={CS}>
-    <div className="scan-line opacity-5"/>
-    <p className="text-xs font-black uppercase tracking-widest mb-4 relative" style={{color:`${P}80`}}>📈 Évolution Win Rate</p>
-    <ResponsiveContainer width="100%" height={160}><LineChart data={winRateData}><XAxis dataKey="name" tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><YAxis domain={[0,100]} tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false} tickFormatter={(v:any)=>`${v}%`}/><Tooltip contentStyle={{background:isDark?'rgba(10,8,0,0.95)':'rgba(255,252,228,0.95)',border:`1px solid ${P}25`,borderRadius:12,fontSize:11,backdropFilter:'blur(20px)'}} formatter={(v:any)=>[`${v}%`,'Win Rate']}/><Line type="monotone" dataKey="wr" stroke={P} strokeWidth={2} dot={{fill:P,r:3,filter:`drop-shadow(0 0 4px ${P})`}} activeDot={{r:5,fill:P2,filter:`drop-shadow(0 0 6px ${P})`}}/></LineChart></ResponsiveContainer>
-  </div>}
-  {typeData.length>0&&<div className="rounded-3xl p-5 mb-4 relative overflow-hidden" style={CS}>
-    <div className="scan-line opacity-5"/>
-    <p className="text-xs font-black uppercase tracking-widest mb-4 relative" style={{color:`${P}80`}}>📊 Par type</p>
-    <ResponsiveContainer width="100%" height={140}><BarChart data={typeData} barCategoryGap="30%"><XAxis dataKey="name" tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{background:isDark?'rgba(10,8,0,0.95)':'rgba(255,252,228,0.95)',border:`1px solid ${P}25`,borderRadius:12,fontSize:11,backdropFilter:'blur(20px)'}}/><Bar dataKey="matchs" fill={`${P}20`} radius={[6,6,0,0]} name="Total"/><Bar dataKey="victoires" radius={[6,6,0,0]} name="Victoires">{typeData.map((_:any,i:number)=><Cell key={i} fill={P}/>)}</Bar></BarChart></ResponsiveContainer>
-  </div>}
-  {notesChartData.length>0&&<div className="rounded-3xl p-5 mb-4 relative overflow-hidden" style={CS}>
-    <div className="scan-line opacity-5"/>
-    <p className="text-xs font-black uppercase tracking-widest mb-4 relative" style={{color:`${P}80`}}>🧠 Notes par joueur</p>
-    <ResponsiveContainer width="100%" height={160}><BarChart data={notesChartData} barCategoryGap="20%"><XAxis dataKey="name" tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><YAxis domain={[0,10]} tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{background:isDark?'rgba(10,8,0,0.95)':'rgba(255,252,228,0.95)',border:`1px solid ${P}25`,borderRadius:12,fontSize:11,backdropFilter:'blur(20px)'}}/><Bar dataKey="mental" fill="#c084fc" radius={[4,4,0,0]} name="Mental"/><Bar dataKey="comm" fill="#60a5fa" radius={[4,4,0,0]} name="Comm"/><Bar dataKey="perf" fill="#4ade80" radius={[4,4,0,0]} name="Perf"/></BarChart></ResponsiveContainer>
-  </div>}
-  <div className="rounded-3xl p-6 mb-5 relative overflow-hidden" style={CS}>
-    <div className="scan-line opacity-5"/>
-    <p className="text-xs font-black uppercase tracking-widest mb-5 relative" style={{color:`${P}80`}}>📊 Répartition</p>
-    <div className="space-y-4 relative">{[{label:'🏆 Victoires',value:animVictoires,total:animTotal,color:P},{label:'❌ Défaites',value:animDefaites,total:animTotal,color:'#f87171'}].map(({label,value,total,color})=>
-      <div key={label}>
-        <div className="flex justify-between mb-2"><span className="text-xs font-medium" style={{color:T.textMuted}}>{label}</span><span className="text-xs font-black" style={{color}}>{value} <span style={{color:T.textMuted}}>/ {total}</span></span></div>
-        <div className="h-2 rounded-full overflow-hidden" style={{background:'rgba(255,255,255,.06)'}}>
-          {/* Barre avec animation bounce */}
-          <div className="h-full rounded-full" style={{width:`${total>0?(value/total)*100:0}%`,background:color,boxShadow:`0 0 8px ${color}50`,transition:'width 1.2s cubic-bezier(0.34,1.56,0.64,1)'}}/>
-        </div>
-      </div>
-    )}</div>
-  </div>
+  <div className="grid grid-cols-3 gap-3 mb-5"><SC value={`${animWinRate}%`} label="Win Rate"/><SC value={animVictoires} label="Victoires" color="#4ade80"/><SC value={animDefaites} label="Défaites" color="#f87171"/></div>
+  {winRateData.length>1&&<div className="rounded-3xl p-5 mb-4 relative overflow-hidden" style={CS}><div className="scan-line opacity-5"/><p className="text-xs font-black uppercase tracking-widest mb-4 relative" style={{color:`${P}80`}}>📈 Évolution Win Rate</p><ResponsiveContainer width="100%" height={160}><LineChart data={winRateData}><XAxis dataKey="name" tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><YAxis domain={[0,100]} tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false} tickFormatter={(v:any)=>`${v}%`}/><Tooltip contentStyle={{background:isDark?'rgba(10,8,0,0.95)':'rgba(255,252,228,0.95)',border:`1px solid ${P}25`,borderRadius:12,fontSize:11,backdropFilter:'blur(20px)'}} formatter={(v:any)=>[`${v}%`,'Win Rate']}/><Line type="monotone" dataKey="wr" stroke={P} strokeWidth={2} dot={{fill:P,r:3}} activeDot={{r:5,fill:P2}}/></LineChart></ResponsiveContainer></div>}
+  {typeData.length>0&&<div className="rounded-3xl p-5 mb-4 relative overflow-hidden" style={CS}><div className="scan-line opacity-5"/><p className="text-xs font-black uppercase tracking-widest mb-4 relative" style={{color:`${P}80`}}>📊 Par type</p><ResponsiveContainer width="100%" height={140}><BarChart data={typeData} barCategoryGap="30%"><XAxis dataKey="name" tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{background:isDark?'rgba(10,8,0,0.95)':'rgba(255,252,228,0.95)',border:`1px solid ${P}25`,borderRadius:12,fontSize:11}}/><Bar dataKey="matchs" fill={`${P}20`} radius={[6,6,0,0]} name="Total"/><Bar dataKey="victoires" radius={[6,6,0,0]} name="Victoires">{typeData.map((_:any,i:number)=><Cell key={i} fill={P}/>)}</Bar></BarChart></ResponsiveContainer></div>}
+  {notesChartData.length>0&&<div className="rounded-3xl p-5 mb-4 relative overflow-hidden" style={CS}><div className="scan-line opacity-5"/><p className="text-xs font-black uppercase tracking-widest mb-4 relative" style={{color:`${P}80`}}>🧠 Notes par joueur</p><ResponsiveContainer width="100%" height={160}><BarChart data={notesChartData} barCategoryGap="20%"><XAxis dataKey="name" tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><YAxis domain={[0,10]} tick={{fontSize:9,fill:T.textMuted}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{background:isDark?'rgba(10,8,0,0.95)':'rgba(255,252,228,0.95)',border:`1px solid ${P}25`,borderRadius:12,fontSize:11}}/><Bar dataKey="mental" fill="#c084fc" radius={[4,4,0,0]} name="Mental"/><Bar dataKey="comm" fill="#60a5fa" radius={[4,4,0,0]} name="Comm"/><Bar dataKey="perf" fill="#4ade80" radius={[4,4,0,0]} name="Perf"/></BarChart></ResponsiveContainer></div>}
+  <div className="rounded-3xl p-6 mb-5 relative overflow-hidden" style={CS}><div className="scan-line opacity-5"/><p className="text-xs font-black uppercase tracking-widest mb-5 relative" style={{color:`${P}80`}}>📊 Répartition</p><div className="space-y-4 relative">{[{label:'🏆 Victoires',value:animVictoires,total:animTotal,color:P},{label:'❌ Défaites',value:animDefaites,total:animTotal,color:'#f87171'}].map(({label,value,total,color})=><div key={label}><div className="flex justify-between mb-2"><span className="text-xs font-medium" style={{color:T.textMuted}}>{label}</span><span className="text-xs font-black" style={{color}}>{value} <span style={{color:T.textMuted}}>/ {total}</span></span></div><div className="h-2 rounded-full overflow-hidden" style={{background:'rgba(255,255,255,.06)'}}><div className="h-full rounded-full" style={{width:`${total>0?(value/total)*100:0}%`,background:color,boxShadow:`0 0 8px ${color}50`,transition:'width 1.2s cubic-bezier(0.34,1.56,0.64,1)'}}/></div></div>)}</div></div>
   <GBtn onClick={()=>setShowBilan(true)}>📊 Bilan du mois</GBtn>
   {showBilan&&(()=>{const b=genBilan();return modal(()=>setShowBilan(false),`📊 Bilan ${b.nom}`,'Performances du mois',
-    <div>
-      <div className="space-y-4 mb-4">
-        <div className="grid grid-cols-3 gap-2"><SC value={b.m} label="Matchs"/><SC value={`${b.w}W`} label="Victoires" color="#4ade80"/><SC value={`${b.l}L`} label="Défaites" color="#f87171"/></div>
-        <div className="rounded-2xl p-6 text-center relative overflow-hidden" style={{background:`${P}08`,border:`1px solid ${P}20`,boxShadow:`0 0 20px ${P}08`}}><div className="scan-line opacity-10"/><p className="text-[9px] font-black uppercase tracking-widest mb-2 relative" style={{color:`${P}60`}}>Win Rate</p><p className="text-6xl font-black relative" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',textShadow:'none'}}>{b.wr}%</p></div>
-        <div className="rounded-2xl p-4" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}>
-          <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{color:T.textMuted}}>Notes moyennes</p>
-          <div className="grid grid-cols-3 gap-2">{[{v:b.am,l:'🧠',c:'#c084fc'},{v:b.ac,l:'💬',c:'#60a5fa'},{v:b.ap,l:'🎯',c:'#4ade80'}].map(({v,l,c})=><div key={l} className="text-center rounded-xl py-3" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)'}}><p className="text-2xl font-black" style={{color:c,textShadow:`0 0 10px ${c}40`}}>{v}</p><p className="text-[8px] mt-1" style={{color:T.textMuted}}>{l}</p></div>)}</div>
-        </div>
-      </div>
-    </div>
+    <div><div className="space-y-4 mb-4"><div className="grid grid-cols-3 gap-2"><SC value={b.m} label="Matchs"/><SC value={`${b.w}W`} label="Victoires" color="#4ade80"/><SC value={`${b.l}L`} label="Défaites" color="#f87171"/></div><div className="rounded-2xl p-6 text-center relative overflow-hidden" style={{background:`${P}08`,border:`1px solid ${P}20`}}><div className="scan-line opacity-10"/><p className="text-[9px] font-black uppercase tracking-widest mb-2 relative" style={{color:`${P}60`}}>Win Rate</p><p className="text-6xl font-black relative" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{b.wr}%</p></div><div className="rounded-2xl p-4" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}><p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{color:T.textMuted}}>Notes moyennes</p><div className="grid grid-cols-3 gap-2">{[{v:b.am,l:'🧠',c:'#c084fc'},{v:b.ac,l:'💬',c:'#60a5fa'},{v:b.ap,l:'🎯',c:'#4ade80'}].map(({v,l,c})=><div key={l} className="text-center rounded-xl py-3" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)'}}><p className="text-2xl font-black" style={{color:c}}>{v}</p><p className="text-[8px] mt-1" style={{color:T.textMuted}}>{l}</p></div>)}</div></div></div></div>
   )})()}
 </div>
 )}
@@ -992,55 +926,26 @@ return(
 {displayTab==='admin'&&(
 <div>
   <ST icon="⚙️" title="Administration"/>
-  {!isAdmin?<div className="rounded-3xl p-6" style={CS}>
-    <p className="text-center text-sm mb-5 font-medium" style={{color:T.textMuted}}>🔐 Accès requis</p>
-    <input type="password" placeholder="Mot de passe admin" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} className={`${iCls} mb-3`} style={IS}/>
-    <GBtn onClick={handleAdminLogin}>Se connecter</GBtn>
-  </div>:(
+  {!isAdmin?<div className="rounded-3xl p-6" style={CS}><p className="text-center text-sm mb-5 font-medium" style={{color:T.textMuted}}>🔐 Accès requis</p><input type="password" placeholder="Mot de passe admin" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} className={`${iCls} mb-3`} style={IS}/><GBtn onClick={handleAdminLogin}>Se connecter</GBtn></div>:(
     <div className="space-y-4">
-      <div className="rounded-3xl p-5 relative overflow-hidden" style={CS}>
-        <div className="scan-line opacity-5"/>
-        <p className="text-xs font-black uppercase tracking-widest mb-4 relative" style={{color:`${P}90`}}>➕ Nouveau Match</p>
+      <div className="rounded-3xl p-5 relative overflow-hidden" style={CS}><div className="scan-line opacity-5"/><p className="text-xs font-black uppercase tracking-widest mb-4 relative" style={{color:`${P}90`}}>➕ Nouveau Match</p>
         <div className="space-y-2.5 relative">
           <input type="text" placeholder="Adversaire / Nom soirée" value={nouveauMatch.adversaire} onChange={e=>setNouveauMatch({...nouveauMatch,adversaire:e.target.value})} className={iCls} style={IS}/>
           <input type="date" value={nouveauMatch.date} onChange={e=>setNouveauMatch({...nouveauMatch,date:e.target.value})} className={iCls} style={IS}/>
           <div className="grid grid-cols-2 gap-2"><input type="time" value={nouveauMatch.horaire1} onChange={e=>setNouveauMatch({...nouveauMatch,horaire1:e.target.value})} className={iCls} style={IS}/><input type="time" value={nouveauMatch.horaire2} onChange={e=>setNouveauMatch({...nouveauMatch,horaire2:e.target.value})} className={iCls} style={IS}/></div>
-          <div className="grid grid-cols-2 gap-2">
-            <select value={nouveauMatch.arene} onChange={e=>setNouveauMatch({...nouveauMatch,arene:e.target.value})} className={iCls} style={IS}><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select>
-            <select value={nouveauMatch.type} onChange={e=>setNouveauMatch({...nouveauMatch,type:e.target.value})} className={iCls} style={IS}><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select>
-          </div>
-          {nouveauMatch.type==='Division'&&<div className="rounded-2xl p-4" style={{background:'rgba(245,158,11,.07)',border:'1px solid rgba(245,158,11,.18)'}}>
-            <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:'rgba(245,158,11,.8)'}}>🏆 Division (BO3)</p>
-            {nouveauMatch.sousMatchs.length>0&&<div className="space-y-1.5 mb-3">{nouveauMatch.sousMatchs.map((sm:any,i:number)=><div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{background:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}}><span className="text-xs" style={{color:T.text}}>DYNO vs {sm.adversaire}</span><div className="flex items-center gap-2"><span className="text-xs font-black" style={{color:P}}>{sm.scoreDyno}</span><span style={{color:T.textMuted}}>—</span><span className="text-xs font-black" style={{color:T.textMuted}}>{sm.scoreAdv}</span><button onClick={()=>supprimerSousMatch(i)} className="ml-1 font-black text-red-400">×</button></div></div>)}</div>}
-            <div className="space-y-2"><input type="text" placeholder="Adversaire (ex: EY)" value={newSubAdv} onChange={e=>setNewSubAdv(e.target.value)} className={`${iCls} text-xs py-2.5`} style={IS}/><div className="grid grid-cols-2 gap-2"><input type="number" placeholder="Score DYNO" value={newSubScoreDyno} onChange={e=>setNewSubScoreDyno(e.target.value)} className={`${iCls} text-center font-black text-sm py-2.5`} style={{background:`${P}12`,border:`1px solid ${P}28`,color:P}}/><input type="number" placeholder="Score Adv" value={newSubScoreAdv} onChange={e=>setNewSubScoreAdv(e.target.value)} className={`${iCls} text-center font-black text-sm py-2.5`} style={IS}/></div><button onClick={ajouterSousMatch} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:'rgba(245,158,11,.12)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.25)'}}>➕ Ajouter ce match</button></div>
-          </div>}
+          <div className="grid grid-cols-2 gap-2"><select value={nouveauMatch.arene} onChange={e=>setNouveauMatch({...nouveauMatch,arene:e.target.value})} className={iCls} style={IS}><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select><select value={nouveauMatch.type} onChange={e=>setNouveauMatch({...nouveauMatch,type:e.target.value})} className={iCls} style={IS}><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
+          {nouveauMatch.type==='Division'&&<div className="rounded-2xl p-4" style={{background:'rgba(245,158,11,.07)',border:'1px solid rgba(245,158,11,.18)'}}><p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{color:'rgba(245,158,11,.8)'}}>🏆 Division (BO3)</p>{nouveauMatch.sousMatchs.length>0&&<div className="space-y-1.5 mb-3">{nouveauMatch.sousMatchs.map((sm:any,i:number)=><div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{background:isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'}}><span className="text-xs" style={{color:T.text}}>DYNO vs {sm.adversaire}</span><div className="flex items-center gap-2"><span className="text-xs font-black" style={{color:P}}>{sm.scoreDyno}</span><span style={{color:T.textMuted}}>—</span><span className="text-xs font-black" style={{color:T.textMuted}}>{sm.scoreAdv}</span><button onClick={()=>supprimerSousMatch(i)} className="ml-1 font-black text-red-400">×</button></div></div>)}</div>}<div className="space-y-2"><input type="text" placeholder="Adversaire (ex: EY)" value={newSubAdv} onChange={e=>setNewSubAdv(e.target.value)} className={`${iCls} text-xs py-2.5`} style={IS}/><div className="grid grid-cols-2 gap-2"><input type="number" placeholder="Score DYNO" value={newSubScoreDyno} onChange={e=>setNewSubScoreDyno(e.target.value)} className={`${iCls} text-center font-black text-sm py-2.5`} style={{background:`${P}12`,border:`1px solid ${P}28`,color:P}}/><input type="number" placeholder="Score Adv" value={newSubScoreAdv} onChange={e=>setNewSubScoreAdv(e.target.value)} className={`${iCls} text-center font-black text-sm py-2.5`} style={IS}/></div><button onClick={ajouterSousMatch} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:'rgba(245,158,11,.12)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.25)'}}>➕ Ajouter ce match</button></div></div>}
           <GBtn onClick={ajouterMatch}>📤 Ajouter + Discord</GBtn>
         </div>
       </div>
       <div className="rounded-3xl p-5" style={CS}><p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>🎬 Replay</p><div className="space-y-2.5"><input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={e=>setNouveauReplay({...nouveauReplay,titre:e.target.value})} className={iCls} style={IS}/><input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={e=>setNouveauReplay({...nouveauReplay,lien:e.target.value})} className={iCls} style={IS}/><GBtn onClick={ajouterReplay}>Ajouter</GBtn></div></div>
-      <div className="rounded-3xl p-5" style={CS}><p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>✏️ Scores</p>
-        {matchs.length===0?<p className="text-center text-xs py-4" style={{color:T.textMuted}}>Aucun match</p>:(
-          <div className="space-y-2">{matchs.map((m:any)=>(<div key={m.id} className="flex items-center justify-between p-3.5 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}><div><p className="text-xs font-black" style={{color:T.text}}>DYNO vs {m.adversaire}</p><p className="text-[9px] mt-0.5" style={{color:T.textMuted}}>{fdf(m.date)} · {m.type}</p>{m.termine&&<p className="text-[9px] mt-0.5" style={{color:`${P}70`}}>Score : {m.scoreDyno} — {m.scoreAdversaire}</p>}</div><button onClick={()=>setScoreEdit({id:m.id,adversaire:m.adversaire,type:m.type,scoreDyno:String(m.scoreDyno||0),scoreAdv:String(m.scoreAdversaire||0),sousMatchs:m.sousMatchs?[...m.sousMatchs]:[],_newSubAdv:'',_newSubScoreDyno:'',_newSubScoreAdv:''})} className="px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition-all" style={{background:`${P}14`,color:P,border:`1px solid ${P}25`,boxShadow:`0 0 8px ${P}15`}}>✏️</button></div>))}</div>
-        )}
-      </div>
-      <div className="rounded-3xl p-5" style={CS}><p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:'rgba(239,68,68,.6)'}}>🗑️ Matchs</p>
-        {matchs.length===0?<p className="text-center text-xs py-4" style={{color:T.textMuted}}>Aucun match</p>:(
-          <div className="space-y-2">{matchs.map((m:any)=>(<div key={m.id} className="flex items-center justify-between p-3.5 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}><div><p className="text-xs font-bold" style={{color:T.text}}>{m.adversaire}</p><p className="text-[9px]" style={{color:T.textMuted}}>{fdf(m.date)}</p></div><button onClick={()=>del('matchs',m.id)} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-all" style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.2)'}}>🗑️</button></div>))}</div>
-        )}
-      </div>
+      <div className="rounded-3xl p-5" style={CS}><p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:`${P}90`}}>✏️ Scores</p>{matchs.length===0?<p className="text-center text-xs py-4" style={{color:T.textMuted}}>Aucun match</p>:<div className="space-y-2">{matchs.map((m:any)=><div key={m.id} className="flex items-center justify-between p-3.5 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}><div><p className="text-xs font-black" style={{color:T.text}}>DYNO vs {m.adversaire}</p><p className="text-[9px] mt-0.5" style={{color:T.textMuted}}>{fdf(m.date)} · {m.type}</p>{m.termine&&<p className="text-[9px] mt-0.5" style={{color:`${P}70`}}>Score : {m.scoreDyno} — {m.scoreAdversaire}</p>}</div><button onClick={()=>setScoreEdit({id:m.id,adversaire:m.adversaire,type:m.type,scoreDyno:String(m.scoreDyno||0),scoreAdv:String(m.scoreAdversaire||0),sousMatchs:m.sousMatchs?[...m.sousMatchs]:[],_newSubAdv:'',_newSubScoreDyno:'',_newSubScoreAdv:''})} className="px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition-all" style={{background:`${P}14`,color:P,border:`1px solid ${P}25`}}>✏️</button></div>)}</div>}</div>
+      <div className="rounded-3xl p-5" style={CS}><p className="text-xs font-black uppercase tracking-widest mb-4" style={{color:'rgba(239,68,68,.6)'}}>🗑️ Matchs</p>{matchs.length===0?<p className="text-center text-xs py-4" style={{color:T.textMuted}}>Aucun match</p>:<div className="space-y-2">{matchs.map((m:any)=><div key={m.id} className="flex items-center justify-between p-3.5 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}><div><p className="text-xs font-bold" style={{color:T.text}}>{m.adversaire}</p><p className="text-[9px]" style={{color:T.textMuted}}>{fdf(m.date)}</p></div><button onClick={()=>del('matchs',m.id)} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-all" style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.2)'}}>🗑️</button></div>)}</div>}</div>
       <GBtn onClick={handleAdminLogout} danger>🚪 Déconnexion Admin</GBtn>
     </div>
   )}
   {scoreEdit&&modal(()=>setScoreEdit(null),'✏️ Modifier le score',`DYNO vs ${scoreEdit.adversaire}`,
-    <div>{scoreEdit.type==='Division'?(
-      <div className="space-y-3 mb-4">
-        {(scoreEdit.sousMatchs||[]).length>0&&<div className="space-y-1.5">{(scoreEdit.sousMatchs||[]).map((sm:any,i:number)=><div key={i} className="flex items-center justify-between px-4 py-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}><span className="text-xs" style={{color:T.text}}>DYNO vs {sm.adversaire}</span><div className="flex items-center gap-2"><span className="text-sm font-black" style={{color:P}}>{sm.scoreDyno}</span><span style={{color:T.textMuted}}>—</span><span className="text-sm font-black" style={{color:T.textMuted}}>{sm.scoreAdv}</span><button onClick={()=>supprimerSousMatchEdit(i)} className="ml-2 font-black text-red-400">×</button></div></div>)}</div>}
-        <div className="rounded-2xl p-4 space-y-2" style={{background:'rgba(245,158,11,.07)',border:'1px solid rgba(245,158,11,.18)'}}><input type="text" placeholder="Adversaire" value={scoreEdit._newSubAdv||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubAdv:e.target.value})} className={`${iCls} text-xs py-2.5`} style={IS}/><div className="grid grid-cols-2 gap-2"><input type="number" placeholder="DYNO" value={scoreEdit._newSubScoreDyno||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubScoreDyno:e.target.value})} className={`${iCls} text-center font-black py-2.5`} style={{background:`${P}12`,border:`1px solid ${P}28`,color:P}}/><input type="number" placeholder="Adv" value={scoreEdit._newSubScoreAdv||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubScoreAdv:e.target.value})} className={`${iCls} text-center font-black py-2.5`} style={IS}/></div><button onClick={ajouterSousMatchEdit} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:'rgba(245,158,11,.12)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.25)'}}>➕ Ajouter</button></div>
-        {(scoreEdit.sousMatchs||[]).length>0&&<div className="rounded-xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}><p className="text-[9px] uppercase mb-1.5" style={{color:`${P}60`}}>Total</p><p className="text-3xl font-black"><span style={{color:P}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0)}</span><span style={{color:T.textMuted}}> — </span><span style={{color:T.textMuted}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)}</span></p></div>}
-      </div>
-    ):(
-      <div className="grid grid-cols-2 gap-4 mb-4"><div><p className="text-[10px] font-bold uppercase mb-2" style={{color:`${P}70`}}>DYNO</p><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={{background:`${P}12`,border:`1px solid ${P}25`,color:P,textShadow:`0 0 15px ${P}60`}}/></div><div><p className="text-[10px] font-bold uppercase mb-2" style={{color:T.textMuted}}>Adversaire</p><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={IS}/></div></div>
-    )}
+    <div>{scoreEdit.type==='Division'?(<div className="space-y-3 mb-4">{(scoreEdit.sousMatchs||[]).length>0&&<div className="space-y-1.5">{(scoreEdit.sousMatchs||[]).map((sm:any,i:number)=><div key={i} className="flex items-center justify-between px-4 py-3 rounded-2xl" style={{background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',border:`1px solid ${T.cardBorder}`}}><span className="text-xs" style={{color:T.text}}>DYNO vs {sm.adversaire}</span><div className="flex items-center gap-2"><span className="text-sm font-black" style={{color:P}}>{sm.scoreDyno}</span><span style={{color:T.textMuted}}>—</span><span className="text-sm font-black" style={{color:T.textMuted}}>{sm.scoreAdv}</span><button onClick={()=>supprimerSousMatchEdit(i)} className="ml-2 font-black text-red-400">×</button></div></div>)}</div>}<div className="rounded-2xl p-4 space-y-2" style={{background:'rgba(245,158,11,.07)',border:'1px solid rgba(245,158,11,.18)'}}><input type="text" placeholder="Adversaire" value={scoreEdit._newSubAdv||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubAdv:e.target.value})} className={`${iCls} text-xs py-2.5`} style={IS}/><div className="grid grid-cols-2 gap-2"><input type="number" placeholder="DYNO" value={scoreEdit._newSubScoreDyno||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubScoreDyno:e.target.value})} className={`${iCls} text-center font-black py-2.5`} style={{background:`${P}12`,border:`1px solid ${P}28`,color:P}}/><input type="number" placeholder="Adv" value={scoreEdit._newSubScoreAdv||''} onChange={e=>setScoreEdit({...scoreEdit,_newSubScoreAdv:e.target.value})} className={`${iCls} text-center font-black py-2.5`} style={IS}/></div><button onClick={ajouterSousMatchEdit} className="w-full py-2.5 rounded-xl text-xs font-bold" style={{background:'rgba(245,158,11,.12)',color:'#fbbf24',border:'1px solid rgba(245,158,11,.25)'}}>➕ Ajouter</button></div>{(scoreEdit.sousMatchs||[]).length>0&&<div className="rounded-xl p-4 text-center" style={{background:`${P}10`,border:`1px solid ${P}20`}}><p className="text-[9px] uppercase mb-1.5" style={{color:`${P}60`}}>Total</p><p className="text-3xl font-black"><span style={{color:P}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreDyno||0),0)}</span><span style={{color:T.textMuted}}> — </span><span style={{color:T.textMuted}}>{(scoreEdit.sousMatchs||[]).reduce((a:number,s:any)=>a+parseInt(s.scoreAdv||0),0)}</span></p></div>}</div>):(<div className="grid grid-cols-2 gap-4 mb-4"><div><p className="text-[10px] font-bold uppercase mb-2" style={{color:`${P}70`}}>DYNO</p><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e=>setScoreEdit({...scoreEdit,scoreDyno:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={{background:`${P}12`,border:`1px solid ${P}25`,color:P}}/></div><div><p className="text-[10px] font-bold uppercase mb-2" style={{color:T.textMuted}}>Adversaire</p><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e=>setScoreEdit({...scoreEdit,scoreAdv:e.target.value})} className="w-full rounded-2xl px-4 py-6 text-center text-5xl font-black focus:outline-none" style={IS}/></div></div>)}
     <div className="flex gap-2"><button onClick={()=>setScoreEdit(null)} className="flex-1 py-3 rounded-2xl font-bold text-sm" style={{background:'rgba(255,255,255,.05)',color:T.textMuted,border:`1px solid ${T.cardBorder}`}}>Annuler</button><button onClick={updateScore} className="flex-1 py-3 rounded-2xl font-black text-sm text-black" style={{background:G2,boxShadow:`0 4px 12px ${P}40`}}>✅ Sauvegarder</button></div></div>
   )}
 </div>
@@ -1051,14 +956,11 @@ return(
 
 {/* NAVBAR CYBER */}
 <nav className="fixed bottom-0 left-0 right-0 z-50" style={{background:T.navBg,backdropFilter:'blur(40px)',borderTop:`1px solid ${P}12`,boxShadow:`0 -8px 32px rgba(0,0,0,0.5),0 0 0 1px ${P}05`}}>
-  {/* Ligne décorative top navbar */}
   <div className="absolute top-0 left-0 right-0 h-px" style={{background:`linear-gradient(90deg,transparent,${P}40,${P2}20,transparent)`}}/>
   <div className="max-w-lg mx-auto flex" style={{overflowX:'auto',scrollbarWidth:'none' as any}}>
     {navItems.map(({t,i,l})=>(
       <button key={t} onClick={()=>changeTab(t)} className="flex-shrink-0 flex flex-col items-center justify-center py-2.5 relative transition-all active:scale-90" style={{color:activeTab===t?P:T.textMuted,minWidth:`${100/navItems.length}%`}}>
-        {/* Indicateur actif avec glow */}
-        {activeTab===t&&<div className="absolute top-0 left-1/2 -translate-x-1/2" style={{width:'32px',height:'2px',background:`linear-gradient(90deg,transparent,${P},transparent)`,boxShadow:`0 0 12px ${P}`,filter:`blur(0.5px)`}}/>}
-        {/* Glow sous l'icône active */}
+        {activeTab===t&&<div className="absolute top-0 left-1/2 -translate-x-1/2" style={{width:'32px',height:'2px',background:`linear-gradient(90deg,transparent,${P},transparent)`,boxShadow:`0 0 12px ${P}`,filter:'blur(0.5px)'}}/>}
         {activeTab===t&&<div className="absolute inset-0 opacity-5" style={{background:`radial-gradient(ellipse at 50% 0%,${P},transparent 70%)`}}/>}
         <span className="text-lg leading-none mb-0.5 relative" style={activeTab===t?{filter:`drop-shadow(0 0 6px ${P})`}:{}}>{i}</span>
         <span className="text-[7px] font-black uppercase tracking-wide leading-none whitespace-nowrap relative" style={{color:activeTab===t?P:T.textMuted}}>{l}</span>
@@ -1067,17 +969,15 @@ return(
   </div>
 </nav>
 
-{/* ÉCRAN DE CONNEXION */}
+{/* ÉCRAN CONNEXION */}
 {!user&&(
   <div className="fixed inset-0 z-50 flex items-center justify-center px-3" style={{background:'rgba(0,0,0,0.97)',backdropFilter:'blur(32px)'}}>
-    {/* Blobs login */}
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       <div className="absolute w-80 h-80 rounded-full blur-3xl opacity-10" style={{background:`radial-gradient(circle,${P},transparent)`,top:'-10%',left:'-10%',animation:'blob1 12s ease-in-out infinite'}}/>
       <div className="absolute w-60 h-60 rounded-full blur-3xl opacity-8" style={{background:`radial-gradient(circle,${P2},transparent)`,bottom:'0%',right:'-10%',animation:'blob2 15s ease-in-out infinite'}}/>
     </div>
-    <div className="w-full max-w-sm rounded-3xl relative overflow-hidden" style={{background:isDark?'linear-gradient(170deg,rgba(15,12,2,0.98),rgba(8,6,0,0.99))':'linear-gradient(170deg,rgba(255,253,240,0.98),rgba(255,248,220,0.99))',border:`1px solid ${P}25`,boxShadow:`0 32px 80px rgba(0,0,0,0.8),0 0 0 1px ${P}10,inset 0 1px 0 ${P}20`}}>
+    <div className="w-full max-w-sm rounded-3xl relative overflow-hidden" style={{background:isDark?'linear-gradient(170deg,rgba(15,12,2,0.98),rgba(8,6,0,0.99))':'linear-gradient(170deg,rgba(255,253,240,0.98),rgba(255,248,220,0.99))',border:`1px solid ${P}25`,boxShadow:`0 32px 80px rgba(0,0,0,0.8),inset 0 1px 0 ${P}20`}}>
       <div className="scan-line opacity-10"/>
-      {/* Ligne top */}
       <div className="absolute top-0 left-0 right-0 h-px" style={{background:`linear-gradient(90deg,transparent,${P}60,transparent)`}}/>
       <div className="p-8 relative">
         <div className="text-center mb-8">
@@ -1085,7 +985,7 @@ return(
             <div className="absolute inset-0 rounded-3xl blur-xl opacity-30" style={{background:P,animation:'splashPulse 2s ease-in-out infinite'}}/>
             <img src={LG} alt="D" className="relative w-20 h-20 rounded-3xl" style={{filter:`drop-shadow(0 0 12px ${P}60)`}}/>
           </div>
-          <h3 className="text-2xl font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',textShadow:'none'}}>{isSignUp?'Créer un compte':'Connexion'}</h3>
+          <h3 className="text-2xl font-black" style={{background:G,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{isSignUp?'Créer un compte':'Connexion'}</h3>
           <p className="text-xs mt-1.5" style={{color:T.textMuted}}>DYNO Esport Team</p>
         </div>
         <div className="space-y-3 mb-6">
@@ -1095,7 +995,7 @@ return(
         </div>
         {isSignUp?<GBtn onClick={handleSignUp} cls="mb-4">✅ Créer mon compte</GBtn>:<GBtn onClick={handleSignIn} cls="mb-4">🔐 Se connecter</GBtn>}
         <div className="text-center pt-4" style={{borderTop:`1px solid ${P}15`}}>
-          {isSignUp?<button onClick={()=>setIsSignUp(false)} className="text-xs transition-all hover:opacity-80" style={{color:T.textMuted}}>Déjà un compte ? <span className="font-black" style={{color:P}}>Se connecter</span></button>:<button onClick={()=>setIsSignUp(true)} className="text-xs transition-all hover:opacity-80" style={{color:T.textMuted}}>Pas de compte ? <span className="font-black" style={{color:P}}>S'inscrire</span></button>}
+          {isSignUp?<button onClick={()=>setIsSignUp(false)} className="text-xs" style={{color:T.textMuted}}>Déjà un compte ? <span className="font-black" style={{color:P}}>Se connecter</span></button>:<button onClick={()=>setIsSignUp(true)} className="text-xs" style={{color:T.textMuted}}>Pas de compte ? <span className="font-black" style={{color:P}}>S'inscrire</span></button>}
         </div>
       </div>
     </div>
