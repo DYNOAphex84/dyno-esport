@@ -35,6 +35,36 @@ const AM = [
   'Polaris', 'Lunar', 'Ceres'
 ]
 
+// EVA Pass definitions
+const EVA_PASSES: Record<string, { label: string; icon: string; hc: number; hp: number; color: string }> = {
+  bronze: { label: 'Bronze', icon: '🥉', hc: 3, hp: 1, color: 'from-amber-700 to-amber-900' },
+  argent: { label: 'Argent', icon: '🥈', hc: 6, hp: 2, color: 'from-gray-400 to-gray-600' },
+  or: { label: 'Or', icon: '🥇', hc: 12, hp: 4, color: 'from-[#D4AF37] to-[#FFD700]' },
+}
+
+// Check if a match datetime is HP (Heures Pleines)
+// HP = Vendredi 18h-23h20, Samedi 13h-23h, Dimanche 13h-23h
+const isHP = (dateStr: string, timeStr: string): boolean => {
+  if (!dateStr) return false
+  let d = dateStr
+  if (d.includes('/')) {
+    const [dd, mm, yy] = d.split('/')
+    d = yy + '-' + mm + '-' + dd
+  }
+  try {
+    const dt = new Date(d + 'T' + (timeStr || '20:00') + ':00')
+    if (isNaN(dt.getTime())) return false
+    const day = dt.getDay() // 0=dim, 5=ven, 6=sam
+    const h = dt.getHours()
+    const m = dt.getMinutes()
+    const totalMin = h * 60 + m
+    if (day === 5) return totalMin >= 1080 && totalMin <= 1400 // ven 18:00-23:20
+    if (day === 6) return totalMin >= 780 && totalMin <= 1380  // sam 13:00-23:00
+    if (day === 0) return totalMin >= 780 && totalMin <= 1380  // dim 13:00-23:00
+    return false
+  } catch { return false }
+}
+
 const P = () => (
   <div className="particles">
     {Array.from({ length: 12 }).map((_, i) => (
@@ -107,6 +137,9 @@ function App() {
   const [nouvelleFiche, setNouvelleFiche] = useState({
     adversaire: '', forces: '', faiblesses: '', notes: ''
   })
+  // EVA Pass state
+  const [myPass, setMyPass] = useState<any>(null)
+  const [allPasses, setAllPasses] = useState<any[]>([])
 
   const pm = useRef(0)
   const pn = useRef(0)
@@ -263,6 +296,8 @@ function App() {
             setIsAdmin(true)
             localStorage.setItem('dyno-admin', 'true')
           }
+          // Load EVA pass
+          if (data.evaPass) setMyPass(data.evaPass)
         }
       }
       setLoading(false)
@@ -281,6 +316,21 @@ function App() {
   useEffect(() => { const q = query(collection(db, 'analyses'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setAnalyses(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'fichesAdversaires'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setFichesAdversaires(d) }); return () => u() }, [])
 
+  // Listen to all user passes for roster display
+  useEffect(() => {
+    const u = onSnapshot(collection(db, 'users'), (s: any) => {
+      const d: any[] = []
+      s.forEach((x: any) => {
+        const data = x.data()
+        if (data.evaPass) {
+          d.push({ oduserId: x.id, pseudo: data.pseudo, ...data.evaPass })
+        }
+      })
+      setAllPasses(d)
+    })
+    return () => u()
+  }, [])
+
   useEffect(() => { if (!notificationsEnabled || pm.current === 0) { pm.current = matchs.length; return }; if (matchs.length > pm.current) { const n = matchs[0]; if (n) sendNotification('📅 Match !', 'DYNO vs ' + n.adversaire, 'nm') }; pm.current = matchs.length }, [matchs, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || pn.current === 0) { pn.current = notes.length; return }; if (notes.length > pn.current) { const n = notes[0]; if (n) sendNotification('📊 Note !', n.joueur, 'nn') }; pn.current = notes.length }, [notes, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || pc.current === 0) { pc.current = commentaires.length; return }; if (commentaires.length > pc.current) { const n = commentaires[0]; if (n) sendNotification('💬 !', n.joueur + ': ' + n.texte.substring(0, 50), 'nc') }; pc.current = commentaires.length }, [commentaires, notificationsEnabled, sendNotification])
@@ -292,9 +342,33 @@ function App() {
   const handleInstall = () => { if (deferredPrompt) { deferredPrompt.prompt(); setDeferredPrompt(null); setShowInstall(false) } }
   const handleSignUp = async () => { if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }; try { const r = await createUserWithEmailAndPassword(auth, email, authPassword); await setDoc(doc(db, 'users', r.user.uid), { pseudo, email, createdAt: Date.now(), isAdmin: email === AE }); await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', rang: 'Nouveau', userId: r.user.uid, createdAt: Date.now() }); alert('✅!'); setIsSignUp(false); setEmail(''); setAuthPassword('') } catch (e: any) { alert('❌ ' + e.message) } }
   const handleSignIn = async () => { if (!email || !authPassword) { alert('⚠️!'); return }; try { await setPersistence(auth, browserLocalPersistence); await signInWithEmailAndPassword(auth, email, authPassword); localStorage.setItem('user-email', email); alert('✅!'); setEmail(''); setAuthPassword('') } catch (e: any) { alert('❌ ' + e.message) } }
-  const handleSignOut = async () => { await signOut(auth); setPseudo(''); setIsAdmin(false); localStorage.removeItem('dyno-admin'); localStorage.removeItem('user-email'); alert('✅!') }
+  const handleSignOut = async () => { await signOut(auth); setPseudo(''); setIsAdmin(false); localStorage.removeItem('dyno-admin'); localStorage.removeItem('user-email'); setMyPass(null); alert('✅!') }
   const handleAdminLogin = () => { if (adminPassword === 'dyno2026') { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true'); setAdminPassword('') } else alert('❌!') }
   const handleAdminLogout = () => { setIsAdmin(false); localStorage.removeItem('dyno-admin') }
+
+  // EVA Pass functions
+  const selectPass = async (type: string) => {
+    if (!user) return
+    const passDef = EVA_PASSES[type]
+    if (!passDef) return
+    const passData = {
+      type, hcTotal: passDef.hc, hpTotal: passDef.hp,
+      hcUsed: 0, hpUsed: 0,
+      dateDebut: new Date().toISOString().split('T')[0],
+      dateFin: new Date(Date.now() + 30 * 86400000)
+        .toISOString().split('T')[0]
+    }
+    await updateDoc(doc(db, 'users', user.uid), {
+      evaPass: passData
+    })
+    setMyPass(passData)
+    alert('✅ Pass ' + passDef.label + ' activé !')
+  }
+
+  const getMatchTimeType = (match: any): 'hc' | 'hp' => {
+    const time = match.horaires?.[0] || match.horaire1 || '20:00'
+    return isHP(match.date, time) ? 'hp' : 'hc'
+  }
 
   const ajouterSousMatch = () => { const adv = prompt('Adversaire :'); if (!adv) return; const sd = prompt('Score DYNO :'); if (!sd) return; const sa = prompt('Score ' + adv + ' :'); if (!sa) return; setNouveauMatch({ ...nouveauMatch, sousMatchs: [...nouveauMatch.sousMatchs, { adversaire: adv, scoreDyno: sd, scoreAdv: sa }] }) }
   const supprimerSousMatch = (i: number) => { const sm = [...nouveauMatch.sousMatchs]; sm.splice(i, 1); setNouveauMatch({ ...nouveauMatch, sousMatchs: sm }) }
@@ -342,8 +416,86 @@ function App() {
     await updateDoc(doc(db, 'matchs', editHistoriqueScore.id), ud)
     setEditHistoriqueScore(null); alert('✅!')
   }
-  const toggleDispo = async (mid: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === mid); if (!m) return; const d = m.disponibles || []; const i = m.indisponibles || []; await updateDoc(doc(db, 'matchs', mid), { disponibles: d.includes(pseudo) ? d.filter((p: string) => p !== pseudo) : [...d, pseudo], indisponibles: i.filter((p: string) => p !== pseudo) }) }
-  const toggleIndispo = async (mid: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === mid); if (!m) return; const d = m.disponibles || []; const i = m.indisponibles || []; await updateDoc(doc(db, 'matchs', mid), { indisponibles: i.includes(pseudo) ? i.filter((p: string) => p !== pseudo) : [...i, pseudo], disponibles: d.filter((p: string) => p !== pseudo) }) }
+
+  // Modified toggleDispo with EVA Pass token deduction
+  const toggleDispo = async (mid: string) => {
+    if (!user) return
+    const m = matchs.find((x: any) => x.id === mid)
+    if (!m) return
+    const d = m.disponibles || []
+    const i = m.indisponibles || []
+    const isCurrentlyDispo = d.includes(pseudo)
+
+    if (!isCurrentlyDispo && myPass) {
+      // Adding dispo → deduct 2 tokens
+      const tt = getMatchTimeType(m)
+      const usedKey = tt === 'hp' ? 'hpUsed' : 'hcUsed'
+      const totalKey = tt === 'hp' ? 'hpTotal' : 'hcTotal'
+      const remaining = (myPass[totalKey] || 0) - (myPass[usedKey] || 0)
+      if (remaining < 2) {
+        const typeLabel = tt === 'hp' ? 'HP' : 'HC'
+        alert('⚠️ Plus que ' + remaining + ' jeton(s) ' + typeLabel + ' restant(s) !')
+      }
+      const newPass = {
+        ...myPass,
+        [usedKey]: (myPass[usedKey] || 0) + 2
+      }
+      setMyPass(newPass)
+      await updateDoc(doc(db, 'users', user.uid), {
+        evaPass: newPass
+      })
+    } else if (isCurrentlyDispo && myPass) {
+      // Removing dispo → refund 2 tokens
+      const tt = getMatchTimeType(m)
+      const usedKey = tt === 'hp' ? 'hpUsed' : 'hcUsed'
+      const newPass = {
+        ...myPass,
+        [usedKey]: Math.max(0, (myPass[usedKey] || 0) - 2)
+      }
+      setMyPass(newPass)
+      await updateDoc(doc(db, 'users', user.uid), {
+        evaPass: newPass
+      })
+    }
+
+    await updateDoc(doc(db, 'matchs', mid), {
+      disponibles: isCurrentlyDispo
+        ? d.filter((p: string) => p !== pseudo)
+        : [...d, pseudo],
+      indisponibles: i.filter((p: string) => p !== pseudo)
+    })
+  }
+
+  const toggleIndispo = async (mid: string) => {
+    if (!user) return
+    const m = matchs.find((x: any) => x.id === mid)
+    if (!m) return
+    const d = m.disponibles || []
+    const i = m.indisponibles || []
+    const wasDispo = d.includes(pseudo)
+
+    // If was dispo, refund tokens
+    if (wasDispo && myPass) {
+      const tt = getMatchTimeType(m)
+      const usedKey = tt === 'hp' ? 'hpUsed' : 'hcUsed'
+      const newPass = {
+        ...myPass,
+        [usedKey]: Math.max(0, (myPass[usedKey] || 0) - 2)
+      }
+      setMyPass(newPass)
+      await updateDoc(doc(db, 'users', user.uid), {
+        evaPass: newPass
+      })
+    }
+
+    await updateDoc(doc(db, 'matchs', mid), {
+      indisponibles: i.includes(pseudo)
+        ? i.filter((p: string) => p !== pseudo)
+        : [...i, pseudo],
+      disponibles: d.filter((p: string) => p !== pseudo)
+    })
+  }
+
   const fdf = (s: string) => { if (!s) return ''; if (s.includes('/')) return s; const [y, m, d] = s.split('-'); return d + '/' + m + '/' + y }
   const fts = (t: number) => { const d = new Date(t); return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
   const atc = (m: any) => { try { if (!m?.date) return; let y: string, mo: string, d: string; if (m.date.includes('/')) { const p = m.date.split('/'); d = p[0]; mo = p[1]; y = p[2] } else { const p = m.date.split('-'); y = p[0]; mo = p[1]; d = p[2] }; const md = y + mo + d; let h = '20', mi = '00'; if (m.horaires?.length > 0) { const p = m.horaires[0].split(':'); h = p[0]; mi = p[1] || '00' } else if (m.horaire1) { const p = m.horaire1.split(':'); h = p[0]; mi = p[1] || '00' }; const st = h + mi + '00'; const et = (parseInt(h) + 2).toString().padStart(2, '0') + mi + '00'; if (/iPad|iPhone|iPod/.test(navigator.userAgent)) { const ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:' + m.id + '@d\nDTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z\nDTSTART:' + md + 'T' + st + '\nDTEND:' + md + 'T' + et + '\nSUMMARY:DYNO vs ' + m.adversaire + '\nLOCATION:' + m.arene + '\nEND:VEVENT\nEND:VCALENDAR'; const b = new Blob([ics], { type: 'text/calendar' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'D_' + m.adversaire + '.ics'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u) } else { window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent('DYNO vs ' + m.adversaire) + '&dates=' + md + 'T' + st + '/' + md + 'T' + et + '&location=' + encodeURIComponent(m.arene), '_blank') } } catch (e: any) { alert('❌ ' + e.message) } }
@@ -362,7 +514,7 @@ function App() {
   const ytId = (url: string) => { const m = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/); return m ? m[1] : null }
 
   const H = ({ title, icon }: { title: string; icon?: string }) => (
-    <div className={"relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 shadow-[0_8px_32px_rgba(212,175,55,0.1)] glow-pulse"}>
+    <div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 shadow-[0_8px_32px_rgba(212,175,55,0.1)] glow-pulse">
       <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
       <img src={LG} alt="D" className="w-14 h-14 mx-auto mb-2 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
       <h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent relative z-10">{icon} {title}</h2>
@@ -408,6 +560,13 @@ function App() {
             </div>
           </div>
           <div className="flex gap-1.5 items-center">
+            {user && myPass && (
+              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[8px]">
+                <span className="text-blue-400">{(myPass.hcTotal || 0) - (myPass.hcUsed || 0)}HC</span>
+                <span className="text-gray-600">|</span>
+                <span className="text-purple-400">{(myPass.hpTotal || 0) - (myPass.hpUsed || 0)}HP</span>
+              </div>
+            )}
             {user && <button onClick={requestNotificationPermission} className={"w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 " + (notificationsEnabled ? "bg-[#D4AF37]/20 border border-[#D4AF37]/40 shadow-[0_0_10px_rgba(212,175,55,0.3)]" : "bg-white/5 border border-white/10")}><span className="text-sm">{notificationsEnabled ? '🔔' : '🔕'}</span></button>}
             {showInstall && <button onClick={handleInstall} className="px-2.5 py-1.5 rounded-xl font-bold bg-blue-600 text-white text-[10px]">📲</button>}
             {user ? (
@@ -455,7 +614,10 @@ function App() {
                 <div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]" style={{ animationDelay: (idx * 0.1) + 's' }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider " + (match.type === 'Ligue' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' : match.type === 'Scrim' ? 'bg-green-500/20 text-green-400 border border-green-500/20' : match.type === 'Tournoi' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/20' : match.type === 'Division' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' : 'bg-gray-500/20 text-gray-400 border border-gray-500/20')}>{match.type}</span>
-                    <span className="text-[#D4AF37] font-bold text-xs">{fdf(match.date)}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={"px-1.5 py-0.5 rounded text-[7px] font-bold " + (getMatchTimeType(match) === 'hp' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400')}>{getMatchTimeType(match) === 'hp' ? 'HP' : 'HC'}</span>
+                      <span className="text-[#D4AF37] font-bold text-xs">{fdf(match.date)}</span>
+                    </div>
                   </div>
                   {countdowns[match.id] && <div className={"rounded-2xl p-2.5 mb-3 text-center border " + (countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-500/10 border-red-500/15' : 'bg-[#D4AF37]/10 border-[#D4AF37]/15')}><p className="text-[9px] text-gray-600 uppercase tracking-wider">Countdown</p><p className={"text-lg font-bold font-mono tracking-wider " + (countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent')}>{countdowns[match.id]}</p></div>}
                   <div className="flex items-center gap-3 mb-3"><img src={LG} alt="D" className="w-10 h-10 drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]" /><span className="text-gray-700 font-light">VS</span><div className="flex-1 text-right"><p className="font-bold text-white text-sm">{match.adversaire}</p><p className="text-[10px] text-[#D4AF37]/60">🏟️ {match.arene}</p></div></div>
@@ -464,7 +626,7 @@ function App() {
                   <div className="bg-white/5 rounded-xl p-2.5 mb-3 border border-red-500/10"><p className="text-[9px] text-gray-600 mb-1.5 uppercase tracking-wider">🚫 Indispo ({(match.indisponibles || []).length})</p>{(match.indisponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.indisponibles || []).map((p: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2 py-0.5 rounded-lg text-[9px] font-bold border border-red-500/15">{p}</span>)}</div>}</div>
                   <button onClick={() => atc(match)} className="w-full mb-2 py-2 rounded-xl font-bold bg-blue-600/20 text-blue-400 border border-blue-500/15 text-xs">📅 Calendrier</button>
                   <div className="flex gap-2">
-                    <button onClick={() => toggleDispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all duration-300 text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 scale-[1.02]' : 'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]')}>{!user ? '🔐' : (match.disponibles || []).includes(pseudo) ? '✅ Dispo' : '📅 Dispo'}</button>
+                    <button onClick={() => toggleDispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all duration-300 text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 scale-[1.02]' : 'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]')}>{!user ? '🔐' : (match.disponibles || []).includes(pseudo) ? '✅ Dispo (-2🎟️)' : '📅 Dispo'}</button>
                     <button onClick={() => toggleIndispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all duration-300 text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.indisponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30 scale-[1.02]' : 'bg-white/5 border border-red-500/15 text-red-400')}>{!user ? '🔐' : (match.indisponibles || []).includes(pseudo) ? '❌ Indispo' : '🚫 Indispo'}</button>
                   </div>
                 </div>
@@ -500,13 +662,13 @@ function App() {
         </div>}
 
         {editHistoriqueScore && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto">
-          <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">✏️ Modifier le match</h3>
+          <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">✏️ Modifier</h3>
           <div className="space-y-3 mb-5">
             <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">⚔️ Adversaire</label><input type="text" value={editHistoriqueScore.adversaire} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /></div>
             <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">📅 Date</label><input type="date" value={editHistoriqueScore.date?.includes('/') ? (() => { const p = editHistoriqueScore.date.split('/'); return p[2] + '-' + p[1] + '-' + p[0] })() : editHistoriqueScore.date} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">Type</label><select value={editHistoriqueScore.type} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, type: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
-              <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">Arène</label><select value={editHistoriqueScore.arene} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, arene: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select></div>
+              <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">Type</label><select value={editHistoriqueScore.type} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, type: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
+              <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">Arène</label><select value={editHistoriqueScore.arene} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, arene: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select></div>
             </div>
             {editHistoriqueScore.type === 'Division' ? (
               <div className="bg-white/5 rounded-xl p-3 border border-orange-500/15">
@@ -516,13 +678,13 @@ function App() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">🟡 DYNO</label><input type="number" placeholder="0" value={editHistoriqueScore.scoreDyno} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none focus:border-[#D4AF37]/50" /></div>
-                <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">⚪ Adv</label><input type="number" placeholder="0" value={editHistoriqueScore.scoreAdv} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none focus:border-red-500/50" /></div>
+                <div><label className="text-gray-600 text-[10px] mb-1 block uppercase">🟡 DYNO</label><input type="number" value={editHistoriqueScore.scoreDyno} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div>
+                <div><label className="text-gray-600 text-[10px] mb-1 block uppercase">⚪ Adv</label><input type="number" value={editHistoriqueScore.scoreAdv} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div>
               </div>
             )}
-            <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3 border border-white/5"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editHistoriqueScore.termine === false} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, termine: e.target.checked ? false : true })} className="w-4 h-4 rounded accent-[#D4AF37]" /><span className="text-gray-400 text-xs">Remettre en « à venir »</span></label></div>
+            <label className="flex items-center gap-2 bg-white/5 rounded-xl p-3 border border-white/5 cursor-pointer"><input type="checkbox" checked={editHistoriqueScore.termine === false} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, termine: e.target.checked ? false : true })} className="w-4 h-4 rounded accent-[#D4AF37]" /><span className="text-gray-400 text-xs">Remettre en « à venir »</span></label>
           </div>
-          <div className="flex gap-2"><button onClick={() => setEditHistoriqueScore(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateHistoriqueScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅ Modifier</button></div>
+          <div className="flex gap-2"><button onClick={() => setEditHistoriqueScore(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateHistoriqueScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div>
         </div></div>}
 
         {activeTab === 'strats' && <div>
@@ -622,8 +784,73 @@ function App() {
 
         {activeTab === 'roster' && <div>
           <H title="Roster" icon="👥" />
+
+          {/* EVA Pass Section */}
+          {user && (
+            <div className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15 mb-5">
+              <p className="text-[10px] text-[#D4AF37] font-bold mb-3 uppercase tracking-wider">🎟️ Mon EVA Pass</p>
+              {myPass ? (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{EVA_PASSES[myPass.type]?.icon || '🎟️'}</span>
+                      <span className={"px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r text-white " + (EVA_PASSES[myPass.type]?.color || 'from-gray-500 to-gray-700')}>{EVA_PASSES[myPass.type]?.label || myPass.type}</span>
+                    </div>
+                    <button onClick={() => { setMyPass(null); updateDoc(doc(db, 'users', user.uid), { evaPass: null }) }} className="text-red-400/40 text-[9px]">Changer</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/15 text-center">
+                      <p className="text-[8px] text-blue-400 uppercase font-bold mb-1">🔵 Heures Creuses</p>
+                      <p className="text-xl font-bold text-blue-400">{(myPass.hcTotal || 0) - (myPass.hcUsed || 0)}<span className="text-gray-600 text-sm">/{myPass.hcTotal || 0}</span></p>
+                      <div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style={{ width: (myPass.hcTotal > 0 ? ((myPass.hcTotal - (myPass.hcUsed || 0)) / myPass.hcTotal) * 100 : 0) + '%' }} /></div>
+                    </div>
+                    <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/15 text-center">
+                      <p className="text-[8px] text-purple-400 uppercase font-bold mb-1">🟣 Heures Pleines</p>
+                      <p className="text-xl font-bold text-purple-400">{(myPass.hpTotal || 0) - (myPass.hpUsed || 0)}<span className="text-gray-600 text-sm">/{myPass.hpTotal || 0}</span></p>
+                      <div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: (myPass.hpTotal > 0 ? ((myPass.hpTotal - (myPass.hpUsed || 0)) / myPass.hpTotal) * 100 : 0) + '%' }} /></div>
+                    </div>
+                  </div>
+                  <p className="text-[8px] text-gray-600 text-center">HP = Ven 18h-23h20 • Sam/Dim 13h-23h</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-gray-500 text-xs mb-3">Choisis ton pass EVA :</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {Object.entries(EVA_PASSES).map(([key, p]) => (
+                      <button key={key} onClick={() => selectPass(key)} className={"rounded-xl p-3 border text-center transition-all hover:scale-105 " + (key === 'bronze' ? 'bg-amber-900/20 border-amber-700/30' : key === 'argent' ? 'bg-gray-500/20 border-gray-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30')}>
+                        <span className="text-2xl block mb-1">{p.icon}</span>
+                        <p className="text-white text-[10px] font-bold">{p.label}</p>
+                        <p className="text-blue-400 text-[8px]">{p.hc} HC</p>
+                        <p className="text-purple-400 text-[8px]">{p.hp} HP</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {user && <div className="card-glow bg-black/30 rounded-2xl p-3 border border-pink-500/10 mb-5"><p className="text-[9px] text-pink-400 mb-1.5 uppercase tracking-wider">🎂 Anniversaire</p><div className="flex gap-2"><input type="date" value={anniversaire} onChange={e => setAnniversaire(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-pink-400/50" /><button onClick={sauvegarderAnniversaire} className="px-3 py-2 rounded-lg font-bold bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs shadow-lg shadow-pink-500/20">💾</button></div></div>}
-          <div className="space-y-2.5">{joueurs.filter((j: any) => j.actif !== false).map((j: any, idx: number) => <div key={j.id} className="card-glow bg-black/30 rounded-2xl p-3.5 border border-[#D4AF37]/15 flex items-center gap-3" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37]/20 to-[#D4AF37]/5 flex items-center justify-center text-[#D4AF37] font-bold text-lg border border-[#D4AF37]/15">{j.pseudo[0]?.toUpperCase()}</div><div className="flex-1"><p className="font-bold text-[#D4AF37] text-sm">{j.pseudo}</p><p className="text-[10px] text-gray-600">🎮 {j.role}</p></div>{isAdmin && <button onClick={() => del('players', j.id)} className="text-red-400/40">🗑️</button>}</div>)}</div>
+          <div className="space-y-2.5">{joueurs.filter((j: any) => j.actif !== false).map((j: any, idx: number) => {
+            const playerPass = allPasses.find((p: any) => p.pseudo === j.pseudo)
+            return (
+              <div key={j.id} className="card-glow bg-black/30 rounded-2xl p-3.5 border border-[#D4AF37]/15 flex items-center gap-3" style={{ animationDelay: (idx * 0.1) + 's' }}>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37]/20 to-[#D4AF37]/5 flex items-center justify-center text-[#D4AF37] font-bold text-lg border border-[#D4AF37]/15">{j.pseudo[0]?.toUpperCase()}</div>
+                <div className="flex-1">
+                  <p className="font-bold text-[#D4AF37] text-sm">{j.pseudo}</p>
+                  <p className="text-[10px] text-gray-600">🎮 {j.role}</p>
+                  {playerPass && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[8px]">{EVA_PASSES[playerPass.type]?.icon}</span>
+                      <span className="text-blue-400 text-[8px] font-bold">{(playerPass.hcTotal || 0) - (playerPass.hcUsed || 0)}/{playerPass.hcTotal} HC</span>
+                      <span className="text-purple-400 text-[8px] font-bold">{(playerPass.hpTotal || 0) - (playerPass.hpUsed || 0)}/{playerPass.hpTotal} HP</span>
+                    </div>
+                  )}
+                </div>
+                {isAdmin && <button onClick={() => del('players', j.id)} className="text-red-400/40">🗑️</button>}
+              </div>
+            )
+          })}</div>
         </div>}
 
         {activeTab === 'stats' && <div>
@@ -658,19 +885,19 @@ function App() {
               <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">➕ Match</h3>
               <input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={e => setNouveauMatch({ ...nouveauMatch, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" />
               <input type="date" value={nouveauMatch.date} onChange={e => setNouveauMatch({ ...nouveauMatch, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" />
-              <div className="grid grid-cols-2 gap-2 mb-2"><input type="time" value={nouveauMatch.horaire1} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire1: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /><input type="time" value={nouveauMatch.horaire2} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire2: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /></div>
-              <div className="grid grid-cols-2 gap-2 mb-2"><select value={nouveauMatch.arene} onChange={e => setNouveauMatch({ ...nouveauMatch, arene: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select><select value={nouveauMatch.type} onChange={e => setNouveauMatch({ ...nouveauMatch, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
+              <div className="grid grid-cols-2 gap-2 mb-2"><input type="time" value={nouveauMatch.horaire1} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire1: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" /><input type="time" value={nouveauMatch.horaire2} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire2: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" /></div>
+              <div className="grid grid-cols-2 gap-2 mb-2"><select value={nouveauMatch.arene} onChange={e => setNouveauMatch({ ...nouveauMatch, arene: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select><select value={nouveauMatch.type} onChange={e => setNouveauMatch({ ...nouveauMatch, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
               {nouveauMatch.type === 'Division' && <div className="bg-white/5 rounded-xl p-3 mb-2 border border-white/5"><div className="flex items-center justify-between mb-2"><p className="text-[10px] text-[#D4AF37] font-bold uppercase">🏆 Sous-matchs</p><button onClick={ajouterSousMatch} className="px-2 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">➕</button></div>{nouveauMatch.sousMatchs.length > 0 ? <div className="space-y-1">{nouveauMatch.sousMatchs.map((sm, i) => <div key={i} className="flex items-center justify-between bg-black/30 rounded-lg px-2 py-1.5"><div className="flex-1"><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={() => supprimerSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>)}</div> : <p className="text-[9px] text-gray-600 text-center">Aucun</p>}</div>}
               <button onClick={ajouterMatch} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Ajouter + Discord</button>
             </div>
             <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">🗑️ Matchs</h3>{matchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun</p> : <div className="space-y-1.5">{matchs.map((m: any) => <div key={m.id} className="flex items-center justify-between bg-white/5 rounded-lg p-2.5 border border-white/5"><div><p className="text-[#D4AF37] font-bold text-[10px]">{m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)} • {m.termine ? '✅' : '⏳'}</p></div><div className="flex items-center gap-1.5">{m.termine && <button onClick={() => setEditHistoriqueScore({ id: m.id, adversaire: m.adversaire || '', scoreDyno: String(m.scoreDyno || 0), scoreAdv: String(m.scoreAdversaire || 0), type: m.type || 'Ligue', arene: m.arene || 'Arène 1', date: m.date || '', termine: true, sousMatchs: m.sousMatchs || [] })} className="text-[#D4AF37]/60 hover:text-[#D4AF37] text-sm transition-colors">✏️</button>}<button onClick={() => del('matchs', m.id)} className="text-red-400/40">🗑️</button></div></div>)}</div>}</div>
-            <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">🎬 Replay</h3><input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={e => setNouveauReplay({ ...nouveauReplay, titre: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /><input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={e => setNouveauReplay({ ...nouveauReplay, lien: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /><button onClick={ajouterReplay} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Ajouter</button></div>
+            <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">🎬 Replay</h3><input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={e => setNouveauReplay({ ...nouveauReplay, titre: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" /><input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={e => setNouveauReplay({ ...nouveauReplay, lien: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" /><button onClick={ajouterReplay} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Ajouter</button></div>
             <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">✏️ Scores</h3>{prochainsMatchs.map((m: any) => <div key={m.id} className="bg-white/5 rounded-lg p-3 mb-2 border border-white/5"><p className="font-bold text-[#D4AF37] mb-2 text-xs">DYNO vs {m.adversaire}</p><button onClick={() => setScoreEdit({ id: m.id, scoreDyno: '', scoreAdv: '' })} className="w-full py-2 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-xs">📝</button></div>)}</div>
             <button onClick={handleAdminLogout} className="w-full bg-white/5 border border-red-500/15 text-red-400 py-2.5 rounded-xl font-bold text-sm">🚪 Déconnexion</button>
           </div>}
           {scoreEdit && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10">
             <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📝 Score</h3>
-            <div className="grid grid-cols-2 gap-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none focus:border-[#D4AF37]/50" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none focus:border-[#D4AF37]/50" /></div></div>
+            <div className="grid grid-cols-2 gap-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div></div>
             <div className="flex gap-2"><button onClick={() => setScoreEdit(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div>
           </div></div>}
         </div>}
