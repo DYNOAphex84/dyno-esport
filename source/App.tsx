@@ -29,49 +29,31 @@ const DW = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6N
 const YT = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const LG = 'https://i.imgur.com/gTLj57a.png'
 const AE = 'thibaut.llorens@hotmail.com'
-const AM = [
-  'Engine', 'Helios', 'Silva', 'The Cliff',
-  'Artefact', 'Outlaw', 'Atlantis', 'Horizon',
-  'Polaris', 'Lunar', 'Ceres'
-]
+const AM = ['Engine','Helios','Silva','The Cliff','Artefact','Outlaw','Atlantis','Horizon','Polaris','Lunar','Ceres']
 
-// EVA Pass definitions
 const EVA_PASSES: Record<string, { label: string; icon: string; hc: number; hp: number; color: string }> = {
   bronze: { label: 'Bronze', icon: '🥉', hc: 3, hp: 1, color: 'from-amber-700 to-amber-900' },
   argent: { label: 'Argent', icon: '🥈', hc: 6, hp: 2, color: 'from-gray-400 to-gray-600' },
   or: { label: 'Or', icon: '🥇', hc: 12, hp: 4, color: 'from-[#D4AF37] to-[#FFD700]' },
 }
 
-// Check if a match datetime is HP (Heures Pleines)
-// HP = Vendredi 18h-23h20, Samedi 13h-23h, Dimanche 13h-23h
 const isHP = (dateStr: string, timeStr: string): boolean => {
   if (!dateStr) return false
   let d = dateStr
-  if (d.includes('/')) {
-    const [dd, mm, yy] = d.split('/')
-    d = yy + '-' + mm + '-' + dd
-  }
+  if (d.includes('/')) { const [dd, mm, yy] = d.split('/'); d = yy + '-' + mm + '-' + dd }
   try {
     const dt = new Date(d + 'T' + (timeStr || '20:00') + ':00')
     if (isNaN(dt.getTime())) return false
-    const day = dt.getDay() // 0=dim, 5=ven, 6=sam
-    const h = dt.getHours()
-    const m = dt.getMinutes()
-    const totalMin = h * 60 + m
-    if (day === 5) return totalMin >= 1080 && totalMin <= 1400 // ven 18:00-23:20
-    if (day === 6) return totalMin >= 780 && totalMin <= 1380  // sam 13:00-23:00
-    if (day === 0) return totalMin >= 780 && totalMin <= 1380  // dim 13:00-23:00
+    const day = dt.getDay()
+    const totalMin = dt.getHours() * 60 + dt.getMinutes()
+    if (day === 5) return totalMin >= 1080 && totalMin <= 1400
+    if (day === 6) return totalMin >= 780 && totalMin <= 1380
+    if (day === 0) return totalMin >= 780 && totalMin <= 1380
     return false
   } catch { return false }
 }
 
-const P = () => (
-  <div className="particles">
-    {Array.from({ length: 12 }).map((_, i) => (
-      <div key={i} className="particle" />
-    ))}
-  </div>
-)
+const P = () => (<div className="particles">{Array.from({ length: 12 }).map((_, i) => <div key={i} className="particle" />)}</div>)
 
 function App() {
   const [activeTab, setActiveTab] = useState('matchs')
@@ -95,23 +77,13 @@ function App() {
   const [objectifs, setObjectifs] = useState<any[]>([])
   const [analyses, setAnalyses] = useState<any[]>([])
   const [fichesAdversaires, setFichesAdversaires] = useState<any[]>([])
-  const [nouveauMatch, setNouveauMatch] = useState({
-    adversaire: '', date: '', horaire1: '', horaire2: '',
-    arene: 'Arène 1', type: 'Ligue',
-    sousMatchs: [] as {
-      adversaire: string; scoreDyno: string; scoreAdv: string
-    }[]
-  })
+  const [nouveauMatch, setNouveauMatch] = useState({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', sousMatchs: [] as { adversaire: string; scoreDyno: string; scoreAdv: string }[] })
   const [scoreEdit, setScoreEdit] = useState<any>(null)
   const [editHistoriqueScore, setEditHistoriqueScore] = useState<any>(null)
   const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
-  const [nouvelleNote, setNouvelleNote] = useState({
-    matchId: '', mental: '', communication: '', gameplay: ''
-  })
+  const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
   const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
-  const [nouvelleStrat, setNouvelleStrat] = useState({
-    adversaire: '', picks: [] as string[], bans: [] as string[]
-  })
+  const [nouvelleStrat, setNouvelleStrat] = useState({ adversaire: '', picks: [] as string[], bans: [] as string[] })
   const [showAddStrat, setShowAddStrat] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstall, setShowInstall] = useState(false)
@@ -130,180 +102,31 @@ function App() {
   const [nouvelObjectif, setNouvelObjectif] = useState('')
   const [showBilan, setShowBilan] = useState(false)
   const [selectedMatchForAnalyse, setSelectedMatchForAnalyse] = useState<any>(null)
-  const [nouvelleAnalyse, setNouvelleAnalyse] = useState({
-    bien: '', mal: '', plan: ''
-  })
+  const [nouvelleAnalyse, setNouvelleAnalyse] = useState({ bien: '', mal: '', plan: '' })
   const [showAddFiche, setShowAddFiche] = useState(false)
-  const [nouvelleFiche, setNouvelleFiche] = useState({
-    adversaire: '', forces: '', faiblesses: '', notes: ''
-  })
-  // EVA Pass state
+  const [nouvelleFiche, setNouvelleFiche] = useState({ adversaire: '', forces: '', faiblesses: '', notes: '' })
   const [myPass, setMyPass] = useState<any>(null)
   const [allPasses, setAllPasses] = useState<any[]>([])
 
-  const pm = useRef(0)
-  const pn = useRef(0)
-  const pc = useRef(0)
-  const ps = useRef(0)
-  const ty = useRef(0)
+  const pm = useRef(0), pn = useRef(0), pc = useRef(0), ps = useRef(0), ty = useRef(0)
 
-  useEffect(() => {
-    if (window.location.search.includes('reset=1')) {
-      localStorage.clear()
-      window.location.href = window.location.pathname
-    }
-  }, [])
+  useEffect(() => { if (window.location.search.includes('reset=1')) { localStorage.clear(); window.location.href = window.location.pathname } }, [])
 
-  const sendNotification = useCallback(
-    (t: string, b: string, tg?: string) => {
-      try {
-        if (!('Notification' in window) ||
-          Notification.permission !== 'granted') return
-        const n = new Notification(t, {
-          body: b, icon: LG, badge: LG,
-          tag: tg || 'd', requireInteraction: false
-        })
-        n.onclick = () => { window.focus(); n.close() }
-      } catch {}
-    }, []
-  )
+  const sendNotification = useCallback((t: string, b: string, tg?: string) => { try { if (!('Notification' in window) || Notification.permission !== 'granted') return; const n = new Notification(t, { body: b, icon: LG, badge: LG, tag: tg || 'd', requireInteraction: false }); n.onclick = () => { window.focus(); n.close() } } catch {} }, [])
 
-  const requestNotificationPermission = async () => {
-    try {
-      if (!('Notification' in window)) { alert('❌'); return }
-      const p = await Notification.requestPermission()
-      if (p === 'granted') {
-        setNotificationsEnabled(true)
-        localStorage.setItem('dyno-notifs', 'true')
-        alert('✅ Notifs activées !')
-      } else {
-        setNotificationsEnabled(false)
-        localStorage.setItem('dyno-notifs', 'false')
-        alert('❌')
-      }
-    } catch { alert('❌') }
-  }
+  const requestNotificationPermission = async () => { try { if (!('Notification' in window)) { alert('❌'); return }; const p = await Notification.requestPermission(); if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('✅ Notifs activées !') } else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false'); alert('❌') } } catch { alert('❌') } }
 
-  const getMatchDateTime = useCallback((m: any): Date | null => {
-    if (!m?.date) return null
-    let d = m.date
-    const t = m.horaires?.[0] || m.horaire1 || '20:00'
-    if (d.includes('/')) {
-      const [dd, mm, yy] = d.split('/')
-      d = yy + '-' + mm + '-' + dd
-    }
-    try {
-      const dt = new Date(d + 'T' + t + ':00')
-      return isNaN(dt.getTime()) ? null : dt
-    } catch { return null }
-  }, [])
+  const getMatchDateTime = useCallback((m: any): Date | null => { if (!m?.date) return null; let d = m.date; const t = m.horaires?.[0] || m.horaire1 || '20:00'; if (d.includes('/')) { const [dd, mm, yy] = d.split('/'); d = yy + '-' + mm + '-' + dd }; try { const dt = new Date(d + 'T' + t + ':00'); return isNaN(dt.getTime()) ? null : dt } catch { return null } }, [])
 
-  useEffect(() => {
-    try {
-      if ('Notification' in window &&
-        Notification.permission === 'granted' &&
-        localStorage.getItem('dyno-notifs') === 'true')
-        setNotificationsEnabled(true)
-    } catch {}
-    try {
-      setNotifiedMatchs(
-        JSON.parse(localStorage.getItem('dyno-notified') || '[]')
-      )
-    } catch { setNotifiedMatchs([]) }
-  }, [])
+  useEffect(() => { try { if ('Notification' in window && Notification.permission === 'granted' && localStorage.getItem('dyno-notifs') === 'true') setNotificationsEnabled(true) } catch {}; try { setNotifiedMatchs(JSON.parse(localStorage.getItem('dyno-notified') || '[]')) } catch { setNotifiedMatchs([]) } }, [])
 
-  useEffect(() => {
-    if (!notificationsEnabled) return
-    try {
-      if (!('Notification' in window) ||
-        Notification.permission !== 'granted') return
-    } catch { return }
-    const ck = () => {
-      const now = new Date()
-      matchs.forEach((m: any) => {
-        if (m.termine) return
-        const mt = getMatchDateTime(m)
-        if (!mt) return
-        const dm = (mt.getTime() - now.getTime()) / 60000
-        const k1 = m.id + '-1h'
-        if (dm > 55 && dm <= 65 && !notifiedMatchs.includes(k1)) {
-          sendNotification('🎮 1h !', 'DYNO vs ' + m.adversaire, 'm1h')
-          const u = [...notifiedMatchs, k1]
-          setNotifiedMatchs(u)
-          localStorage.setItem('dyno-notified', JSON.stringify(u))
-        }
-        const k2 = m.id + '-15m'
-        if (dm > 10 && dm <= 20 && !notifiedMatchs.includes(k2)) {
-          sendNotification('🔥 15min !', 'DYNO vs ' + m.adversaire, 'm15')
-          const u = [...notifiedMatchs, k2]
-          setNotifiedMatchs(u)
-          localStorage.setItem('dyno-notified', JSON.stringify(u))
-        }
-        const k3 = m.id + '-now'
-        if (dm >= -2 && dm <= 3 && !notifiedMatchs.includes(k3)) {
-          sendNotification('⚡ GO !', 'DYNO vs ' + m.adversaire, 'mnow')
-          const u = [...notifiedMatchs, k3]
-          setNotifiedMatchs(u)
-          localStorage.setItem('dyno-notified', JSON.stringify(u))
-        }
-      })
-    }
-    ck()
-    const i = setInterval(ck, 60000)
-    return () => clearInterval(i)
-  }, [notificationsEnabled, matchs, notifiedMatchs, sendNotification, getMatchDateTime])
+  useEffect(() => { if (!notificationsEnabled) return; try { if (!('Notification' in window) || Notification.permission !== 'granted') return } catch { return }; const ck = () => { const now = new Date(); matchs.forEach((m: any) => { if (m.termine) return; const mt = getMatchDateTime(m); if (!mt) return; const dm = (mt.getTime() - now.getTime()) / 60000; const k1 = m.id + '-1h'; if (dm > 55 && dm <= 65 && !notifiedMatchs.includes(k1)) { sendNotification('🎮 1h !', 'DYNO vs ' + m.adversaire, 'm1h'); const u = [...notifiedMatchs, k1]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }; const k2 = m.id + '-15m'; if (dm > 10 && dm <= 20 && !notifiedMatchs.includes(k2)) { sendNotification('🔥 15min !', 'DYNO vs ' + m.adversaire, 'm15'); const u = [...notifiedMatchs, k2]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }; const k3 = m.id + '-now'; if (dm >= -2 && dm <= 3 && !notifiedMatchs.includes(k3)) { sendNotification('⚡ GO !', 'DYNO vs ' + m.adversaire, 'mnow'); const u = [...notifiedMatchs, k3]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) } }) }; ck(); const i = setInterval(ck, 60000); return () => clearInterval(i) }, [notificationsEnabled, matchs, notifiedMatchs, sendNotification, getMatchDateTime])
 
-  useEffect(() => {
-    const u = () => {
-      const now = new Date()
-      const c: Record<string, string> = {}
-      matchs.forEach((m: any) => {
-        if (m.termine) return
-        const mt = getMatchDateTime(m)
-        if (!mt) return
-        const df = mt.getTime() - now.getTime()
-        if (df <= 0) { c[m.id] = '🔴 EN COURS'; return }
-        const j = Math.floor(df / 86400000)
-        const h = Math.floor((df % 86400000) / 3600000)
-        const mi = Math.floor((df % 3600000) / 60000)
-        const s = Math.floor((df % 60000) / 1000)
-        c[m.id] = (j > 0 ? j + 'j ' : '') +
-          ((h > 0 || j > 0) ? h + 'h ' : '') +
-          mi + 'm ' + s + 's'
-      })
-      setCountdowns(c)
-    }
-    u()
-    const i = setInterval(u, 1000)
-    return () => clearInterval(i)
-  }, [matchs, getMatchDateTime])
+  useEffect(() => { const u = () => { const now = new Date(); const c: Record<string, string> = {}; matchs.forEach((m: any) => { if (m.termine) return; const mt = getMatchDateTime(m); if (!mt) return; const df = mt.getTime() - now.getTime(); if (df <= 0) { c[m.id] = '🔴 EN COURS'; return }; const j = Math.floor(df / 86400000); const h = Math.floor((df % 86400000) / 3600000); const mi = Math.floor((df % 3600000) / 60000); const s = Math.floor((df % 60000) / 1000); c[m.id] = (j > 0 ? j + 'j ' : '') + ((h > 0 || j > 0) ? h + 'h ' : '') + mi + 'm ' + s + 's' }); setCountdowns(c) }; u(); const i = setInterval(u, 1000); return () => clearInterval(i) }, [matchs, getMatchDateTime])
 
-  useEffect(() => {
-    if (localStorage.getItem('dyno-admin') === 'true')
-      setIsAdmin(true)
-  }, [])
+  useEffect(() => { if (localStorage.getItem('dyno-admin') === 'true') setIsAdmin(true) }, [])
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u: any) => {
-      setUser(u)
-      if (u) {
-        const d = await getDoc(doc(db, 'users', u.uid))
-        if (d.exists()) {
-          const data = d.data()
-          setPseudo(data.pseudo || '')
-          if (data.anniversaire) setAnniversaire(data.anniversaire)
-          if (u.email === AE || data.isAdmin) {
-            setIsAdmin(true)
-            localStorage.setItem('dyno-admin', 'true')
-          }
-          // Load EVA pass
-          if (data.evaPass) setMyPass(data.evaPass)
-        }
-      }
-      setLoading(false)
-    })
-    return () => unsub()
-  }, [])
+  useEffect(() => { const unsub = onAuthStateChanged(auth, async (u: any) => { setUser(u); if (u) { const d = await getDoc(doc(db, 'users', u.uid)); if (d.exists()) { const data = d.data(); setPseudo(data.pseudo || ''); if (data.anniversaire) setAnniversaire(data.anniversaire); if (u.email === AE || data.isAdmin) { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true') }; if (data.evaPass) { const pass = data.evaPass; if (pass.dateReset) { const resetDate = new Date(pass.dateReset); if (new Date() >= resetDate) { const newPass = { ...pass, hcUsed: 0, hpUsed: 0, dateReset: new Date(resetDate.getTime() + 30 * 86400000).toISOString().split('T')[0] }; setMyPass(newPass); updateDoc(doc(db, 'users', u.uid), { evaPass: newPass }) } else { setMyPass(pass) } } else { setMyPass(pass) } } } }; setLoading(false) }); return () => unsub() }, [])
 
   useEffect(() => { const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setMatchs(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setNotes(d) }); return () => u() }, [])
@@ -315,21 +138,7 @@ function App() {
   useEffect(() => { const q = query(collection(db, 'objectifs'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setObjectifs(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'analyses'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setAnalyses(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'fichesAdversaires'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setFichesAdversaires(d) }); return () => u() }, [])
-
-  // Listen to all user passes for roster display
-  useEffect(() => {
-    const u = onSnapshot(collection(db, 'users'), (s: any) => {
-      const d: any[] = []
-      s.forEach((x: any) => {
-        const data = x.data()
-        if (data.evaPass) {
-          d.push({ oduserId: x.id, pseudo: data.pseudo, ...data.evaPass })
-        }
-      })
-      setAllPasses(d)
-    })
-    return () => u()
-  }, [])
+  useEffect(() => { const u = onSnapshot(collection(db, 'users'), (s: any) => { const d: any[] = []; s.forEach((x: any) => { const data = x.data(); if (data.evaPass) d.push({ oduserId: x.id, pseudo: data.pseudo, ...data.evaPass }) }); setAllPasses(d) }); return () => u() }, [])
 
   useEffect(() => { if (!notificationsEnabled || pm.current === 0) { pm.current = matchs.length; return }; if (matchs.length > pm.current) { const n = matchs[0]; if (n) sendNotification('📅 Match !', 'DYNO vs ' + n.adversaire, 'nm') }; pm.current = matchs.length }, [matchs, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || pn.current === 0) { pn.current = notes.length; return }; if (notes.length > pn.current) { const n = notes[0]; if (n) sendNotification('📊 Note !', n.joueur, 'nn') }; pn.current = notes.length }, [notes, notificationsEnabled, sendNotification])
@@ -346,48 +155,15 @@ function App() {
   const handleAdminLogin = () => { if (adminPassword === 'dyno2026') { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true'); setAdminPassword('') } else alert('❌!') }
   const handleAdminLogout = () => { setIsAdmin(false); localStorage.removeItem('dyno-admin') }
 
-  // EVA Pass functions
-  const selectPass = async (type: string) => {
-    if (!user) return
-    const passDef = EVA_PASSES[type]
-    if (!passDef) return
-    const passData = {
-      type, hcTotal: passDef.hc, hpTotal: passDef.hp,
-      hcUsed: 0, hpUsed: 0,
-      dateDebut: new Date().toISOString().split('T')[0],
-      dateFin: new Date(Date.now() + 30 * 86400000)
-        .toISOString().split('T')[0]
-    }
-    await updateDoc(doc(db, 'users', user.uid), {
-      evaPass: passData
-    })
-    setMyPass(passData)
-    alert('✅ Pass ' + passDef.label + ' activé !')
-  }
-
-  const getMatchTimeType = (match: any): 'hc' | 'hp' => {
-    const time = match.horaires?.[0] || match.horaire1 || '20:00'
-    return isHP(match.date, time) ? 'hp' : 'hc'
-  }
+  const selectPass = async (type: string) => { if (!user) return; const passDef = EVA_PASSES[type]; if (!passDef) return; const passData = { type, hcTotal: passDef.hc, hpTotal: passDef.hp, hcUsed: 0, hpUsed: 0, dateReset: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0] }; await updateDoc(doc(db, 'users', user.uid), { evaPass: passData }); setMyPass(passData); alert('✅ Pass ' + passDef.label + ' activé !') }
+  const getMatchTimeType = (match: any): 'hc' | 'hp' => { const time = match.horaires?.[0] || match.horaire1 || '20:00'; return isHP(match.date, time) ? 'hp' : 'hc' }
 
   const ajouterSousMatch = () => { const adv = prompt('Adversaire :'); if (!adv) return; const sd = prompt('Score DYNO :'); if (!sd) return; const sa = prompt('Score ' + adv + ' :'); if (!sa) return; setNouveauMatch({ ...nouveauMatch, sousMatchs: [...nouveauMatch.sousMatchs, { adversaire: adv, scoreDyno: sd, scoreAdv: sa }] }) }
   const supprimerSousMatch = (i: number) => { const sm = [...nouveauMatch.sousMatchs]; sm.splice(i, 1); setNouveauMatch({ ...nouveauMatch, sousMatchs: sm }) }
   const ajouterEditSousMatch = () => { if (!editHistoriqueScore) return; const adv = prompt('Adversaire :'); if (!adv) return; const sd = prompt('Score DYNO :'); if (!sd) return; const sa = prompt('Score ' + adv + ' :'); if (!sa) return; setEditHistoriqueScore({ ...editHistoriqueScore, sousMatchs: [...(editHistoriqueScore.sousMatchs || []), { adversaire: adv, scoreDyno: sd, scoreAdv: sa }] }) }
   const supprimerEditSousMatch = (i: number) => { if (!editHistoriqueScore) return; const sm = [...(editHistoriqueScore.sousMatchs || [])]; sm.splice(i, 1); setEditHistoriqueScore({ ...editHistoriqueScore, sousMatchs: sm }) }
 
-  const ajouterMatch = async () => {
-    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('⚠️!'); return }
-    const md: any = { ...nouveauMatch, termine: false, disponibles: [], indisponibles: [], createdAt: Date.now() }
-    if (nouveauMatch.type === 'Division' && nouveauMatch.sousMatchs.length > 0) {
-      md.termine = true; md.sousMatchs = nouveauMatch.sousMatchs
-      md.scoreDyno = nouveauMatch.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0)
-      md.scoreAdversaire = nouveauMatch.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0)
-    }
-    await addDoc(collection(db, 'matchs'), md)
-    const h = [nouveauMatch.horaire1]; if (nouveauMatch.horaire2) h.push(nouveauMatch.horaire2)
-    try { await fetch(DW, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '🎮 DYNO vs ' + nouveauMatch.adversaire, color: 13934871, fields: [{ name: '⚔️', value: nouveauMatch.adversaire, inline: true }, { name: '📅', value: nouveauMatch.date, inline: true }, { name: '⏰', value: h.join(' / '), inline: true }, { name: '🏟️', value: nouveauMatch.arene, inline: true }, { name: '📊', value: nouveauMatch.type, inline: true }], footer: { text: 'DYNO', icon_url: LG } }] }) }) } catch {}
-    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', sousMatchs: [] }); alert('✅!')
-  }
+  const ajouterMatch = async () => { if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('⚠️!'); return }; const md: any = { ...nouveauMatch, termine: false, disponibles: [], indisponibles: [], createdAt: Date.now() }; if (nouveauMatch.type === 'Division' && nouveauMatch.sousMatchs.length > 0) { md.termine = true; md.sousMatchs = nouveauMatch.sousMatchs; md.scoreDyno = nouveauMatch.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0); md.scoreAdversaire = nouveauMatch.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0) }; await addDoc(collection(db, 'matchs'), md); const h = [nouveauMatch.horaire1]; if (nouveauMatch.horaire2) h.push(nouveauMatch.horaire2); try { await fetch(DW, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '🎮 DYNO vs ' + nouveauMatch.adversaire, color: 13934871, fields: [{ name: '⚔️', value: nouveauMatch.adversaire, inline: true }, { name: '📅', value: nouveauMatch.date, inline: true }, { name: '⏰', value: h.join(' / '), inline: true }, { name: '🏟️', value: nouveauMatch.arene, inline: true }, { name: '📊', value: nouveauMatch.type, inline: true }], footer: { text: 'DYNO', icon_url: LG } }] }) }) } catch {}; setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', sousMatchs: [] }); alert('✅!') }
   const ajouterReplay = async () => { if (!nouveauReplay.titre || !nouveauReplay.lien) { alert('⚠️!'); return }; await addDoc(collection(db, 'replays'), { ...nouveauReplay, createdAt: Date.now() }); setNouveauReplay({ titre: '', lien: '' }); alert('✅!') }
   const ajouterNote = async () => { if (!user) return; await addDoc(collection(db, 'notes'), { matchId: selectedMatchForNotes?.id, joueur: pseudo, joueurId: user.uid, mental: nouvelleNote.mental, communication: nouvelleNote.communication, gameplay: nouvelleNote.gameplay, createdAt: Date.now() }); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }); setSelectedMatchForNotes(null); alert('✅!') }
   const ajouterCommentaire = async (id: string) => { if (!user || !nouveauCommentaire.trim()) return; await addDoc(collection(db, 'commentaires'), { matchId: id, joueur: pseudo, joueurId: user.uid, texte: nouveauCommentaire.trim(), createdAt: Date.now() }); setNouveauCommentaire(''); setSelectedMatchForComment(null); alert('✅!') }
@@ -401,100 +177,11 @@ function App() {
   const ajouterFiche = async () => { if (!nouvelleFiche.adversaire.trim()) return; await addDoc(collection(db, 'fichesAdversaires'), { ...nouvelleFiche, auteur: pseudo, auteurId: user?.uid, createdAt: Date.now() }); setNouvelleFiche({ adversaire: '', forces: '', faiblesses: '', notes: '' }); setShowAddFiche(false); alert('✅!') }
   const del = async (col: string, id: string) => { await deleteDoc(doc(db, col, id)) }
   const updateScore = async () => { if (!scoreEdit) return; await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true }); setScoreEdit(null); alert('✅!') }
-  const updateHistoriqueScore = async () => {
-    if (!editHistoriqueScore) return
-    const ud: any = { adversaire: editHistoriqueScore.adversaire, type: editHistoriqueScore.type, arene: editHistoriqueScore.arene, date: editHistoriqueScore.date, termine: editHistoriqueScore.termine !== false }
-    if (editHistoriqueScore.type === 'Division' && editHistoriqueScore.sousMatchs?.length > 0) {
-      ud.sousMatchs = editHistoriqueScore.sousMatchs
-      ud.scoreDyno = editHistoriqueScore.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0)
-      ud.scoreAdversaire = editHistoriqueScore.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0)
-    } else {
-      ud.scoreDyno = parseInt(editHistoriqueScore.scoreDyno)
-      ud.scoreAdversaire = parseInt(editHistoriqueScore.scoreAdv)
-      if (editHistoriqueScore.type !== 'Division') ud.sousMatchs = []
-    }
-    await updateDoc(doc(db, 'matchs', editHistoriqueScore.id), ud)
-    setEditHistoriqueScore(null); alert('✅!')
-  }
+  const updateHistoriqueScore = async () => { if (!editHistoriqueScore) return; const ud: any = { adversaire: editHistoriqueScore.adversaire, type: editHistoriqueScore.type, arene: editHistoriqueScore.arene, date: editHistoriqueScore.date, termine: editHistoriqueScore.termine !== false }; if (editHistoriqueScore.type === 'Division' && editHistoriqueScore.sousMatchs?.length > 0) { ud.sousMatchs = editHistoriqueScore.sousMatchs; ud.scoreDyno = editHistoriqueScore.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0); ud.scoreAdversaire = editHistoriqueScore.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0) } else { ud.scoreDyno = parseInt(editHistoriqueScore.scoreDyno); ud.scoreAdversaire = parseInt(editHistoriqueScore.scoreAdv); if (editHistoriqueScore.type !== 'Division') ud.sousMatchs = [] }; await updateDoc(doc(db, 'matchs', editHistoriqueScore.id), ud); setEditHistoriqueScore(null); alert('✅!') }
 
-  // Modified toggleDispo with EVA Pass token deduction
-  const toggleDispo = async (mid: string) => {
-    if (!user) return
-    const m = matchs.find((x: any) => x.id === mid)
-    if (!m) return
-    const d = m.disponibles || []
-    const i = m.indisponibles || []
-    const isCurrentlyDispo = d.includes(pseudo)
+  const toggleDispo = async (mid: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === mid); if (!m) return; const d = m.disponibles || []; const i = m.indisponibles || []; const isDispo = d.includes(pseudo); if (!isDispo && myPass) { const tt = getMatchTimeType(m); const uk = tt === 'hp' ? 'hpUsed' : 'hcUsed'; const tk = tt === 'hp' ? 'hpTotal' : 'hcTotal'; const rem = (myPass[tk] || 0) - (myPass[uk] || 0); if (rem < 2) alert('⚠️ Plus que ' + rem + ' jeton(s) ' + (tt === 'hp' ? 'HP' : 'HC') + ' !'); const np = { ...myPass, [uk]: (myPass[uk] || 0) + 2 }; setMyPass(np); await updateDoc(doc(db, 'users', user.uid), { evaPass: np }) } else if (isDispo && myPass) { const tt = getMatchTimeType(m); const uk = tt === 'hp' ? 'hpUsed' : 'hcUsed'; const np = { ...myPass, [uk]: Math.max(0, (myPass[uk] || 0) - 2) }; setMyPass(np); await updateDoc(doc(db, 'users', user.uid), { evaPass: np }) }; await updateDoc(doc(db, 'matchs', mid), { disponibles: isDispo ? d.filter((p: string) => p !== pseudo) : [...d, pseudo], indisponibles: i.filter((p: string) => p !== pseudo) }) }
 
-    if (!isCurrentlyDispo && myPass) {
-      // Adding dispo → deduct 2 tokens
-      const tt = getMatchTimeType(m)
-      const usedKey = tt === 'hp' ? 'hpUsed' : 'hcUsed'
-      const totalKey = tt === 'hp' ? 'hpTotal' : 'hcTotal'
-      const remaining = (myPass[totalKey] || 0) - (myPass[usedKey] || 0)
-      if (remaining < 2) {
-        const typeLabel = tt === 'hp' ? 'HP' : 'HC'
-        alert('⚠️ Plus que ' + remaining + ' jeton(s) ' + typeLabel + ' restant(s) !')
-      }
-      const newPass = {
-        ...myPass,
-        [usedKey]: (myPass[usedKey] || 0) + 2
-      }
-      setMyPass(newPass)
-      await updateDoc(doc(db, 'users', user.uid), {
-        evaPass: newPass
-      })
-    } else if (isCurrentlyDispo && myPass) {
-      // Removing dispo → refund 2 tokens
-      const tt = getMatchTimeType(m)
-      const usedKey = tt === 'hp' ? 'hpUsed' : 'hcUsed'
-      const newPass = {
-        ...myPass,
-        [usedKey]: Math.max(0, (myPass[usedKey] || 0) - 2)
-      }
-      setMyPass(newPass)
-      await updateDoc(doc(db, 'users', user.uid), {
-        evaPass: newPass
-      })
-    }
-
-    await updateDoc(doc(db, 'matchs', mid), {
-      disponibles: isCurrentlyDispo
-        ? d.filter((p: string) => p !== pseudo)
-        : [...d, pseudo],
-      indisponibles: i.filter((p: string) => p !== pseudo)
-    })
-  }
-
-  const toggleIndispo = async (mid: string) => {
-    if (!user) return
-    const m = matchs.find((x: any) => x.id === mid)
-    if (!m) return
-    const d = m.disponibles || []
-    const i = m.indisponibles || []
-    const wasDispo = d.includes(pseudo)
-
-    // If was dispo, refund tokens
-    if (wasDispo && myPass) {
-      const tt = getMatchTimeType(m)
-      const usedKey = tt === 'hp' ? 'hpUsed' : 'hcUsed'
-      const newPass = {
-        ...myPass,
-        [usedKey]: Math.max(0, (myPass[usedKey] || 0) - 2)
-      }
-      setMyPass(newPass)
-      await updateDoc(doc(db, 'users', user.uid), {
-        evaPass: newPass
-      })
-    }
-
-    await updateDoc(doc(db, 'matchs', mid), {
-      indisponibles: i.includes(pseudo)
-        ? i.filter((p: string) => p !== pseudo)
-        : [...i, pseudo],
-      disponibles: d.filter((p: string) => p !== pseudo)
-    })
-  }
+  const toggleIndispo = async (mid: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === mid); if (!m) return; const d = m.disponibles || []; const i = m.indisponibles || []; if (d.includes(pseudo) && myPass) { const tt = getMatchTimeType(m); const uk = tt === 'hp' ? 'hpUsed' : 'hcUsed'; const np = { ...myPass, [uk]: Math.max(0, (myPass[uk] || 0) - 2) }; setMyPass(np); await updateDoc(doc(db, 'users', user.uid), { evaPass: np }) }; await updateDoc(doc(db, 'matchs', mid), { indisponibles: i.includes(pseudo) ? i.filter((p: string) => p !== pseudo) : [...i, pseudo], disponibles: d.filter((p: string) => p !== pseudo) }) }
 
   const fdf = (s: string) => { if (!s) return ''; if (s.includes('/')) return s; const [y, m, d] = s.split('-'); return d + '/' + m + '/' + y }
   const fts = (t: number) => { const d = new Date(t); return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
@@ -503,7 +190,7 @@ function App() {
   const htm = (e: React.TouchEvent) => { if (window.scrollY > 0) return; const d = e.touches[0].clientY - ty.current; if (d > 0) setPullDistance(Math.min(d * 0.4, 80)) }
   const hte = () => { if (pullDistance > 60) { setIsRefreshing(true); setTimeout(() => window.location.reload(), 500) }; setPullDistance(0) }
   const toggleMap = (map: string, type: 'picks' | 'bans') => { if (type === 'picks') { if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) }); else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] }) } else { if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) }); else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] }) } }
-  const genBilan = () => { const now = new Date(); const mm = historique.filter((m: any) => { const d = new Date(m.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const w = mm.filter((m: any) => (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length; const l = mm.filter((m: any) => (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length; const mn = notes.filter((n: any) => { const d = new Date(n.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const am = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.mental || 0), 0) / mn.length) : 0; const ac = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.communication || 0), 0) / mn.length) : 0; const ap = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.gameplay || 0), 0) / mn.length) : 0; return { nom: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'][now.getMonth()], m: mm.length, w, l, wr: mm.length > 0 ? Math.round((w / (w + l || 1)) * 100) : 0, am, ac, ap } }
+  const genBilan = () => { const now = new Date(); const mm = historique.filter((m: any) => { const d = new Date(m.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const w = mm.filter((m: any) => (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length; const l = mm.filter((m: any) => (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length; const mn = notes.filter((n: any) => { const d = new Date(n.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const am = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.mental || 0), 0) / mn.length) : 0; const ac = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.communication || 0), 0) / mn.length) : 0; const ap = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.gameplay || 0), 0) / mn.length) : 0; return { nom: ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][now.getMonth()], m: mm.length, w, l, wr: mm.length > 0 ? Math.round((w / (w + l || 1)) * 100) : 0, am, ac, ap } }
 
   const victoires = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
@@ -513,42 +200,27 @@ function App() {
   const historique = matchs.filter((m: any) => m.termine)
   const ytId = (url: string) => { const m = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/); return m ? m[1] : null }
 
-  const H = ({ title, icon }: { title: string; icon?: string }) => (
-    <div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 shadow-[0_8px_32px_rgba(212,175,55,0.1)] glow-pulse">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
-      <img src={LG} alt="D" className="w-14 h-14 mx-auto mb-2 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-      <h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent relative z-10">{icon} {title}</h2>
-    </div>
-  )
+  const H = ({ title, icon }: { title: string; icon?: string }) => (<div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 shadow-[0_8px_32px_rgba(212,175,55,0.1)] glow-pulse"><div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" /><img src={LG} alt="D" className="w-14 h-14 mx-auto mb-2 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent relative z-10">{icon} {title}</h2></div>)
 
   const menuItems = [
-    { t: 'matchs', i: '📅', l: 'Matchs' },
-    { t: 'historique', i: '📜', l: 'Résultats' },
-    { t: 'strats', i: '🎯', l: 'Strats' },
-    { t: 'compos', i: '📋', l: 'Compos' },
-    { t: 'fiches', i: '🔍', l: 'Fiches' },
-    { t: 'notes', i: '📊', l: 'Notes' },
-    { t: 'objectifs', i: '🎯', l: 'Objectifs' },
-    { t: 'rec', i: '🎬', l: 'Replays' },
-    { t: 'roster', i: '👥', l: 'Roster' },
-    { t: 'stats', i: '📈', l: 'Stats' },
+    { t: 'matchs', i: '📅', l: 'Matchs' }, { t: 'historique', i: '📜', l: 'Résultats' },
+    { t: 'strats', i: '🎯', l: 'Strats' }, { t: 'compos', i: '📋', l: 'Compos' },
+    { t: 'fiches', i: '🔍', l: 'Fiches' }, { t: 'notes', i: '📊', l: 'Notes' },
+    { t: 'objectifs', i: '🎯', l: 'Objectifs' }, { t: 'rec', i: '🎬', l: 'Replays' },
+    { t: 'roster', i: '👥', l: 'Roster' }, { t: 'stats', i: '📈', l: 'Stats' },
     { t: 'admin', i: '⚙️', l: 'Admin' },
   ]
 
-  if (showSplash) return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-      <P />
-      <div className="text-center relative z-10">
-        <img src={LG} alt="D" className="w-48 h-48 mx-auto splash-logo drop-shadow-[0_0_40px_rgba(212,175,55,0.6)]" />
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 splash-text">DYNO</h1>
-        <p className="text-gray-400 mt-3 splash-sub tracking-[0.3em] uppercase text-sm">Esport Team</p>
-      </div>
-    </div>
-  )
+  if (showSplash) return (<div className="min-h-screen flex items-center justify-center relative overflow-hidden"><P /><div className="text-center relative z-10"><img src={LG} alt="D" className="w-48 h-48 mx-auto splash-logo drop-shadow-[0_0_40px_rgba(212,175,55,0.6)]" /><h1 className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 splash-text">DYNO</h1><p className="text-gray-400 mt-3 splash-sub tracking-[0.3em] uppercase text-sm">Esport Team</p></div></div>)
+
+  const hcRem = myPass ? (myPass.hcTotal || 0) - (myPass.hcUsed || 0) : 0
+  const hpRem = myPass ? (myPass.hpTotal || 0) - (myPass.hpUsed || 0) : 0
 
   return (
     <div className="min-h-screen pb-6 relative">
       <P />
+
+      {/* HEADER */}
       <header className="backdrop-blur-2xl bg-black/30 border-b border-white/5 sticky top-0 z-40 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -561,360 +233,98 @@ function App() {
           </div>
           <div className="flex gap-1.5 items-center">
             {user && myPass && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[8px]">
-                <span className="text-blue-400">{(myPass.hcTotal || 0) - (myPass.hcUsed || 0)}HC</span>
-                <span className="text-gray-600">|</span>
-                <span className="text-purple-400">{(myPass.hpTotal || 0) - (myPass.hpUsed || 0)}HP</span>
+              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
+                <span className="text-blue-400 text-[9px] font-bold">{hcRem}HC</span>
+                <span className="text-gray-700 text-[8px]">|</span>
+                <span className="text-purple-400 text-[9px] font-bold">{hpRem}HP</span>
               </div>
             )}
-            {user && <button onClick={requestNotificationPermission} className={"w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 " + (notificationsEnabled ? "bg-[#D4AF37]/20 border border-[#D4AF37]/40 shadow-[0_0_10px_rgba(212,175,55,0.3)]" : "bg-white/5 border border-white/10")}><span className="text-sm">{notificationsEnabled ? '🔔' : '🔕'}</span></button>}
+            {user && <button onClick={requestNotificationPermission} className={"w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 " + (notificationsEnabled ? "bg-[#D4AF37]/20 border border-[#D4AF37]/40" : "bg-white/5 border border-white/10")}><span className="text-sm">{notificationsEnabled ? '🔔' : '🔕'}</span></button>}
             {showInstall && <button onClick={handleInstall} className="px-2.5 py-1.5 rounded-xl font-bold bg-blue-600 text-white text-[10px]">📲</button>}
-            {user ? (
-              <button onClick={handleSignOut} className="px-3 py-1.5 rounded-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/20 text-[11px] hover:scale-105 transition-transform">👋 {pseudo}</button>
-            ) : (
-              <button onClick={() => setIsSignUp(false)} className="px-3 py-1.5 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/20 text-[11px] hover:scale-105 transition-transform">👤 Compte</button>
-            )}
+            {user ? <button onClick={handleSignOut} className="px-3 py-1.5 rounded-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/20 text-[11px]">👋 {pseudo}</button> : <button onClick={() => setIsSignUp(false)} className="px-3 py-1.5 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/20 text-[11px]">👤 Compte</button>}
           </div>
         </div>
       </header>
 
-      {showMenu && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="w-64 bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border-r border-[#D4AF37]/20 shadow-[4px_0_32px_rgba(0,0,0,0.8)] overflow-y-auto">
-            <div className="p-5 border-b border-[#D4AF37]/10 flex items-center gap-3">
-              <img src={LG} alt="D" className="w-12 h-12 drop-shadow-[0_0_15px_rgba(212,175,55,0.5)]" />
-              <div>
-                <h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h2>
-                <p className="text-[9px] text-gray-600 uppercase tracking-widest">Esport Team</p>
-              </div>
-            </div>
-            <div className="py-3">
-              {menuItems.map(({ t, i, l }) => (
-                <button key={t} onClick={() => { setActiveTab(t); setShowMenu(false) }} className={"w-full px-5 py-3 flex items-center gap-3 transition-all duration-200 " + (activeTab === t ? "bg-[#D4AF37]/15 text-[#D4AF37] border-r-2 border-[#D4AF37]" : "text-gray-500 hover:text-gray-300 hover:bg-white/5")}>
-                  <span className="text-lg">{i}</span>
-                  <span className="text-sm font-bold tracking-wider uppercase">{l}</span>
-                  {activeTab === t && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#D4AF37] shadow-[0_0_8px_rgba(212,175,55,0.8)]" />}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex-1 bg-black/60" onClick={() => setShowMenu(false)} />
-        </div>
-      )}
+      {/* SIDEBAR */}
+      {showMenu && <div className="fixed inset-0 z-50 flex"><div className="w-64 bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border-r border-[#D4AF37]/20 shadow-[4px_0_32px_rgba(0,0,0,0.8)] overflow-y-auto"><div className="p-5 border-b border-[#D4AF37]/10 flex items-center gap-3"><img src={LG} alt="D" className="w-12 h-12" /><div><h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h2><p className="text-[9px] text-gray-600 uppercase tracking-widest">Esport Team</p></div></div><div className="py-3">{menuItems.map(({ t, i, l }) => <button key={t} onClick={() => { setActiveTab(t); setShowMenu(false) }} className={"w-full px-5 py-3 flex items-center gap-3 transition-all " + (activeTab === t ? "bg-[#D4AF37]/15 text-[#D4AF37] border-r-2 border-[#D4AF37]" : "text-gray-500 hover:text-gray-300 hover:bg-white/5")}><span className="text-lg">{i}</span><span className="text-sm font-bold tracking-wider uppercase">{l}</span>{activeTab === t && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#D4AF37] shadow-[0_0_8px_rgba(212,175,55,0.8)]" />}</button>)}</div></div><div className="flex-1 bg-black/60" onClick={() => setShowMenu(false)} /></div>}
 
       <main className="max-w-lg mx-auto px-4 py-6 relative z-10" onTouchStart={hts} onTouchMove={htm} onTouchEnd={hte}>
         {pullDistance > 0 && <div className="flex justify-center mb-4" style={{ height: pullDistance }}><span className={"text-[#D4AF37] text-2xl " + (pullDistance > 60 ? 'animate-spin' : '')}>{isRefreshing ? '⏳' : pullDistance > 60 ? '🔄' : '⬇️'}</span></div>}
 
-        {activeTab === 'matchs' && <div>
-          <H title="Prochains Matchs" />
-          <div className="flex justify-end mb-3"><div className="flex bg-white/5 rounded-xl border border-white/10 overflow-hidden"><button onClick={() => setViewMode('list')} className={"px-3 py-1.5 text-xs transition-all " + (viewMode === 'list' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>☰</button><button onClick={() => setViewMode('grid')} className={"px-3 py-1.5 text-xs transition-all " + (viewMode === 'grid' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>⊞</button></div></div>
-          {loading ? <div className="space-y-4"><div className="skeleton h-48 w-full" /><div className="skeleton h-48 w-full" /></div> : prochainsMatchs.length === 0 ? <div className="text-center py-10 text-gray-600">📭 Aucun match</div> : (
-            <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'space-y-4'}>
-              {prochainsMatchs.map((match: any, idx: number) => (
-                <div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]" style={{ animationDelay: (idx * 0.1) + 's' }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider " + (match.type === 'Ligue' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' : match.type === 'Scrim' ? 'bg-green-500/20 text-green-400 border border-green-500/20' : match.type === 'Tournoi' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/20' : match.type === 'Division' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' : 'bg-gray-500/20 text-gray-400 border border-gray-500/20')}>{match.type}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className={"px-1.5 py-0.5 rounded text-[7px] font-bold " + (getMatchTimeType(match) === 'hp' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400')}>{getMatchTimeType(match) === 'hp' ? 'HP' : 'HC'}</span>
-                      <span className="text-[#D4AF37] font-bold text-xs">{fdf(match.date)}</span>
-                    </div>
-                  </div>
-                  {countdowns[match.id] && <div className={"rounded-2xl p-2.5 mb-3 text-center border " + (countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-500/10 border-red-500/15' : 'bg-[#D4AF37]/10 border-[#D4AF37]/15')}><p className="text-[9px] text-gray-600 uppercase tracking-wider">Countdown</p><p className={"text-lg font-bold font-mono tracking-wider " + (countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent')}>{countdowns[match.id]}</p></div>}
-                  <div className="flex items-center gap-3 mb-3"><img src={LG} alt="D" className="w-10 h-10 drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]" /><span className="text-gray-700 font-light">VS</span><div className="flex-1 text-right"><p className="font-bold text-white text-sm">{match.adversaire}</p><p className="text-[10px] text-[#D4AF37]/60">🏟️ {match.arene}</p></div></div>
-                  <div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 uppercase tracking-wider">⏰</p><p className="text-[#D4AF37] font-bold text-xs">{match.horaires?.join(' / ') || [match.horaire1, match.horaire2].filter(Boolean).join(' / ') || '20:00'}</p></div>
-                  <div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 mb-1.5 uppercase tracking-wider">👥 Dispo ({(match.disponibles || []).length})</p>{(match.disponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.disponibles || []).map((p: string, i: number) => <span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[9px] font-bold border border-[#D4AF37]/15">{p}</span>)}</div>}</div>
-                  <div className="bg-white/5 rounded-xl p-2.5 mb-3 border border-red-500/10"><p className="text-[9px] text-gray-600 mb-1.5 uppercase tracking-wider">🚫 Indispo ({(match.indisponibles || []).length})</p>{(match.indisponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.indisponibles || []).map((p: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2 py-0.5 rounded-lg text-[9px] font-bold border border-red-500/15">{p}</span>)}</div>}</div>
-                  <button onClick={() => atc(match)} className="w-full mb-2 py-2 rounded-xl font-bold bg-blue-600/20 text-blue-400 border border-blue-500/15 text-xs">📅 Calendrier</button>
-                  <div className="flex gap-2">
-                    <button onClick={() => toggleDispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all duration-300 text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 scale-[1.02]' : 'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]')}>{!user ? '🔐' : (match.disponibles || []).includes(pseudo) ? '✅ Dispo (-2🎟️)' : '📅 Dispo'}</button>
-                    <button onClick={() => toggleIndispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all duration-300 text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.indisponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30 scale-[1.02]' : 'bg-white/5 border border-red-500/15 text-red-400')}>{!user ? '🔐' : (match.indisponibles || []).includes(pseudo) ? '❌ Indispo' : '🚫 Indispo'}</button>
-                  </div>
+        {/* MATCHS */}
+        {activeTab === 'matchs' && <div><H title="Prochains Matchs" /><div className="flex justify-end mb-3"><div className="flex bg-white/5 rounded-xl border border-white/10 overflow-hidden"><button onClick={() => setViewMode('list')} className={"px-3 py-1.5 text-xs " + (viewMode === 'list' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>☰</button><button onClick={() => setViewMode('grid')} className={"px-3 py-1.5 text-xs " + (viewMode === 'grid' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>⊞</button></div></div>{loading ? <div className="space-y-4"><div className="skeleton h-48 w-full" /><div className="skeleton h-48 w-full" /></div> : prochainsMatchs.length === 0 ? <div className="text-center py-10 text-gray-600">📭 Aucun match</div> : <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'space-y-4'}>{prochainsMatchs.map((match: any, idx: number) => <div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-3"><span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider " + (match.type === 'Ligue' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' : match.type === 'Scrim' ? 'bg-green-500/20 text-green-400 border border-green-500/20' : match.type === 'Tournoi' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/20' : match.type === 'Division' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' : 'bg-gray-500/20 text-gray-400 border border-gray-500/20')}>{match.type}</span><div className="flex items-center gap-1.5"><span className={"px-1.5 py-0.5 rounded text-[7px] font-bold " + (getMatchTimeType(match) === 'hp' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400')}>{getMatchTimeType(match) === 'hp' ? 'HP' : 'HC'}</span><span className="text-[#D4AF37] font-bold text-xs">{fdf(match.date)}</span></div></div>{countdowns[match.id] && <div className={"rounded-2xl p-2.5 mb-3 text-center border " + (countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-500/10 border-red-500/15' : 'bg-[#D4AF37]/10 border-[#D4AF37]/15')}><p className="text-[9px] text-gray-600 uppercase tracking-wider">Countdown</p><p className={"text-lg font-bold font-mono tracking-wider " + (countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent')}>{countdowns[match.id]}</p></div>}<div className="flex items-center gap-3 mb-3"><img src={LG} alt="D" className="w-10 h-10" /><span className="text-gray-700 font-light">VS</span><div className="flex-1 text-right"><p className="font-bold text-white text-sm">{match.adversaire}</p><p className="text-[10px] text-[#D4AF37]/60">🏟️ {match.arene}</p></div></div><div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 uppercase">⏰</p><p className="text-[#D4AF37] font-bold text-xs">{match.horaires?.join(' / ') || [match.horaire1, match.horaire2].filter(Boolean).join(' / ') || '20:00'}</p></div><div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 mb-1.5 uppercase">👥 Dispo ({(match.disponibles || []).length})</p>{(match.disponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.disponibles || []).map((p: string, i: number) => <span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[9px] font-bold border border-[#D4AF37]/15">{p}</span>)}</div>}</div><div className="bg-white/5 rounded-xl p-2.5 mb-3 border border-red-500/10"><p className="text-[9px] text-gray-600 mb-1.5 uppercase">🚫 Indispo ({(match.indisponibles || []).length})</p>{(match.indisponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.indisponibles || []).map((p: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2 py-0.5 rounded-lg text-[9px] font-bold border border-red-500/15">{p}</span>)}</div>}</div><button onClick={() => atc(match)} className="w-full mb-2 py-2 rounded-xl font-bold bg-blue-600/20 text-blue-400 border border-blue-500/15 text-xs">📅 Calendrier</button><div className="flex gap-2"><button onClick={() => toggleDispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30' : 'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]')}>{!user ? '🔐' : (match.disponibles || []).includes(pseudo) ? '✅ Dispo (-2🎟️)' : '📅 Dispo'}</button><button onClick={() => toggleIndispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.indisponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30' : 'bg-white/5 border border-red-500/15 text-red-400')}>{!user ? '🔐' : (match.indisponibles || []).includes(pseudo) ? '❌ Indispo' : '🚫 Indispo'}</button></div></div>)}</div>}</div>}
+
+        {/* HISTORIQUE */}
+        {activeTab === 'historique' && <div><H title="Historique" /><div className="grid grid-cols-2 gap-3 mb-5"><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold text-[#D4AF37]">{victoires}</p><p className="text-[9px] text-gray-600 mt-1 uppercase">Victoires</p></div><div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15 text-center"><p className="text-3xl font-bold text-red-500">{defaites}</p><p className="text-[9px] text-gray-600 mt-1 uppercase">Défaites</p></div></div>{historique.length === 0 ? <div className="text-center py-10 text-gray-600">📜 Aucun</div> : <div className="space-y-3">{historique.map((match: any, idx: number) => <div key={match.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-3"><span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase " + ((match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/20' : 'bg-red-500/20 text-red-400 border border-red-500/20')}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span><div className="flex items-center gap-2"><span className="text-gray-600 text-xs">{fdf(match.date)}</span>{isAdmin && <button onClick={() => setEditHistoriqueScore({ id: match.id, adversaire: match.adversaire || '', scoreDyno: String(match.scoreDyno || 0), scoreAdv: String(match.scoreAdversaire || 0), type: match.type || 'Ligue', arene: match.arene || 'Arène 1', date: match.date || '', termine: true, sousMatchs: match.sousMatchs || [] })} className="w-7 h-7 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[10px]">✏️</button>}</div></div><div className="flex items-center justify-between mb-2"><div className="text-center"><p className="font-bold text-[#D4AF37] text-[10px] uppercase">DYNO</p><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{match.scoreDyno}</p></div><span className="text-gray-800 text-lg">-</span><div className="text-center"><p className="font-bold text-gray-600 text-[10px] uppercase">{match.adversaire}</p><p className="text-3xl font-bold text-gray-500">{match.scoreAdversaire}</p></div></div>{match.sousMatchs?.length > 0 && <div className="space-y-1 mb-2 pt-2 border-t border-white/5"><p className="text-[9px] text-gray-600 uppercase mb-1">Sous-matchs</p>{match.sousMatchs.map((sm: any, i: number) => <div key={i} className="flex justify-between bg-white/5 rounded-lg px-2 py-1"><span className="text-[10px] text-gray-400">{sm.adversaire}</span><span className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></span></div>)}</div>}{match.type && <p className="text-center text-gray-700 text-[9px] mt-2 uppercase">{match.type} • {match.arene}</p>}</div>)}</div>}</div>}
+
+        {/* EDIT HISTORIQUE MODAL */}
+        {editHistoriqueScore && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">✏️ Modifier</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">⚔️ Adversaire</label><input type="text" value={editHistoriqueScore.adversaire} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">📅 Date</label><input type="date" value={editHistoriqueScore.date?.includes('/') ? (() => { const p = editHistoriqueScore.date.split('/'); return p[2] + '-' + p[1] + '-' + p[0] })() : editHistoriqueScore.date} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" /></div><div className="grid grid-cols-2 gap-3"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Type</label><select value={editHistoriqueScore.type} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, type: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Arène</label><select value={editHistoriqueScore.arene} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, arene: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select></div></div>{editHistoriqueScore.type === 'Division' ? <div className="bg-white/5 rounded-xl p-3 border border-orange-500/15"><div className="flex justify-between mb-2"><p className="text-[10px] text-orange-400 font-bold uppercase">🏆 Sous-matchs</p><button onClick={ajouterEditSousMatch} className="px-2 py-1 rounded-lg bg-orange-500/20 text-orange-400 text-xs">➕</button></div>{(editHistoriqueScore.sousMatchs || []).length > 0 ? <div className="space-y-1">{(editHistoriqueScore.sousMatchs || []).map((sm: any, i: number) => <div key={i} className="flex justify-between bg-black/30 rounded-lg px-2 py-1.5"><div><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={() => supprimerEditSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>)}</div> : <p className="text-[9px] text-gray-600 text-center">Aucun</p>}{(editHistoriqueScore.sousMatchs || []).length > 0 && <div className="mt-2 pt-2 border-t border-white/5 text-center"><p className="text-[9px] text-gray-600 uppercase">Total</p><p className="text-sm font-bold"><span className="text-[#D4AF37]">{(editHistoriqueScore.sousMatchs || []).reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0)}</span> - <span className="text-gray-500">{(editHistoriqueScore.sousMatchs || []).reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0)}</span></p></div>}</div> : <div className="grid grid-cols-2 gap-3"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">🟡 DYNO</label><input type="number" value={editHistoriqueScore.scoreDyno} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">⚪ Adv</label><input type="number" value={editHistoriqueScore.scoreAdv} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div></div>}<label className="flex items-center gap-2 bg-white/5 rounded-xl p-3 border border-white/5 cursor-pointer"><input type="checkbox" checked={editHistoriqueScore.termine === false} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, termine: e.target.checked ? false : true })} className="w-4 h-4 rounded accent-[#D4AF37]" /><span className="text-gray-400 text-xs">Remettre en « à venir »</span></label></div><div className="flex gap-2"><button onClick={() => setEditHistoriqueScore(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateHistoriqueScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div></div></div>}
+
+        {/* STRATS */}
+        {activeTab === 'strats' && <div><H title="Stratégies" icon="🎯" /><button onClick={() => setShowAddStrat(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/20 text-sm">➕ Nouvelle Stratégie</button>{strats.length === 0 ? <div className="text-center py-10 text-gray-600">📝 Aucune</div> : <div className="space-y-3">{strats.map((s: any, idx: number) => <div key={s.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-3"><div><p className="font-bold text-[#D4AF37]">DYNO vs {s.adversaire}</p><p className="text-[9px] text-gray-600">par {s.auteur || '?'}</p></div>{(isAdmin || user?.uid === s.auteurId) && <button onClick={() => del('strats', s.id)} className="text-red-400/40">🗑️</button>}</div><div className="mb-2"><p className="text-[9px] text-green-400 mb-1.5 uppercase">✅ Picks ({s.picks?.length || 0}/4)</p><div className="flex flex-wrap gap-1">{s.picks?.map((p: string, i: number) => <span key={i} className="bg-green-500/15 text-green-400 px-2.5 py-1 rounded-lg text-[10px] border border-green-500/15 font-bold">{p}</span>)}</div></div><div><p className="text-[9px] text-red-400 mb-1.5 uppercase">❌ Bans ({s.bans?.length || 0}/4)</p><div className="flex flex-wrap gap-1">{s.bans?.map((b: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2.5 py-1 rounded-lg text-[10px] border border-red-500/15 font-bold">{b}</span>)}</div></div></div>)}</div>}{showAddStrat && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">🎯 Stratégie</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">⚔️ Adversaire</label><input type="text" placeholder="Nom" value={nouvelleStrat.adversaire} onChange={e => setNouvelleStrat({ ...nouvelleStrat, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">✅ Picks (4)</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => toggleMap(m, 'picks')} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (nouvelleStrat.picks.includes(m) ? 'bg-green-600 text-white shadow-lg shadow-green-500/30' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">❌ Bans (4)</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => toggleMap(m, 'bans')} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (nouvelleStrat.bans.includes(m) ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div></div><div className="flex gap-2"><button onClick={() => { setShowAddStrat(false); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterStrat} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div></div></div>}</div>}
+
+        {/* COMPOS */}
+        {activeTab === 'compos' && <div><H title="Compos" icon="📋" />{user && <button onClick={() => setShowAddCompo(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/20 text-sm">➕ Compo</button>}{compos.length === 0 ? <div className="text-center py-10 text-gray-600">📋 Aucune</div> : <div className="space-y-3">{compos.map((c: any, idx: number) => <div key={c.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-2"><p className="font-bold text-[#D4AF37]">🗺️ {c.map}</p>{(isAdmin || user?.uid === c.auteurId) && <button onClick={() => del('compos', c.id)} className="text-red-400/40">🗑️</button>}</div><div className="flex flex-wrap gap-1">{c.joueurs?.map((j: string, i: number) => <span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{j}</span>)}</div></div>)}</div>}{showAddCompo && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📋 Compo</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🗺️ Map</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => setSelectedMapCompo(m)} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (selectedMapCompo === m ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/30' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">👥 Joueurs</label><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j: any) => j.actif !== false).map((j: any) => <button key={j.id} onClick={() => toggleCompoJoueur(j.pseudo)} className={"px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (compoJoueurs.includes(j.pseudo) ? 'bg-green-600 text-white shadow-lg shadow-green-500/30' : 'bg-white/5 text-gray-500')}>{j.pseudo}</button>)}</div></div></div><div className="flex gap-2"><button onClick={() => { setShowAddCompo(false); setSelectedMapCompo(''); setCompoJoueurs([]) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterCompo} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div></div></div>}</div>}
+
+        {/* FICHES */}
+        {activeTab === 'fiches' && <div><H title="Fiches Adversaires" icon="🔍" />{user && <button onClick={() => setShowAddFiche(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/20 text-sm">➕ Fiche</button>}{fichesAdversaires.length === 0 ? <div className="text-center py-10 text-gray-600">🔍 Aucune</div> : <div className="space-y-3">{fichesAdversaires.map((f: any, idx: number) => <div key={f.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-3"><p className="font-bold text-[#D4AF37]">⚔️ {f.adversaire}</p>{(isAdmin || user?.uid === f.auteurId) && <button onClick={() => del('fichesAdversaires', f.id)} className="text-red-400/40">🗑️</button>}</div><div className="space-y-2"><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10"><p className="text-[9px] text-green-400 uppercase font-bold mb-1">💪 Forces</p><p className="text-gray-300 text-xs">{f.forces || '—'}</p></div><div className="bg-red-500/10 rounded-xl p-3 border border-red-500/10"><p className="text-[9px] text-red-400 uppercase font-bold mb-1">⚠️ Faiblesses</p><p className="text-gray-300 text-xs">{f.faiblesses || '—'}</p></div>{f.notes && <div className="bg-white/5 rounded-xl p-3 border border-white/5"><p className="text-[9px] text-gray-500 uppercase font-bold mb-1">📝 Notes</p><p className="text-gray-300 text-xs">{f.notes}</p></div>}</div><p className="text-gray-700 text-[9px] mt-2">par {f.auteur}</p></div>)}</div>}{showAddFiche && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">🔍 Fiche</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">⚔️ Adversaire</label><input type="text" placeholder="Nom" value={nouvelleFiche.adversaire} onChange={e => setNouvelleFiche({ ...nouvelleFiche, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">💪 Forces</label><textarea value={nouvelleFiche.forces} onChange={e => setNouvelleFiche({ ...nouvelleFiche, forces: e.target.value })} rows={2} className="w-full bg-white/5 border border-green-500/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">⚠️ Faiblesses</label><textarea value={nouvelleFiche.faiblesses} onChange={e => setNouvelleFiche({ ...nouvelleFiche, faiblesses: e.target.value })} rows={2} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">📝 Notes</label><textarea value={nouvelleFiche.notes} onChange={e => setNouvelleFiche({ ...nouvelleFiche, notes: e.target.value })} rows={2} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div></div><div className="flex gap-2"><button onClick={() => { setShowAddFiche(false); setNouvelleFiche({ adversaire: '', forces: '', faiblesses: '', notes: '' }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterFiche} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div></div></div>}</div>}
+
+        {/* NOTES */}
+        {activeTab === 'notes' && <div><H title="Notes & Analyses" icon="📊" />{historique.length === 0 ? <div className="text-center py-10 text-gray-600">📊 Aucun</div> : <div className="space-y-4">{historique.map((match: any, idx: number) => { const mn = notes.filter((n: any) => n.matchId === match.id); const mc = commentaires.filter((c: any) => c.matchId === match.id); const ma = analyses.filter((a: any) => a.matchId === match.id); return <div key={match.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-3"><p className="font-bold text-[#D4AF37] text-sm">DYNO vs {match.adversaire}</p><div className="flex items-center gap-2"><span className={"px-2 py-0.5 rounded-full text-[8px] font-bold " + ((match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-red-500/20 text-red-400')}>{match.scoreDyno}-{match.scoreAdversaire}</span><span className="text-gray-700 text-[10px]">{fdf(match.date)}</span></div></div><div className="flex gap-1.5 mb-3"><button onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-1.5 rounded-lg font-bold bg-purple-500/15 text-purple-400 border border-purple-500/15 text-[9px]">📝 Note</button><button onClick={() => setSelectedMatchForComment(selectedMatchForComment?.id === match.id ? null : match)} className="flex-1 py-1.5 rounded-lg font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/15 text-[9px]">💬 Comm</button><button onClick={() => setSelectedMatchForAnalyse(selectedMatchForAnalyse?.id === match.id ? null : match)} className="flex-1 py-1.5 rounded-lg font-bold bg-orange-500/15 text-orange-400 border border-orange-500/15 text-[9px]">📋 Analyse</button></div>{selectedMatchForComment?.id === match.id && user && <div className="bg-white/5 rounded-xl p-3 mb-3 border border-cyan-500/10"><textarea placeholder="Commentaire..." value={nouveauCommentaire} onChange={e => setNouveauCommentaire(e.target.value)} rows={2} className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mb-2" /><button onClick={() => ajouterCommentaire(match.id)} className="w-full py-1.5 rounded-lg font-bold bg-cyan-500/20 text-cyan-400 text-[10px]">💬</button></div>}{selectedMatchForAnalyse?.id === match.id && user && <div className="bg-white/5 rounded-xl p-3 mb-3 border border-orange-500/10"><div className="space-y-2 mb-2"><div><label className="text-[8px] text-green-400 uppercase font-bold">✅ Bien</label><textarea value={nouvelleAnalyse.bien} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, bien: e.target.value })} rows={2} className="w-full bg-black/30 border border-green-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div><div><label className="text-[8px] text-red-400 uppercase font-bold">❌ Mal</label><textarea value={nouvelleAnalyse.mal} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, mal: e.target.value })} rows={2} className="w-full bg-black/30 border border-red-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div><div><label className="text-[8px] text-blue-400 uppercase font-bold">🎯 Plan</label><textarea value={nouvelleAnalyse.plan} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, plan: e.target.value })} rows={2} className="w-full bg-black/30 border border-blue-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div></div><button onClick={() => ajouterAnalyse(match.id)} className="w-full py-1.5 rounded-lg font-bold bg-orange-500/20 text-orange-400 text-[10px]">📋</button></div>}{mn.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-purple-400 uppercase font-bold">📊 Notes ({mn.length})</p>{mn.map((n: any) => <div key={n.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex justify-between mb-1.5"><p className="text-[#D4AF37] font-bold text-[10px]">{n.joueur}</p>{isAdmin && <button onClick={() => del('notes', n.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div><div className="grid grid-cols-3 gap-1.5 text-center"><div className="bg-purple-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">🧠</p><p className="text-purple-400 font-bold text-xs">{n.mental}/10</p></div><div className="bg-blue-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">💬</p><p className="text-blue-400 font-bold text-xs">{n.communication}/10</p></div><div className="bg-green-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">🎯</p><p className="text-green-400 font-bold text-xs">{n.gameplay}/10</p></div></div></div>)}</div>}{mc.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-cyan-400 uppercase font-bold">💬 ({mc.length})</p>{mc.map((c: any) => <div key={c.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex justify-between mb-0.5"><p className="text-cyan-400 font-bold text-[10px]">{c.joueur}</p><div className="flex items-center gap-1.5"><p className="text-gray-700 text-[9px]">{fts(c.createdAt)}</p>{(isAdmin || user?.uid === c.joueurId) && <button onClick={() => del('commentaires', c.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div></div><p className="text-gray-400 text-xs">{c.texte}</p></div>)}</div>}{ma.length > 0 && <div className="space-y-1.5"><p className="text-[9px] text-orange-400 uppercase font-bold">📋 ({ma.length})</p>{ma.map((a: any) => <div key={a.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex justify-between mb-2"><p className="text-orange-400 font-bold text-[10px]">{a.joueur}</p>{(isAdmin || user?.uid === a.joueurId) && <button onClick={() => del('analyses', a.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div>{a.bien && <div className="bg-green-500/10 rounded-lg p-2 mb-1"><p className="text-[8px] text-green-400 font-bold">✅</p><p className="text-gray-300 text-[10px]">{a.bien}</p></div>}{a.mal && <div className="bg-red-500/10 rounded-lg p-2 mb-1"><p className="text-[8px] text-red-400 font-bold">❌</p><p className="text-gray-300 text-[10px]">{a.mal}</p></div>}{a.plan && <div className="bg-blue-500/10 rounded-lg p-2"><p className="text-[8px] text-blue-400 font-bold">🎯</p><p className="text-gray-300 text-[10px]">{a.plan}</p></div>}</div>)}</div>}{mn.length === 0 && mc.length === 0 && ma.length === 0 && <p className="text-gray-700 text-[10px] text-center">Aucune donnée</p>}</div> })}</div>}{selectedMatchForNotes && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📊 DYNO vs {selectedMatchForNotes.adversaire}</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🧠 Mental</label><input type="number" min="0" max="10" value={nouvelleNote.mental} onChange={e => setNouvelleNote({ ...nouvelleNote, mental: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">💬 Comm</label><input type="number" min="0" max="10" value={nouvelleNote.communication} onChange={e => setNouvelleNote({ ...nouvelleNote, communication: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🎯 Perf</label><input type="number" min="0" max="10" value={nouvelleNote.gameplay} onChange={e => setNouvelleNote({ ...nouvelleNote, gameplay: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div></div><div className="flex gap-2"><button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterNote} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div></div></div>}</div>}
+
+        {/* OBJECTIFS */}
+        {activeTab === 'objectifs' && <div><H title="Mes Objectifs" icon="🎯" />{user && <div className="flex gap-2 mb-5"><input type="text" placeholder="Nouvel objectif..." value={nouvelObjectif} onChange={e => setNouvelObjectif(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') ajouterObjectif() }} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" /><button onClick={ajouterObjectif} className="px-4 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕</button></div>}{objectifs.filter((o: any) => o.joueurId === user?.uid).length === 0 ? <div className="text-center py-10 text-gray-600">🎯 Aucun</div> : <div className="space-y-3">{objectifs.filter((o: any) => !o.termine && o.joueurId === user?.uid).length > 0 && <div><p className="text-[9px] text-[#D4AF37] mb-2 uppercase font-bold">🔄 En cours</p><div className="space-y-2">{objectifs.filter((o: any) => !o.termine && o.joueurId === user?.uid).map((o: any, idx: number) => <div key={o.id} className="card-glow bg-black/30 rounded-xl p-3 border border-[#D4AF37]/15 flex items-start gap-3" style={{ animationDelay: (idx * 0.1) + 's' }}><button onClick={() => toggleObjectif(o.id, o.termine)} className="mt-0.5 w-5 h-5 rounded-lg border-2 border-[#D4AF37]/50 flex-shrink-0" /><div className="flex-1"><p className="text-white text-sm">{o.texte}</p><p className="text-gray-700 text-[9px] mt-1">{new Date(o.createdAt).toLocaleDateString('fr-FR')}</p></div><button onClick={() => del('objectifs', o.id)} className="text-red-400/40 text-sm flex-shrink-0">🗑️</button></div>)}</div></div>}{objectifs.filter((o: any) => o.termine && o.joueurId === user?.uid).length > 0 && <div className="mt-5"><p className="text-[9px] text-green-400 mb-2 uppercase font-bold">✅ Atteints</p><div className="space-y-2">{objectifs.filter((o: any) => o.termine && o.joueurId === user?.uid).map((o: any) => <div key={o.id} className="bg-black/20 rounded-xl p-3 border border-green-500/10 flex items-start gap-3 opacity-60"><button onClick={() => toggleObjectif(o.id, o.termine)} className="mt-0.5 w-5 h-5 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px]">✓</span></button><p className="text-gray-500 text-sm line-through flex-1">{o.texte}</p><button onClick={() => del('objectifs', o.id)} className="text-red-400/40 text-sm flex-shrink-0">🗑️</button></div>)}</div></div>}</div>}</div>}
+
+        {/* REPLAYS */}
+        {activeTab === 'rec' && <div><H title="Replays" icon="🎬" /><a href={YT} target="_blank" className="block w-full mb-5 py-2.5 rounded-xl font-bold bg-red-600/15 text-red-400 border border-red-500/15 text-center text-xs">🔴 YouTube</a>{replays.length === 0 ? <div className="text-center py-10 text-gray-600">📹 Aucun</div> : <div className="space-y-3">{replays.map((r: any, idx: number) => <div key={r.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-2"><h3 className="font-bold text-[#D4AF37] text-sm">{r.titre}</h3>{isAdmin && <button onClick={() => del('replays', r.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div>{ytId(r.lien) ? <div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden"><iframe src={'https://www.youtube.com/embed/' + ytId(r.lien)} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen /></div> : <a href={r.lien} target="_blank" className="block py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-center text-sm">▶️</a>}</div>)}</div>}</div>}
+
+        {/* ROSTER */}
+        {activeTab === 'roster' && <div><H title="Roster" icon="👥" />
+          {user && <div className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15 mb-5">
+            <p className="text-[10px] text-[#D4AF37] font-bold mb-3 uppercase tracking-wider">🎟️ Mon EVA Pass</p>
+            {myPass ? <div>
+              <div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2"><span className="text-lg">{EVA_PASSES[myPass.type]?.icon || '🎟️'}</span><span className={"px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r text-white " + (EVA_PASSES[myPass.type]?.color || 'from-gray-500 to-gray-700')}>{EVA_PASSES[myPass.type]?.label || myPass.type}</span></div><button onClick={() => { setMyPass(null); updateDoc(doc(db, 'users', user.uid), { evaPass: null }) }} className="text-red-400/40 text-[9px]">Changer</button></div>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/15 text-center"><p className="text-[8px] text-blue-400 uppercase font-bold mb-1">🔵 Heures Creuses</p><p className="text-xl font-bold text-blue-400">{hcRem}<span className="text-gray-600 text-sm">/{myPass.hcTotal || 0}</span></p><div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style={{ width: (myPass.hcTotal > 0 ? (hcRem / myPass.hcTotal) * 100 : 0) + '%' }} /></div></div>
+                <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/15 text-center"><p className="text-[8px] text-purple-400 uppercase font-bold mb-1">🟣 Heures Pleines</p><p className="text-xl font-bold text-purple-400">{hpRem}<span className="text-gray-600 text-sm">/{myPass.hpTotal || 0}</span></p><div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: (myPass.hpTotal > 0 ? (hpRem / myPass.hpTotal) * 100 : 0) + '%' }} /></div></div>
+              </div>
+              {/* Editable section */}
+              <div className="bg-white/5 rounded-xl p-3 border border-white/5 mb-2">
+                <p className="text-[8px] text-gray-500 uppercase font-bold mb-2">✏️ Modifier mes jetons</p>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div><label className="text-[8px] text-blue-400 mb-1 block">HC utilisés</label><input type="number" min="0" max={myPass.hcTotal || 99} value={myPass.hcUsed || 0} onChange={e => setMyPass({ ...myPass, hcUsed: parseInt(e.target.value) || 0 })} className="w-full bg-black/30 border border-blue-500/20 rounded-lg px-3 py-2 text-white text-center text-sm font-bold focus:outline-none" /></div>
+                  <div><label className="text-[8px] text-purple-400 mb-1 block">HP utilisés</label><input type="number" min="0" max={myPass.hpTotal || 99} value={myPass.hpUsed || 0} onChange={e => setMyPass({ ...myPass, hpUsed: parseInt(e.target.value) || 0 })} className="w-full bg-black/30 border border-purple-500/20 rounded-lg px-3 py-2 text-white text-center text-sm font-bold focus:outline-none" /></div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>}
-
-        {activeTab === 'historique' && <div>
-          <H title="Historique" />
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold text-[#D4AF37] count-up">{victoires}</p><p className="text-[9px] text-gray-600 mt-1 uppercase tracking-wider">Victoires</p></div>
-            <div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15 text-center"><p className="text-3xl font-bold text-red-500 count-up">{defaites}</p><p className="text-[9px] text-gray-600 mt-1 uppercase tracking-wider">Défaites</p></div>
-          </div>
-          {historique.length === 0 ? <div className="text-center py-10 text-gray-600">📜 Aucun</div> : <div className="space-y-3">{historique.map((match: any, idx: number) => (
-            <div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}>
-              <div className="flex items-center justify-between mb-3">
-                <span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider " + ((match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/20' : 'bg-red-500/20 text-red-400 border border-red-500/20')}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-600 text-xs">{fdf(match.date)}</span>
-                  {isAdmin && <button onClick={() => setEditHistoriqueScore({ id: match.id, adversaire: match.adversaire || '', scoreDyno: String(match.scoreDyno || 0), scoreAdv: String(match.scoreAdversaire || 0), type: match.type || 'Ligue', arene: match.arene || 'Arène 1', date: match.date || '', termine: true, sousMatchs: match.sousMatchs || [] })} className="w-7 h-7 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[10px] hover:bg-[#D4AF37]/20 transition-all">✏️</button>}
-                </div>
+                <div className="mb-2"><label className="text-[8px] text-[#D4AF37] mb-1 block">📅 Date de renouvellement (reset auto)</label><input type="date" value={myPass.dateReset || ''} onChange={e => setMyPass({ ...myPass, dateReset: e.target.value })} className="w-full bg-black/30 border border-[#D4AF37]/20 rounded-lg px-3 py-2 text-white text-xs focus:outline-none" /></div>
+                {myPass.dateReset && <p className="text-[8px] text-gray-600 text-center mb-2">🔄 Reset le {fdf(myPass.dateReset)}</p>}
+                <button onClick={async () => { await updateDoc(doc(db, 'users', user.uid), { evaPass: myPass }); alert('✅ Pass mis à jour !') }} className="w-full py-2 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-xs">💾 Sauvegarder</button>
               </div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-center"><p className="font-bold text-[#D4AF37] text-[10px] uppercase tracking-wider">DYNO</p><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent count-up">{match.scoreDyno}</p></div>
-                <span className="text-gray-800 text-lg">-</span>
-                <div className="text-center"><p className="font-bold text-gray-600 text-[10px] uppercase tracking-wider">{match.adversaire}</p><p className="text-3xl font-bold text-gray-500 count-up">{match.scoreAdversaire}</p></div>
-              </div>
-              {match.sousMatchs?.length > 0 && <div className="space-y-1 mb-2 pt-2 border-t border-white/5"><p className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">Sous-matchs</p>{match.sousMatchs.map((sm: any, i: number) => <div key={i} className="flex items-center justify-between bg-white/5 rounded-lg px-2 py-1"><span className="text-[10px] text-gray-400">{sm.adversaire}</span><span className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></span></div>)}</div>}
-              {match.type && <p className="text-center text-gray-700 text-[9px] mt-2 uppercase tracking-wider">{match.type} • {match.arene}</p>}
-            </div>
-          ))}</div>}
-        </div>}
-
-        {editHistoriqueScore && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto">
-          <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">✏️ Modifier</h3>
-          <div className="space-y-3 mb-5">
-            <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">⚔️ Adversaire</label><input type="text" value={editHistoriqueScore.adversaire} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /></div>
-            <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">📅 Date</label><input type="date" value={editHistoriqueScore.date?.includes('/') ? (() => { const p = editHistoriqueScore.date.split('/'); return p[2] + '-' + p[1] + '-' + p[0] })() : editHistoriqueScore.date} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">Type</label><select value={editHistoriqueScore.type} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, type: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
-              <div><label className="text-gray-600 text-[10px] mb-1 block uppercase tracking-wider">Arène</label><select value={editHistoriqueScore.arene} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, arene: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select></div>
-            </div>
-            {editHistoriqueScore.type === 'Division' ? (
-              <div className="bg-white/5 rounded-xl p-3 border border-orange-500/15">
-                <div className="flex items-center justify-between mb-2"><p className="text-[10px] text-orange-400 font-bold uppercase">🏆 Sous-matchs</p><button onClick={ajouterEditSousMatch} className="px-2 py-1 rounded-lg bg-orange-500/20 text-orange-400 text-xs">➕</button></div>
-                {(editHistoriqueScore.sousMatchs || []).length > 0 ? <div className="space-y-1">{(editHistoriqueScore.sousMatchs || []).map((sm: any, i: number) => <div key={i} className="flex items-center justify-between bg-black/30 rounded-lg px-2 py-1.5"><div className="flex-1"><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={() => supprimerEditSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>)}</div> : <p className="text-[9px] text-gray-600 text-center">Aucun</p>}
-                {(editHistoriqueScore.sousMatchs || []).length > 0 && <div className="mt-2 pt-2 border-t border-white/5 text-center"><p className="text-[9px] text-gray-600 uppercase">Total</p><p className="text-sm font-bold"><span className="text-[#D4AF37]">{(editHistoriqueScore.sousMatchs || []).reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0)}</span> - <span className="text-gray-500">{(editHistoriqueScore.sousMatchs || []).reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0)}</span></p></div>}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-gray-600 text-[10px] mb-1 block uppercase">🟡 DYNO</label><input type="number" value={editHistoriqueScore.scoreDyno} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div>
-                <div><label className="text-gray-600 text-[10px] mb-1 block uppercase">⚪ Adv</label><input type="number" value={editHistoriqueScore.scoreAdv} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div>
-              </div>
-            )}
-            <label className="flex items-center gap-2 bg-white/5 rounded-xl p-3 border border-white/5 cursor-pointer"><input type="checkbox" checked={editHistoriqueScore.termine === false} onChange={(e) => setEditHistoriqueScore({ ...editHistoriqueScore, termine: e.target.checked ? false : true })} className="w-4 h-4 rounded accent-[#D4AF37]" /><span className="text-gray-400 text-xs">Remettre en « à venir »</span></label>
-          </div>
-          <div className="flex gap-2"><button onClick={() => setEditHistoriqueScore(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateHistoriqueScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div>
-        </div></div>}
-
-        {activeTab === 'strats' && <div>
-          <H title="Stratégies" icon="🎯" />
-          <button onClick={() => setShowAddStrat(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] transition-transform text-sm">➕ Nouvelle Stratégie</button>
-          {strats.length === 0 ? <div className="text-center py-10 text-gray-600">📝 Aucune</div> : <div className="space-y-3">{strats.map((s: any, idx: number) => (
-            <div key={s.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}>
-              <div className="flex items-center justify-between mb-3"><div><p className="font-bold text-[#D4AF37]">DYNO vs {s.adversaire}</p><p className="text-[9px] text-gray-600">par {s.auteur || '?'}</p></div>{(isAdmin || user?.uid === s.auteurId) && <button onClick={() => del('strats', s.id)} className="text-red-400/40">🗑️</button>}</div>
-              <div className="mb-2"><p className="text-[9px] text-green-400 mb-1.5 uppercase tracking-wider">✅ Picks ({s.picks?.length || 0}/4)</p><div className="flex flex-wrap gap-1">{s.picks?.map((p: string, i: number) => <span key={i} className="bg-green-500/15 text-green-400 px-2.5 py-1 rounded-lg text-[10px] border border-green-500/15 font-bold">{p}</span>)}</div></div>
-              <div><p className="text-[9px] text-red-400 mb-1.5 uppercase tracking-wider">❌ Bans ({s.bans?.length || 0}/4)</p><div className="flex flex-wrap gap-1">{s.bans?.map((b: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2.5 py-1 rounded-lg text-[10px] border border-red-500/15 font-bold">{b}</span>)}</div></div>
-            </div>
-          ))}</div>}
-          {showAddStrat && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">🎯 Stratégie</h3>
-            <div className="space-y-3 mb-5">
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase tracking-wider">⚔️ Adversaire</label><input type="text" placeholder="Nom" value={nouvelleStrat.adversaire} onChange={(e) => setNouvelleStrat({ ...nouvelleStrat, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /></div>
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase tracking-wider">✅ Picks (4)</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => toggleMap(m, 'picks')} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (nouvelleStrat.picks.includes(m) ? 'bg-green-600 text-white shadow-lg shadow-green-500/30' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div>
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase tracking-wider">❌ Bans (4)</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => toggleMap(m, 'bans')} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (nouvelleStrat.bans.includes(m) ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div>
-            </div>
-            <div className="flex gap-2"><button onClick={() => { setShowAddStrat(false); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterStrat} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div>
-          </div></div>}
-        </div>}
-
-        {activeTab === 'compos' && <div>
-          <H title="Compos" icon="📋" />
-          {user && <button onClick={() => setShowAddCompo(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] transition-transform text-sm">➕ Compo</button>}
-          {compos.length === 0 ? <div className="text-center py-10 text-gray-600">📋 Aucune</div> : <div className="space-y-3">{compos.map((c: any, idx: number) => <div key={c.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-2"><p className="font-bold text-[#D4AF37]">🗺️ {c.map}</p>{(isAdmin || user?.uid === c.auteurId) && <button onClick={() => del('compos', c.id)} className="text-red-400/40">🗑️</button>}</div><div className="flex flex-wrap gap-1">{c.joueurs?.map((j: string, i: number) => <span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{j}</span>)}</div></div>)}</div>}
-          {showAddCompo && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📋 Compo</h3>
-            <div className="space-y-3 mb-5">
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase tracking-wider">🗺️ Map</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => setSelectedMapCompo(m)} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (selectedMapCompo === m ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/30' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div>
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase tracking-wider">👥 Joueurs</label><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j: any) => j.actif !== false).map((j: any) => <button key={j.id} onClick={() => toggleCompoJoueur(j.pseudo)} className={"px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (compoJoueurs.includes(j.pseudo) ? 'bg-green-600 text-white shadow-lg shadow-green-500/30' : 'bg-white/5 text-gray-500')}>{j.pseudo}</button>)}</div></div>
-            </div>
-            <div className="flex gap-2"><button onClick={() => { setShowAddCompo(false); setSelectedMapCompo(''); setCompoJoueurs([]) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterCompo} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div>
-          </div></div>}
-        </div>}
-
-        {activeTab === 'fiches' && <div>
-          <H title="Fiches Adversaires" icon="🔍" />
-          {user && <button onClick={() => setShowAddFiche(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] transition-transform text-sm">➕ Fiche</button>}
-          {fichesAdversaires.length === 0 ? <div className="text-center py-10 text-gray-600">🔍 Aucune</div> : <div className="space-y-3">{fichesAdversaires.map((f: any, idx: number) => <div key={f.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-3"><p className="font-bold text-[#D4AF37]">⚔️ {f.adversaire}</p>{(isAdmin || user?.uid === f.auteurId) && <button onClick={() => del('fichesAdversaires', f.id)} className="text-red-400/40">🗑️</button>}</div><div className="space-y-2"><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10"><p className="text-[9px] text-green-400 uppercase font-bold mb-1">💪 Forces</p><p className="text-gray-300 text-xs">{f.forces || '—'}</p></div><div className="bg-red-500/10 rounded-xl p-3 border border-red-500/10"><p className="text-[9px] text-red-400 uppercase font-bold mb-1">⚠️ Faiblesses</p><p className="text-gray-300 text-xs">{f.faiblesses || '—'}</p></div>{f.notes && <div className="bg-white/5 rounded-xl p-3 border border-white/5"><p className="text-[9px] text-gray-500 uppercase font-bold mb-1">📝 Notes</p><p className="text-gray-300 text-xs">{f.notes}</p></div>}</div><p className="text-gray-700 text-[9px] mt-2">par {f.auteur}</p></div>)}</div>}
-          {showAddFiche && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">🔍 Fiche</h3>
-            <div className="space-y-3 mb-5">
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase tracking-wider">⚔️ Adversaire</label><input type="text" placeholder="Nom" value={nouvelleFiche.adversaire} onChange={e => setNouvelleFiche({ ...nouvelleFiche, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /></div>
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase tracking-wider">💪 Forces</label><textarea value={nouvelleFiche.forces} onChange={e => setNouvelleFiche({ ...nouvelleFiche, forces: e.target.value })} rows={2} className="w-full bg-white/5 border border-green-500/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div>
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase tracking-wider">⚠️ Faiblesses</label><textarea value={nouvelleFiche.faiblesses} onChange={e => setNouvelleFiche({ ...nouvelleFiche, faiblesses: e.target.value })} rows={2} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div>
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase tracking-wider">📝 Notes</label><textarea value={nouvelleFiche.notes} onChange={e => setNouvelleFiche({ ...nouvelleFiche, notes: e.target.value })} rows={2} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div>
-            </div>
-            <div className="flex gap-2"><button onClick={() => { setShowAddFiche(false); setNouvelleFiche({ adversaire: '', forces: '', faiblesses: '', notes: '' }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterFiche} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div>
-          </div></div>}
-        </div>}
-
-        {activeTab === 'notes' && <div>
-          <H title="Notes & Analyses" icon="📊" />
-          {historique.length === 0 ? <div className="text-center py-10 text-gray-600">📊 Aucun</div> : <div className="space-y-4">{historique.map((match: any, idx: number) => { const mn = notes.filter((n: any) => n.matchId === match.id); const mc = commentaires.filter((c: any) => c.matchId === match.id); const ma = analyses.filter((a: any) => a.matchId === match.id); return (
-            <div key={match.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}>
-              <div className="flex items-center justify-between mb-3"><p className="font-bold text-[#D4AF37] text-sm">DYNO vs {match.adversaire}</p><div className="flex items-center gap-2"><span className={"px-2 py-0.5 rounded-full text-[8px] font-bold " + ((match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-red-500/20 text-red-400')}>{match.scoreDyno}-{match.scoreAdversaire}</span><span className="text-gray-700 text-[10px]">{fdf(match.date)}</span></div></div>
-              <div className="flex gap-1.5 mb-3">
-                <button onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-1.5 rounded-lg font-bold bg-purple-500/15 text-purple-400 border border-purple-500/15 text-[9px]">📝 Note</button>
-                <button onClick={() => setSelectedMatchForComment(selectedMatchForComment?.id === match.id ? null : match)} className="flex-1 py-1.5 rounded-lg font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/15 text-[9px]">💬 Comm</button>
-                <button onClick={() => setSelectedMatchForAnalyse(selectedMatchForAnalyse?.id === match.id ? null : match)} className="flex-1 py-1.5 rounded-lg font-bold bg-orange-500/15 text-orange-400 border border-orange-500/15 text-[9px]">📋 Analyse</button>
-              </div>
-              {selectedMatchForComment?.id === match.id && user && <div className="bg-white/5 rounded-xl p-3 mb-3 border border-cyan-500/10"><textarea placeholder="Commentaire..." value={nouveauCommentaire} onChange={e => setNouveauCommentaire(e.target.value)} rows={2} className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mb-2" /><button onClick={() => ajouterCommentaire(match.id)} className="w-full py-1.5 rounded-lg font-bold bg-cyan-500/20 text-cyan-400 text-[10px]">💬</button></div>}
-              {selectedMatchForAnalyse?.id === match.id && user && <div className="bg-white/5 rounded-xl p-3 mb-3 border border-orange-500/10"><div className="space-y-2 mb-2"><div><label className="text-[8px] text-green-400 uppercase font-bold">✅ Bien</label><textarea value={nouvelleAnalyse.bien} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, bien: e.target.value })} rows={2} className="w-full bg-black/30 border border-green-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div><div><label className="text-[8px] text-red-400 uppercase font-bold">❌ Mal</label><textarea value={nouvelleAnalyse.mal} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, mal: e.target.value })} rows={2} className="w-full bg-black/30 border border-red-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div><div><label className="text-[8px] text-blue-400 uppercase font-bold">🎯 Plan</label><textarea value={nouvelleAnalyse.plan} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, plan: e.target.value })} rows={2} className="w-full bg-black/30 border border-blue-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div></div><button onClick={() => ajouterAnalyse(match.id)} className="w-full py-1.5 rounded-lg font-bold bg-orange-500/20 text-orange-400 text-[10px]">📋</button></div>}
-              {mn.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-purple-400 uppercase tracking-wider font-bold">📊 Notes ({mn.length})</p>{mn.map((n: any) => <div key={n.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex items-center justify-between mb-1.5"><p className="text-[#D4AF37] font-bold text-[10px]">{n.joueur}</p>{isAdmin && <button onClick={() => del('notes', n.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div><div className="grid grid-cols-3 gap-1.5 text-center"><div className="bg-purple-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">🧠</p><p className="text-purple-400 font-bold text-xs">{n.mental}/10</p></div><div className="bg-blue-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">💬</p><p className="text-blue-400 font-bold text-xs">{n.communication}/10</p></div><div className="bg-green-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">🎯</p><p className="text-green-400 font-bold text-xs">{n.gameplay}/10</p></div></div></div>)}</div>}
-              {mc.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-cyan-400 uppercase tracking-wider font-bold">💬 ({mc.length})</p>{mc.map((c: any) => <div key={c.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex items-center justify-between mb-0.5"><p className="text-cyan-400 font-bold text-[10px]">{c.joueur}</p><div className="flex items-center gap-1.5"><p className="text-gray-700 text-[9px]">{fts(c.createdAt)}</p>{(isAdmin || user?.uid === c.joueurId) && <button onClick={() => del('commentaires', c.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div></div><p className="text-gray-400 text-xs">{c.texte}</p></div>)}</div>}
-              {ma.length > 0 && <div className="space-y-1.5"><p className="text-[9px] text-orange-400 uppercase tracking-wider font-bold">📋 ({ma.length})</p>{ma.map((a: any) => <div key={a.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex items-center justify-between mb-2"><p className="text-orange-400 font-bold text-[10px]">{a.joueur}</p>{(isAdmin || user?.uid === a.joueurId) && <button onClick={() => del('analyses', a.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div><div className="space-y-1.5">{a.bien && <div className="bg-green-500/10 rounded-lg p-2"><p className="text-[8px] text-green-400 font-bold">✅</p><p className="text-gray-300 text-[10px]">{a.bien}</p></div>}{a.mal && <div className="bg-red-500/10 rounded-lg p-2"><p className="text-[8px] text-red-400 font-bold">❌</p><p className="text-gray-300 text-[10px]">{a.mal}</p></div>}{a.plan && <div className="bg-blue-500/10 rounded-lg p-2"><p className="text-[8px] text-blue-400 font-bold">🎯</p><p className="text-gray-300 text-[10px]">{a.plan}</p></div>}</div></div>)}</div>}
-              {mn.length === 0 && mc.length === 0 && ma.length === 0 && <p className="text-gray-700 text-[10px] text-center">Aucune donnée</p>}
-            </div>
-          ) })}</div>}
-          {selectedMatchForNotes && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📊 DYNO vs {selectedMatchForNotes.adversaire}</h3>
-            <div className="space-y-3 mb-5">
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🧠 Mental</label><input type="number" min="0" max="10" value={nouvelleNote.mental} onChange={e => setNouvelleNote({ ...nouvelleNote, mental: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none focus:border-[#D4AF37]/50" /></div>
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">💬 Comm</label><input type="number" min="0" max="10" value={nouvelleNote.communication} onChange={e => setNouvelleNote({ ...nouvelleNote, communication: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none focus:border-[#D4AF37]/50" /></div>
-              <div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🎯 Perf</label><input type="number" min="0" max="10" value={nouvelleNote.gameplay} onChange={e => setNouvelleNote({ ...nouvelleNote, gameplay: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none focus:border-[#D4AF37]/50" /></div>
-            </div>
-            <div className="flex gap-2"><button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterNote} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div>
-          </div></div>}
-        </div>}
-
-        {activeTab === 'objectifs' && <div>
-          <H title="Mes Objectifs" icon="🎯" />
-          {user && <div className="flex gap-2 mb-5"><input type="text" placeholder="Nouvel objectif..." value={nouvelObjectif} onChange={e => setNouvelObjectif(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') ajouterObjectif() }} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /><button onClick={ajouterObjectif} className="px-4 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕</button></div>}
-          {objectifs.filter((o: any) => o.joueurId === user?.uid).length === 0 ? <div className="text-center py-10 text-gray-600">🎯 Aucun</div> : <div className="space-y-3">
-            {objectifs.filter((o: any) => !o.termine && o.joueurId === user?.uid).length > 0 && <div><p className="text-[9px] text-[#D4AF37] mb-2 uppercase tracking-wider font-bold">🔄 En cours</p><div className="space-y-2">{objectifs.filter((o: any) => !o.termine && o.joueurId === user?.uid).map((o: any, idx: number) => <div key={o.id} className="card-glow bg-black/30 rounded-xl p-3 border border-[#D4AF37]/15 flex items-start gap-3" style={{ animationDelay: (idx * 0.1) + 's' }}><button onClick={() => toggleObjectif(o.id, o.termine)} className="mt-0.5 w-5 h-5 rounded-lg border-2 border-[#D4AF37]/50 flex-shrink-0" /><div className="flex-1"><p className="text-white text-sm">{o.texte}</p><p className="text-gray-700 text-[9px] mt-1">{new Date(o.createdAt).toLocaleDateString('fr-FR')}</p></div><button onClick={() => del('objectifs', o.id)} className="text-red-400/40 text-sm flex-shrink-0">🗑️</button></div>)}</div></div>}
-            {objectifs.filter((o: any) => o.termine && o.joueurId === user?.uid).length > 0 && <div className="mt-5"><p className="text-[9px] text-green-400 mb-2 uppercase tracking-wider font-bold">✅ Atteints ({objectifs.filter((o: any) => o.termine && o.joueurId === user?.uid).length})</p><div className="space-y-2">{objectifs.filter((o: any) => o.termine && o.joueurId === user?.uid).map((o: any) => <div key={o.id} className="bg-black/20 rounded-xl p-3 border border-green-500/10 flex items-start gap-3 opacity-60"><button onClick={() => toggleObjectif(o.id, o.termine)} className="mt-0.5 w-5 h-5 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px]">✓</span></button><p className="text-gray-500 text-sm line-through flex-1">{o.texte}</p><button onClick={() => del('objectifs', o.id)} className="text-red-400/40 text-sm flex-shrink-0">🗑️</button></div>)}</div></div>}
+              <p className="text-[8px] text-gray-600 text-center">HP = Ven 18h-23h20 • Sam/Dim 13h-23h</p>
+            </div> : <div>
+              <p className="text-gray-500 text-xs mb-3">Choisis ton pass EVA :</p>
+              <div className="grid grid-cols-3 gap-2">{Object.entries(EVA_PASSES).map(([key, p]) => <button key={key} onClick={() => selectPass(key)} className={"rounded-xl p-3 border text-center transition-all hover:scale-105 " + (key === 'bronze' ? 'bg-amber-900/20 border-amber-700/30' : key === 'argent' ? 'bg-gray-500/20 border-gray-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30')}><span className="text-2xl block mb-1">{p.icon}</span><p className="text-white text-[10px] font-bold">{p.label}</p><p className="text-blue-400 text-[8px]">{p.hc} HC</p><p className="text-purple-400 text-[8px]">{p.hp} HP</p></button>)}</div>
+            </div>}
           </div>}
+          {user && <div className="card-glow bg-black/30 rounded-2xl p-3 border border-pink-500/10 mb-5"><p className="text-[9px] text-pink-400 mb-1.5 uppercase">🎂 Anniversaire</p><div className="flex gap-2"><input type="date" value={anniversaire} onChange={e => setAnniversaire(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none" /><button onClick={sauvegarderAnniversaire} className="px-3 py-2 rounded-lg font-bold bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs shadow-lg shadow-pink-500/20">💾</button></div></div>}
+          <div className="space-y-2.5">{joueurs.filter((j: any) => j.actif !== false).map((j: any, idx: number) => { const pp = allPasses.find((p: any) => p.pseudo === j.pseudo); return <div key={j.id} className="card-glow bg-black/30 rounded-2xl p-3.5 border border-[#D4AF37]/15 flex items-center gap-3" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37]/20 to-[#D4AF37]/5 flex items-center justify-center text-[#D4AF37] font-bold text-lg border border-[#D4AF37]/15">{j.pseudo[0]?.toUpperCase()}</div><div className="flex-1"><p className="font-bold text-[#D4AF37] text-sm">{j.pseudo}</p><p className="text-[10px] text-gray-600">🎮 {j.role}</p>{pp && <div className="flex items-center gap-2 mt-1"><span className="text-[8px]">{EVA_PASSES[pp.type]?.icon}</span><span className="text-blue-400 text-[8px] font-bold">{(pp.hcTotal || 0) - (pp.hcUsed || 0)}/{pp.hcTotal} HC</span><span className="text-purple-400 text-[8px] font-bold">{(pp.hpTotal || 0) - (pp.hpUsed || 0)}/{pp.hpTotal} HP</span></div>}</div>{isAdmin && <button onClick={() => del('players', j.id)} className="text-red-400/40">🗑️</button>}</div> })}</div>
         </div>}
 
-        {activeTab === 'rec' && <div>
-          <H title="Replays" icon="🎬" />
-          <a href={YT} target="_blank" className="block w-full mb-5 py-2.5 rounded-xl font-bold bg-red-600/15 text-red-400 border border-red-500/15 text-center text-xs">🔴 YouTube</a>
-          {replays.length === 0 ? <div className="text-center py-10 text-gray-600">📹 Aucun</div> : <div className="space-y-3">{replays.map((r: any, idx: number) => <div key={r.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-2"><h3 className="font-bold text-[#D4AF37] text-sm">{r.titre}</h3>{isAdmin && <button onClick={() => del('replays', r.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div>{ytId(r.lien) ? <div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden"><iframe src={'https://www.youtube.com/embed/' + ytId(r.lien)} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen /></div> : <a href={r.lien} target="_blank" className="block py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-center text-sm">▶️</a>}</div>)}</div>}
-        </div>}
+        {/* STATS */}
+        {activeTab === 'stats' && <div><H title="Stats" icon="📈" /><div className="grid grid-cols-2 gap-3 mb-5"><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{winRate}%</p><p className="text-[9px] text-gray-600 mt-1.5 uppercase">Win Rate</p></div><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{totalMatchs}</p><p className="text-[9px] text-gray-600 mt-1.5 uppercase">Matchs</p></div></div><div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">📊 Répartition</h3><div className="space-y-3"><div><div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">🏆 Victoires</span><span className="text-[#D4AF37] font-bold text-xs">{victoires}</span></div><div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-2 rounded-full transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (victoires / totalMatchs) * 100 : 0) + '%' }} /></div></div><div><div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">❌ Défaites</span><span className="text-red-500 font-bold text-xs">{defaites}</span></div><div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-red-600 to-red-500 h-2 rounded-full transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (defaites / totalMatchs) * 100 : 0) + '%' }} /></div></div></div></div><button onClick={() => setShowBilan(true)} className="w-full mt-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/20 text-sm">📊 Bilan du mois</button>{showBilan && (() => { const b = genBilan(); return <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📊 Bilan {b.nom}</h3><div className="space-y-3 mb-5"><div className="grid grid-cols-3 gap-2"><div className="bg-white/5 rounded-xl p-3 border border-white/5 text-center"><p className="text-2xl font-bold text-white">{b.m}</p><p className="text-[9px] text-gray-600 uppercase">Matchs</p></div><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-2xl font-bold text-green-400">{b.w}W</p><p className="text-[9px] text-gray-600 uppercase">Vic.</p></div><div className="bg-red-500/10 rounded-xl p-3 border border-red-500/10 text-center"><p className="text-2xl font-bold text-red-400">{b.l}L</p><p className="text-[9px] text-gray-600 uppercase">Déf.</p></div></div><div className="bg-[#D4AF37]/10 rounded-xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{b.wr}%</p><p className="text-[9px] text-gray-600 uppercase mt-1">Win Rate</p></div><div className="grid grid-cols-3 gap-2"><div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/10 text-center"><p className="text-xl font-bold text-purple-400">{b.am}</p><p className="text-[9px] text-gray-600">🧠</p></div><div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/10 text-center"><p className="text-xl font-bold text-blue-400">{b.ac}</p><p className="text-[9px] text-gray-600">💬</p></div><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-xl font-bold text-green-400">{b.ap}</p><p className="text-[9px] text-gray-600">🎯</p></div></div></div><button onClick={() => setShowBilan(false)} className="w-full py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-400 text-sm">Fermer</button></div></div> })()}</div>}
 
-        {activeTab === 'roster' && <div>
-          <H title="Roster" icon="👥" />
-
-          {/* EVA Pass Section */}
-          {user && (
-            <div className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15 mb-5">
-              <p className="text-[10px] text-[#D4AF37] font-bold mb-3 uppercase tracking-wider">🎟️ Mon EVA Pass</p>
-              {myPass ? (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{EVA_PASSES[myPass.type]?.icon || '🎟️'}</span>
-                      <span className={"px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r text-white " + (EVA_PASSES[myPass.type]?.color || 'from-gray-500 to-gray-700')}>{EVA_PASSES[myPass.type]?.label || myPass.type}</span>
-                    </div>
-                    <button onClick={() => { setMyPass(null); updateDoc(doc(db, 'users', user.uid), { evaPass: null }) }} className="text-red-400/40 text-[9px]">Changer</button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/15 text-center">
-                      <p className="text-[8px] text-blue-400 uppercase font-bold mb-1">🔵 Heures Creuses</p>
-                      <p className="text-xl font-bold text-blue-400">{(myPass.hcTotal || 0) - (myPass.hcUsed || 0)}<span className="text-gray-600 text-sm">/{myPass.hcTotal || 0}</span></p>
-                      <div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style={{ width: (myPass.hcTotal > 0 ? ((myPass.hcTotal - (myPass.hcUsed || 0)) / myPass.hcTotal) * 100 : 0) + '%' }} /></div>
-                    </div>
-                    <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/15 text-center">
-                      <p className="text-[8px] text-purple-400 uppercase font-bold mb-1">🟣 Heures Pleines</p>
-                      <p className="text-xl font-bold text-purple-400">{(myPass.hpTotal || 0) - (myPass.hpUsed || 0)}<span className="text-gray-600 text-sm">/{myPass.hpTotal || 0}</span></p>
-                      <div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: (myPass.hpTotal > 0 ? ((myPass.hpTotal - (myPass.hpUsed || 0)) / myPass.hpTotal) * 100 : 0) + '%' }} /></div>
-                    </div>
-                  </div>
-                  <p className="text-[8px] text-gray-600 text-center">HP = Ven 18h-23h20 • Sam/Dim 13h-23h</p>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-gray-500 text-xs mb-3">Choisis ton pass EVA :</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {Object.entries(EVA_PASSES).map(([key, p]) => (
-                      <button key={key} onClick={() => selectPass(key)} className={"rounded-xl p-3 border text-center transition-all hover:scale-105 " + (key === 'bronze' ? 'bg-amber-900/20 border-amber-700/30' : key === 'argent' ? 'bg-gray-500/20 border-gray-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30')}>
-                        <span className="text-2xl block mb-1">{p.icon}</span>
-                        <p className="text-white text-[10px] font-bold">{p.label}</p>
-                        <p className="text-blue-400 text-[8px]">{p.hc} HC</p>
-                        <p className="text-purple-400 text-[8px]">{p.hp} HP</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {user && <div className="card-glow bg-black/30 rounded-2xl p-3 border border-pink-500/10 mb-5"><p className="text-[9px] text-pink-400 mb-1.5 uppercase tracking-wider">🎂 Anniversaire</p><div className="flex gap-2"><input type="date" value={anniversaire} onChange={e => setAnniversaire(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-pink-400/50" /><button onClick={sauvegarderAnniversaire} className="px-3 py-2 rounded-lg font-bold bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs shadow-lg shadow-pink-500/20">💾</button></div></div>}
-          <div className="space-y-2.5">{joueurs.filter((j: any) => j.actif !== false).map((j: any, idx: number) => {
-            const playerPass = allPasses.find((p: any) => p.pseudo === j.pseudo)
-            return (
-              <div key={j.id} className="card-glow bg-black/30 rounded-2xl p-3.5 border border-[#D4AF37]/15 flex items-center gap-3" style={{ animationDelay: (idx * 0.1) + 's' }}>
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37]/20 to-[#D4AF37]/5 flex items-center justify-center text-[#D4AF37] font-bold text-lg border border-[#D4AF37]/15">{j.pseudo[0]?.toUpperCase()}</div>
-                <div className="flex-1">
-                  <p className="font-bold text-[#D4AF37] text-sm">{j.pseudo}</p>
-                  <p className="text-[10px] text-gray-600">🎮 {j.role}</p>
-                  {playerPass && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[8px]">{EVA_PASSES[playerPass.type]?.icon}</span>
-                      <span className="text-blue-400 text-[8px] font-bold">{(playerPass.hcTotal || 0) - (playerPass.hcUsed || 0)}/{playerPass.hcTotal} HC</span>
-                      <span className="text-purple-400 text-[8px] font-bold">{(playerPass.hpTotal || 0) - (playerPass.hpUsed || 0)}/{playerPass.hpTotal} HP</span>
-                    </div>
-                  )}
-                </div>
-                {isAdmin && <button onClick={() => del('players', j.id)} className="text-red-400/40">🗑️</button>}
-              </div>
-            )
-          })}</div>
-        </div>}
-
-        {activeTab === 'stats' && <div>
-          <H title="Stats" icon="📈" />
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent count-up">{winRate}%</p><p className="text-[9px] text-gray-600 mt-1.5 uppercase tracking-wider">Win Rate</p></div>
-            <div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent count-up">{totalMatchs}</p><p className="text-[9px] text-gray-600 mt-1.5 uppercase tracking-wider">Matchs</p></div>
-          </div>
-          <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
-            <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">📊 Répartition</h3>
-            <div className="space-y-3">
-              <div><div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">🏆 Victoires</span><span className="text-[#D4AF37] font-bold text-xs">{victoires}</span></div><div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-2 rounded-full shadow-[0_0_8px_rgba(212,175,55,0.4)] transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (victoires / totalMatchs) * 100 : 0) + '%' }} /></div></div>
-              <div><div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">❌ Défaites</span><span className="text-red-500 font-bold text-xs">{defaites}</span></div><div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-red-600 to-red-500 h-2 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.4)] transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (defaites / totalMatchs) * 100 : 0) + '%' }} /></div></div>
-            </div>
-          </div>
-          <button onClick={() => setShowBilan(true)} className="w-full mt-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/20 hover:scale-[1.02] transition-transform text-sm">📊 Bilan du mois</button>
-          {showBilan && (() => { const b = genBilan(); return <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📊 Bilan {b.nom}</h3>
-            <div className="space-y-3 mb-5">
-              <div className="grid grid-cols-3 gap-2"><div className="bg-white/5 rounded-xl p-3 border border-white/5 text-center"><p className="text-2xl font-bold text-white count-up">{b.m}</p><p className="text-[9px] text-gray-600 uppercase">Matchs</p></div><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-2xl font-bold text-green-400 count-up">{b.w}W</p><p className="text-[9px] text-gray-600 uppercase">Victoires</p></div><div className="bg-red-500/10 rounded-xl p-3 border border-red-500/10 text-center"><p className="text-2xl font-bold text-red-400 count-up">{b.l}L</p><p className="text-[9px] text-gray-600 uppercase">Défaites</p></div></div>
-              <div className="bg-[#D4AF37]/10 rounded-xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent count-up">{b.wr}%</p><p className="text-[9px] text-gray-600 uppercase mt-1">Win Rate</p></div>
-              <div className="grid grid-cols-3 gap-2"><div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/10 text-center"><p className="text-xl font-bold text-purple-400">{b.am}</p><p className="text-[9px] text-gray-600">🧠</p></div><div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/10 text-center"><p className="text-xl font-bold text-blue-400">{b.ac}</p><p className="text-[9px] text-gray-600">💬</p></div><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-xl font-bold text-green-400">{b.ap}</p><p className="text-[9px] text-gray-600">🎯</p></div></div>
-            </div>
-            <button onClick={() => setShowBilan(false)} className="w-full py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-400 text-sm">Fermer</button>
-          </div></div> })()}
-        </div>}
-
-        {activeTab === 'admin' && <div>
-          <H title="Admin" icon="⚙️" />
-          {!isAdmin ? <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><input type="password" placeholder="Mot de passe" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /><button onClick={handleAdminLogin} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Connexion</button></div> : <div className="space-y-5">
-            <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
-              <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">➕ Match</h3>
-              <input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={e => setNouveauMatch({ ...nouveauMatch, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" />
-              <input type="date" value={nouveauMatch.date} onChange={e => setNouveauMatch({ ...nouveauMatch, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" />
-              <div className="grid grid-cols-2 gap-2 mb-2"><input type="time" value={nouveauMatch.horaire1} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire1: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" /><input type="time" value={nouveauMatch.horaire2} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire2: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" /></div>
-              <div className="grid grid-cols-2 gap-2 mb-2"><select value={nouveauMatch.arene} onChange={e => setNouveauMatch({ ...nouveauMatch, arene: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select><select value={nouveauMatch.type} onChange={e => setNouveauMatch({ ...nouveauMatch, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>
-              {nouveauMatch.type === 'Division' && <div className="bg-white/5 rounded-xl p-3 mb-2 border border-white/5"><div className="flex items-center justify-between mb-2"><p className="text-[10px] text-[#D4AF37] font-bold uppercase">🏆 Sous-matchs</p><button onClick={ajouterSousMatch} className="px-2 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">➕</button></div>{nouveauMatch.sousMatchs.length > 0 ? <div className="space-y-1">{nouveauMatch.sousMatchs.map((sm, i) => <div key={i} className="flex items-center justify-between bg-black/30 rounded-lg px-2 py-1.5"><div className="flex-1"><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={() => supprimerSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>)}</div> : <p className="text-[9px] text-gray-600 text-center">Aucun</p>}</div>}
-              <button onClick={ajouterMatch} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Ajouter + Discord</button>
-            </div>
-            <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">🗑️ Matchs</h3>{matchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun</p> : <div className="space-y-1.5">{matchs.map((m: any) => <div key={m.id} className="flex items-center justify-between bg-white/5 rounded-lg p-2.5 border border-white/5"><div><p className="text-[#D4AF37] font-bold text-[10px]">{m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)} • {m.termine ? '✅' : '⏳'}</p></div><div className="flex items-center gap-1.5">{m.termine && <button onClick={() => setEditHistoriqueScore({ id: m.id, adversaire: m.adversaire || '', scoreDyno: String(m.scoreDyno || 0), scoreAdv: String(m.scoreAdversaire || 0), type: m.type || 'Ligue', arene: m.arene || 'Arène 1', date: m.date || '', termine: true, sousMatchs: m.sousMatchs || [] })} className="text-[#D4AF37]/60 hover:text-[#D4AF37] text-sm transition-colors">✏️</button>}<button onClick={() => del('matchs', m.id)} className="text-red-400/40">🗑️</button></div></div>)}</div>}</div>
-            <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">🎬 Replay</h3><input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={e => setNouveauReplay({ ...nouveauReplay, titre: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" /><input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={e => setNouveauReplay({ ...nouveauReplay, lien: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" /><button onClick={ajouterReplay} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Ajouter</button></div>
-            <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase tracking-wider">✏️ Scores</h3>{prochainsMatchs.map((m: any) => <div key={m.id} className="bg-white/5 rounded-lg p-3 mb-2 border border-white/5"><p className="font-bold text-[#D4AF37] mb-2 text-xs">DYNO vs {m.adversaire}</p><button onClick={() => setScoreEdit({ id: m.id, scoreDyno: '', scoreAdv: '' })} className="w-full py-2 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-xs">📝</button></div>)}</div>
-            <button onClick={handleAdminLogout} className="w-full bg-white/5 border border-red-500/15 text-red-400 py-2.5 rounded-xl font-bold text-sm">🚪 Déconnexion</button>
-          </div>}
-          {scoreEdit && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10">
-            <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📝 Score</h3>
-            <div className="grid grid-cols-2 gap-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div></div>
-            <div className="flex gap-2"><button onClick={() => setScoreEdit(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div>
-          </div></div>}
-        </div>}
+        {/* ADMIN */}
+        {activeTab === 'admin' && <div><H title="Admin" icon="⚙️" />{!isAdmin ? <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><input type="password" placeholder="Mot de passe" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" /><button onClick={handleAdminLogin} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Connexion</button></div> : <div className="space-y-5">
+          <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">➕ Match</h3><input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={e => setNouveauMatch({ ...nouveauMatch, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" /><input type="date" value={nouveauMatch.date} onChange={e => setNouveauMatch({ ...nouveauMatch, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" /><div className="grid grid-cols-2 gap-2 mb-2"><input type="time" value={nouveauMatch.horaire1} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire1: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" /><input type="time" value={nouveauMatch.horaire2} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire2: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" /></div><div className="grid grid-cols-2 gap-2 mb-2"><select value={nouveauMatch.arene} onChange={e => setNouveauMatch({ ...nouveauMatch, arene: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select><select value={nouveauMatch.type} onChange={e => setNouveauMatch({ ...nouveauMatch, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div>{nouveauMatch.type === 'Division' && <div className="bg-white/5 rounded-xl p-3 mb-2 border border-white/5"><div className="flex justify-between mb-2"><p className="text-[10px] text-[#D4AF37] font-bold uppercase">🏆 Sous-matchs</p><button onClick={ajouterSousMatch} className="px-2 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">➕</button></div>{nouveauMatch.sousMatchs.length > 0 ? <div className="space-y-1">{nouveauMatch.sousMatchs.map((sm, i) => <div key={i} className="flex justify-between bg-black/30 rounded-lg px-2 py-1.5"><div><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={() => supprimerSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>)}</div> : <p className="text-[9px] text-gray-600 text-center">Aucun</p>}</div>}<button onClick={ajouterMatch} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Ajouter + Discord</button></div>
+          <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">🗑️ Matchs</h3>{matchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun</p> : <div className="space-y-1.5">{matchs.map((m: any) => <div key={m.id} className="flex justify-between bg-white/5 rounded-lg p-2.5 border border-white/5"><div><p className="text-[#D4AF37] font-bold text-[10px]">{m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)} • {m.termine ? '✅' : '⏳'}</p></div><div className="flex items-center gap-1.5">{m.termine && <button onClick={() => setEditHistoriqueScore({ id: m.id, adversaire: m.adversaire || '', scoreDyno: String(m.scoreDyno || 0), scoreAdv: String(m.scoreAdversaire || 0), type: m.type || 'Ligue', arene: m.arene || 'Arène 1', date: m.date || '', termine: true, sousMatchs: m.sousMatchs || [] })} className="text-[#D4AF37]/60 text-sm">✏️</button>}<button onClick={() => del('matchs', m.id)} className="text-red-400/40">🗑️</button></div></div>)}</div>}</div>
+          <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">🎬 Replay</h3><input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={e => setNouveauReplay({ ...nouveauReplay, titre: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" /><input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={e => setNouveauReplay({ ...nouveauReplay, lien: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" /><button onClick={ajouterReplay} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">Ajouter</button></div>
+          <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">✏️ Scores</h3>{prochainsMatchs.map((m: any) => <div key={m.id} className="bg-white/5 rounded-lg p-3 mb-2 border border-white/5"><p className="font-bold text-[#D4AF37] mb-2 text-xs">vs {m.adversaire}</p><button onClick={() => setScoreEdit({ id: m.id, scoreDyno: '', scoreAdv: '' })} className="w-full py-2 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-xs">📝</button></div>)}</div>
+          <button onClick={handleAdminLogout} className="w-full bg-white/5 border border-red-500/15 text-red-400 py-2.5 rounded-xl font-bold text-sm">🚪 Déconnexion</button>
+        </div>}{scoreEdit && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📝 Score</h3><div className="grid grid-cols-2 gap-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Adv</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div></div><div className="flex gap-2"><button onClick={() => setScoreEdit(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 text-sm">✅</button></div></div></div>}</div>}
       </main>
 
-      {!user && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 p-4">
-        <P />
-        <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-7 w-full max-w-sm border border-white/10 shadow-[0_16px_64px_rgba(0,0,0,0.5)] relative z-10">
-          <img src={LG} alt="D" className="w-16 h-16 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-          <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">{isSignUp ? '📝 Créer' : '🔐 Connexion'}</h3>
-          {isSignUp && <input type="text" placeholder="Pseudo" value={pseudo} onChange={e => setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" />}
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" />
-          <input type="password" placeholder="Mot de passe" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" />
-          {isSignUp ? <button onClick={handleSignUp} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 mb-3 text-sm">✅ Créer</button> : <button onClick={handleSignIn} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 mb-3 text-sm">🔐 Connexion</button>}
-          <div className="border-t border-white/5 pt-3">{isSignUp ? <button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-xs hover:underline">Déjà un compte ?</button> : <button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-xs hover:underline">Pas de compte ?</button>}</div>
-        </div>
-      </div>}
+      {/* LOGIN */}
+      {!user && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 p-4"><P /><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-7 w-full max-w-sm border border-white/10 shadow-[0_16px_64px_rgba(0,0,0,0.5)] relative z-10"><img src={LG} alt="D" className="w-16 h-16 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">{isSignUp ? '📝 Créer' : '🔐 Connexion'}</h3>{isSignUp && <input type="text" placeholder="Pseudo" value={pseudo} onChange={e => setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />}<input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" /><input type="password" placeholder="Mot de passe" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-5 text-white text-sm focus:outline-none" />{isSignUp ? <button onClick={handleSignUp} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 mb-3 text-sm">✅ Créer</button> : <button onClick={handleSignIn} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30 mb-3 text-sm">🔐 Connexion</button>}<div className="border-t border-white/5 pt-3">{isSignUp ? <button onClick={() => setIsSignUp(false)} className="w-full text-[#D4AF37] text-xs hover:underline">Déjà un compte ?</button> : <button onClick={() => setIsSignUp(true)} className="w-full text-[#D4AF37] text-xs hover:underline">Pas de compte ?</button>}</div></div></div>}
     </div>
   )
 }
