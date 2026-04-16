@@ -29,7 +29,6 @@ const DW = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6N
 const YT = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const LG = 'https://i.imgur.com/gTLj57a.png'
 const AE = 'thibaut.llorens@hotmail.com'
-const TREX = '/images/trex-mascot.png'
 const AM = ['Engine','Helios','Silva','The Cliff','Artefact','Outlaw','Atlantis','Horizon','Polaris','Lunar','Ceres']
 
 const EVA_PASSES: Record<string, { label: string; icon: string; hc: number; hp: number; color: string }> = {
