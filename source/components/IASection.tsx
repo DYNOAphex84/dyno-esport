@@ -1,153 +1,179 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export const IASection = ({ H }: { H: any }) => {
-  const [iaQuestion, setIaQuestion] = useState("");
-  const [iaMessages, setIaMessages] = useState<
-    { role: "user" | "ia"; content: string }[]
-  >([]);
-  const [iaLoading, setIaLoading] = useState(false);
+  const [messages, setMessages] = useState<
+    { role: "user" | "assistant"; content: string }[]
+  >([
+    {
+      role: "assistant",
+      content: "Salut ! Je suis l'IA de DYNO Esport 🎮 Comment puis-je t'aider ? (strats, coaching, analyses...)",
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const genererImage = async () => {
-    if (!iaQuestion.trim()) return;
-    const promptUtilisateur = iaQuestion;
-    const newMessages = [
-      ...iaMessages,
-      { role: "user" as const, content: promptUtilisateur },
-    ];
-    setIaMessages(newMessages);
-    setIaQuestion("");
-    setIaLoading(true);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return;
+
+    const userMessage = { role: "user" as const, content: input };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setInput("");
+    setLoading(true);
 
     try {
-      const res = await fetch("/api/image", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: promptUtilisateur }),
+        body: JSON.stringify({ messages: newMessages }),
       });
 
       const data = await res.json();
 
-      // 🛠 DEBUG : Regarde ce que l'API renvoie VRAIMENT
-      console.log("Réponse API complète :", data);
-
-      if (res.ok && data.images && data.images[0]) {
-        setIaMessages([
+      if (res.ok && data.content) {
+        setMessages([
           ...newMessages,
-          {
-            role: "ia" as const,
-            content: `![Génération](${data.images[0].url})`,
-          },
+          { role: "assistant" as const, content: data.content },
         ]);
       } else {
-        setIaMessages([
+        setMessages([
           ...newMessages,
           {
-            role: "ia" as const,
-            content: `❌ Erreur : ${data.error || "Image invalide"}`,
+            role: "assistant" as const,
+            content: `❌ Erreur : ${data.error || "Erreur inconnue"}`,
           },
         ]);
       }
     } catch (error: any) {
-      setIaMessages([
+      setMessages([
         ...newMessages,
         {
-          role: "ia" as const,
+          role: "assistant" as const,
           content: `❌ Erreur connexion : ${error.message}`,
         },
       ]);
     } finally {
-      setIaLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <div>
-      <H title="IA" icon="🎨" />
+      <H title="IA" icon="🤖" />
+
       <div className="bg-black/30 rounded-3xl border border-[#D4AF37]/15 overflow-hidden flex flex-col shadow-2xl">
-        <div className="p-4 border-b border-[#D4AF37]/10 flex justify-between items-center">
-          <div>
-            <p className="text-[#D4AF37] font-bold text-sm">DYNO Générateur IA</p>
-            <p className="text-gray-600 text-[9px] uppercase">Stable Diffusion</p>
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#D4AF37]/20 to-transparent p-4 border-b border-[#D4AF37]/10 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <p className="text-[#D4AF37] font-bold text-sm">DYNO IA</p>
+            <p className="text-gray-600 text-[9px] uppercase">Llama 3 • Groq</p>
           </div>
           <button
-            onClick={() => setIaMessages([])}
-            className="text-gray-600 hover:text-red-400 text-[10px] uppercase"
+            onClick={() => setMessages([{
+              role: "assistant",
+              content: "Salut ! Je suis l'IA de DYNO Esport 🎮 Comment puis-je t'aider ?",
+            }])}
+            className="text-gray-600 hover:text-red-400 text-[10px] uppercase transition-colors"
           >
             Effacer
           </button>
         </div>
 
-        <div className="p-4 space-y-4 min-h-[400px] max-h-[600px] overflow-y-auto bg-black/20">
-          {iaMessages.length === 0 && (
-            <div className="text-center py-16 opacity-40">
-              <div className="text-5xl mb-4">🖼️</div>
-              <p className="text-white text-xs">Décris l'image à créer</p>
-            </div>
-          )}
-
-          {iaMessages.map((msg, i) => (
+        {/* Messages */}
+        <div className="p-4 space-y-3 min-h-[400px] max-h-[500px] overflow-y-auto bg-black/20">
+          {messages.map((msg, i) => (
             <div
               key={i}
               className={`flex ${
                 msg.role === "user" ? "justify-end" : "justify-start"
-              } mb-4`}
+              }`}
             >
+              {msg.role === "assistant" && (
+                <div className="w-6 h-6 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center text-[10px] mr-2 mt-1 flex-shrink-0">
+                  🤖
+                </div>
+              )}
               <div
-                className={`max-w-[90%] px-4 py-3 rounded-2xl ${
+                className={`max-w-[80%] px-4 py-3 rounded-2xl text-xs leading-relaxed ${
                   msg.role === "user"
-                    ? "bg-[#D4AF37]/20 border border-[#D4AF37]/30 text-[#D4AF37]"
-                    : "bg-[#1a1a1a] text-white w-full"
+                    ? "bg-gradient-to-br from-[#D4AF37] to-[#FFD700] text-black font-medium rounded-br-none"
+                    : "bg-[#1a1a1a] text-gray-200 border border-white/5 rounded-bl-none"
                 }`}
               >
-                {msg.content.startsWith("![Génération](") ? (
-                  <div>
-                    {/* 🛠 AJOUT DU ?t=${Date.now()} POUR FORCER LE RECHARGEMENT */}
-                    <img
-                      src={`${msg.content.match(/\((.*?)\)/)?.[1] || ""}?t=${Date.now()}`}
-                      className="rounded-lg w-full border-2 border-[#D4AF37]/50 shadow-2xl cursor-pointer"
-                      onClick={() =>
-                        window.open(
-                          msg.content.match(/\((.*?)\)/)?.[1] || "",
-                          "_blank"
-                        )
-                      }
-                    />
-                  </div>
-                ) : (
-                  <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
-                )}
+                {msg.content}
               </div>
             </div>
           ))}
 
-          {iaLoading && (
-            <div className="flex flex-col items-center py-8">
-              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#D4AF37] mb-3"></div>
-              <p className="text-[#D4AF37] text-[10px] font-bold uppercase animate-pulse">
-                Génération en cours...
-              </p>
+          {loading && (
+            <div className="flex justify-start">
+              <div className="w-6 h-6 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center text-[10px] mr-2 mt-1">
+                🤖
+              </div>
+              <div className="bg-[#1a1a1a] border border-white/5 rounded-2xl rounded-bl-none px-4 py-3">
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce" />
+                  <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce [animation-delay:0.2s]" />
+                  <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce [animation-delay:0.4s]" />
+                </div>
+              </div>
             </div>
           )}
+
+          <div ref={bottomRef} />
         </div>
 
+        {/* Suggestions rapides */}
+        <div className="px-4 py-2 border-t border-white/5 flex gap-2 overflow-x-auto">
+          {[
+            "Stratégie de base",
+            "Analyse mon équipe",
+            "Tips communication",
+            "Plan d'entraînement",
+          ].map((suggestion) => (
+            <button
+              key={suggestion}
+              onClick={() => {
+                setInput(suggestion);
+              }}
+              className="flex-shrink-0 px-3 py-1.5 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/20 text-[#D4AF37] text-[9px] font-bold hover:bg-[#D4AF37]/20 transition-all uppercase"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+
+        {/* Input */}
         <div className="p-4 bg-black/40 border-t border-white/5 flex gap-2">
           <input
-            value={iaQuestion}
-            onChange={(e) => setIaQuestion(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && genererImage()}
-            placeholder="Ex: Un logo DYNO esport futuriste..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-xs focus:outline-none"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            placeholder="Pose ta question à l'IA..."
+            className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-xs focus:outline-none focus:border-[#D4AF37]/50 placeholder:text-gray-700"
           />
           <button
-            onClick={genererImage}
-            disabled={iaLoading || !iaQuestion.trim()}
-            className={`w-14 rounded-xl font-bold text-xl ${
-              iaLoading || !iaQuestion.trim()
-                ? "bg-white/5 text-gray-700"
-                : "bg-gradient-to-br from-[#D4AF37] to-[#FFD700] text-black hover:scale-105"
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+            className={`w-12 h-12 rounded-xl font-bold text-lg transition-all ${
+              loading || !input.trim()
+                ? "bg-white/5 text-gray-700 cursor-not-allowed"
+                : "bg-gradient-to-br from-[#D4AF37] to-[#FFD700] text-black hover:scale-105 active:scale-95"
             }`}
           >
-            🎨
+            {loading ? "⏳" : "➤"}
           </button>
         </div>
       </div>
