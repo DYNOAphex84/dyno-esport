@@ -10,50 +10,32 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "REPLICATE_API_TOKEN manquant" });
     }
 
-    // ✅ Création prédiction
-    const createPrediction = await fetch("https://api.replicate.com/v1/predictions", {
+    // ✅ Création de la prédiction
+    const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
         "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        version: "ac732df83cea7fffdbd5e2070f0e39bdb3e4e1c39f3b16f45a7a3f8b7a6e7e68", // stable diffusion v1.5
+        version: "ac732df83cea7fff0e39bd99f8b6c9d8d8f8b7a6e7e68",
         input: {
-          prompt: `esport logo, ultra detailed, black and gold theme, ${prompt}`
+          prompt: `esport logo, ultra detailed, black and gold theme, ${prompt}`,
+          negative_prompt: "blurry, bad quality, low resolution",
+          width: 768,
+          height: 512,
+          num_inference_steps: 30,
+          guidance_scale: 8.5
         }
       })
     });
 
-    const prediction = await createPrediction.json();
+    const prediction = await createResponse.json();
 
     if (!prediction.id) {
-      return res.status(500).json({ error: "Erreur création prediction" });
-    }
-
-    // ✅ On attend que l'image soit prête
-    let result = prediction;
-    while (result.status !== "succeeded" && result.status !== "failed") {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const poll = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        headers: {
-          "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}`
-        }
+      return res.status(500).json({ 
+        error: prediction.detail || "Erreur création prediction" 
       });
-
-      result = await poll.json();
     }
 
-    if (result.status === "failed") {
-      return res.status(500).json({ error: "Generation failed" });
-    }
-
-    return res.status(200).json({
-      images: [{ url: result.output[0] }]
-    });
-
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-}
+    
