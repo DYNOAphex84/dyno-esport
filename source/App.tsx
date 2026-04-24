@@ -1,3 +1,4 @@
+import { IASection } from './components/IASection'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { initializeApp } from 'firebase/app'
 import {
@@ -197,7 +198,7 @@ function App() {
   const hpRem = myPass ? (myPass.hpTotal || 0) - (myPass.hpUsed || 0) : 0
 
   const H = ({ title, icon }: { title: string; icon?: string }) => (<div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 glow-pulse"><div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" /><img src={LG} alt="D" className="w-14 h-14 mx-auto mb-2 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" /><h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent relative z-10">{icon} {title}</h2></div>)
-  const menuItems = [{ t: 'matchs', i: '📅', l: 'Matchs' }, { t: 'historique', i: '📜', l: 'Résultats' }, { t: 'strats', i: '🎯', l: 'Strats' }, { t: 'compos', i: '📋', l: 'Compos' }, { t: 'fiches', i: '🔍', l: 'Fiches' }, { t: 'notes', i: '📊', l: 'Notes' }, { t: 'idees', i: '💡', l: 'Boîte à idées' }, { t: 'rec', i: '🎬', l: 'Replays' }, { t: 'roster', i: '👥', l: 'Roster' }, { t: 'stats', i: '📈', l: 'Stats' }, { t: 'logs', i: '📋', l: 'Logs' }, { t: 'admin', i: '⚙️', l: 'Admin' }]
+  const menuItems = [{ t: 'matchs', i: '📅', l: 'Matchs' }, { t: 'historique', i: '📜', l: 'Résultats' }, { t: 'strats', i: '🎯', l: 'Strats' }, { t: 'compos', i: '📋', l: 'Compos' }, { t: 'fiches', i: '🔍', l: 'Fiches' }, { t: 'notes', i: '📊', l: 'Notes' }, { t: 'idees', i: '💡', l: 'Boîte à idées' }, { t: 'rec', i: '🎬', l: 'Replays' }, { t: 'roster', i: '👥', l: 'Roster' }, { t: 'stats', i: '📈', l: 'Stats' }, { t: 'logs', i: '📋', l: 'Logs' }, { t: 'coach-ia', i: '🤖', l: 'IA' }, { t: 'admin', i: '⚙️', l: 'Admin' }]
 
   if (showSplash) return (<div className="min-h-screen flex items-center justify-center relative overflow-hidden"><P /><div className="text-center relative z-10"><img src={LG} alt="D" className="w-48 h-48 mx-auto splash-logo drop-shadow-[0_0_40px_rgba(212,175,55,0.6)]" /><h1 className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 splash-text">DYNO</h1><p className="text-gray-400 mt-3 splash-sub tracking-[0.3em] uppercase text-sm">Esport Team</p></div></div>)
 
