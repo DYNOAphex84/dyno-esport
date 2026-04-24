@@ -1,4 +1,4 @@
-  const genererImage = async () => {
+  export const genererImage = async () => {
     if (!iaQuestion.trim()) return;
     const promptUtilisateur = iaQuestion;
     const newMessages = [
