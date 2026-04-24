@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-// 👇 LE MOT MAGIQUE EST LÀ
 export const IASection = ({ H }: { H: any }) => {
   const [iaQuestion, setIaQuestion] = useState("");
   const [iaMessages, setIaMessages] = useState<
@@ -28,6 +27,9 @@ export const IASection = ({ H }: { H: any }) => {
 
       const data = await res.json();
 
+      // 🛠 DEBUG : Regarde ce que l'API renvoie VRAIMENT
+      console.log("Réponse API complète :", data);
+
       if (res.ok && data.images && data.images[0]) {
         setIaMessages([
           ...newMessages,
@@ -41,7 +43,7 @@ export const IASection = ({ H }: { H: any }) => {
           ...newMessages,
           {
             role: "ia" as const,
-            content: `❌ Erreur : ${data.error || "Format image invalide"}`,
+            content: `❌ Erreur : ${data.error || "Image invalide"}`,
           },
         ]);
       }
@@ -79,12 +81,7 @@ export const IASection = ({ H }: { H: any }) => {
           {iaMessages.length === 0 && (
             <div className="text-center py-16 opacity-40">
               <div className="text-5xl mb-4">🖼️</div>
-              <p className="text-white text-xs">
-                Décris l'image à créer
-              </p>
-              <p className="text-gray-600 text-[10px] mt-2">
-                Ex: "Un logo de dragon or et noir style esport"
-              </p>
+              <p className="text-white text-xs">Décris l'image à créer</p>
             </div>
           )}
 
@@ -104,8 +101,9 @@ export const IASection = ({ H }: { H: any }) => {
               >
                 {msg.content.startsWith("![Génération](") ? (
                   <div>
+                    {/* 🛠 AJOUT DU ?t=${Date.now()} POUR FORCER LE RECHARGEMENT */}
                     <img
-                      src={msg.content.match(/\((.*?)\)/)?.[1] || ""}
+                      src={`${msg.content.match(/\((.*?)\)/)?.[1] || ""}?t=${Date.now()}`}
                       className="rounded-lg w-full border-2 border-[#D4AF37]/50 shadow-2xl cursor-pointer"
                       onClick={() =>
                         window.open(
@@ -114,9 +112,6 @@ export const IASection = ({ H }: { H: any }) => {
                         )
                       }
                     />
-                    <p className="text-[9px] text-gray-600 text-center mt-1">
-                      Cliquez pour agrandir
-                    </p>
                   </div>
                 ) : (
                   <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
@@ -129,7 +124,7 @@ export const IASection = ({ H }: { H: any }) => {
             <div className="flex flex-col items-center py-8">
               <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#D4AF37] mb-3"></div>
               <p className="text-[#D4AF37] text-[10px] font-bold uppercase animate-pulse">
-                Génération en cours... (30-60 sec)
+                Génération en cours...
               </p>
             </div>
           )}
@@ -141,15 +136,15 @@ export const IASection = ({ H }: { H: any }) => {
             onChange={(e) => setIaQuestion(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && genererImage()}
             placeholder="Ex: Un logo DYNO esport futuriste..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-xs focus:outline-none focus:border-[#D4AF37]/50"
+            className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-xs focus:outline-none"
           />
           <button
             onClick={genererImage}
             disabled={iaLoading || !iaQuestion.trim()}
-            className={`w-14 rounded-xl font-bold text-xl transition-all ${
+            className={`w-14 rounded-xl font-bold text-xl ${
               iaLoading || !iaQuestion.trim()
-                ? "bg-white/5 text-gray-700 cursor-not-allowed"
-                : "bg-gradient-to-br from-[#D4AF37] to-[#FFD700] text-black hover:scale-105 active:scale-95"
+                ? "bg-white/5 text-gray-700"
+                : "bg-gradient-to-br from-[#D4AF37] to-[#FFD700] text-black hover:scale-105"
             }`}
           >
             🎨
