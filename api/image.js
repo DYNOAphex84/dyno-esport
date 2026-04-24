@@ -1,5 +1,10 @@
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   const { prompt } = req.body;
+
   try {
     const response = await fetch("https://queue.fal.run/fal-ai/flux/schnell", {
       method: "POST",
@@ -8,14 +13,14 @@ export default async function handler(req, res) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        prompt: "Esport style, high quality, " + prompt,
-        image_size: "landscape_4_3",
-        num_inference_steps: 4
+        prompt: "Esport style, gaming, " + prompt,
+        image_size: "landscape_4_3"
       })
     });
+
     const data = await response.json();
-    res.status(200).json(data);
+    return res.status(200).json(data);
   } catch (error) {
-    res.status(500).json({ error: "Erreur" });
+    return res.status(500).json({ error: error.message });
   }
 }
