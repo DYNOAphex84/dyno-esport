@@ -7,53 +7,55 @@ export default async function handler(req, res) {
     const { prompt } = req.body;
 
     if (!process.env.HF_TOKEN) {
-      return res.status(500).json({ error: "HF_TOKEN manquant" });
+      return res.status(500).json({ error: "HF_TOKEN manquant dans Vercel" });
     }
 
+    // ✅ On utilise un modèle 100% fiable
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1-base",
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.HF_TOKEN}`,
           "Content-Type": "application/json",
-          "x-wait-for-model": "true"
         },
         body: JSON.stringify({
-          inputs: "esport gaming style, " + prompt,
-          options: {
-            wait_for_model: true
-          }
+          inputs: "esport gaming style, high quality, " + prompt,
         }),
       }
     );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(500).json({
-        error: `Erreur HF: ${text.substring(0, 100)}`
+    // ✅ On récupère la réponse brute
+    const text = await response.text();
+
+    // ✅ Si c'est du JSON (erreur ou succès)
+    if (text.startsWith("{")) {
+      const data = JSON.parse(text);
+      
+      // Si Hugging renvoie une erreur (ex: "Model is loading")
+      if (data.error || !data.images) {
+        return res.status(500).json({ 
+          error: data.error || "Erreur inconnue du modèle" 
+        });
+      }
+      
+      // Si c'est bon
+      return res.status(200).json({
+        images: [{ url: `data:image/jpeg;base64,${data.images[0]}` }]
+      });
+    } 
+    
+    // ✅ Si c'est une image binaire directe
+    else {
+      const base64 = Buffer.from(text).toString("base64");
+      return res.status(200).json({
+        images: [{ url: `data:image/jpeg;base64,${base64}` }]
       });
     }
-
-    const contentType = response.headers.get("content-type");
-
-    if (contentType && contentType.includes("application/json")) {
-      const data = await response.json();
-      return res.status(500).json({
-        error: data.error || "Modèle en chargement, réessaie"
-      });
-    }
-
-    const buffer = await response.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString("base64");
-
-    return res.status(200).json({
-      images: [{ url: `data:image/jpeg;base64,${base64}` }]
-    });
 
   } catch (error) {
     return res.status(500).json({
-      error: error.message
+      error: error.message,
     });
   }
 }
