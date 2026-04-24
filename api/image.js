@@ -10,32 +10,53 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "REPLICATE_API_TOKEN manquant" });
     }
 
-    // ✅ Création de la prédiction
-    const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        version: "ac732df83cea7fff0e39bd99f8b6c9d8d8f8b7a6e7e68",
-        input: {
-          prompt: `esport logo, ultra detailed, black and gold theme, ${prompt}`,
-          negative_prompt: "blurry, bad quality, low resolution",
-          width: 768,
-          height: 512,
-          num_inference_steps: 30,
-          guidance_scale: 8.5
-        }
-      })
-    });
+    const response = await fetch(
+      "https://api.replicate.com/v1/predictions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          version: "black-forest-labs/flux-schnell",
+          input: {
+            prompt: `esport logo, black and gold theme, ultra detailed, ${prompt}`,
+          },
+        }),
+      }
+    );
 
-    const prediction = await createResponse.json();
+    const prediction = await response.json();
 
-    if (!prediction.id) {
-      return res.status(500).json({ 
-        error: prediction.detail || "Erreur création prediction" 
-      });
+    if (!prediction.urls || !prediction.urls.get) {
+      return res.status(500).json({ error: "Erreur création prediction" });
     }
 
-    
+    // ✅ On attend le résultat
+    let result;
+    while (true) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const poll = await fetch(prediction.urls.get, {
+        headers: {
+          Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+        },
+      });
+
+      result = await poll.json();
+
+      if (result.status === "succeeded") break;
+      if (result.status === "failed") {
+        return res.status(500).json({ error: "Generation failed" });
+      }
+    }
+
+    return res.status(200).json({
+      images: [{ url: result.output[0] }],
+    });
+
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+}
