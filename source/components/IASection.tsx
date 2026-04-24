@@ -5,24 +5,35 @@ export const IASection = ({ H }: { H: any }) => {
   const [iaMessages, setIaMessages] = useState<{ role: 'user' | 'ia'; content: string }[]>([])
   const [iaLoading, setIaLoading] = useState(false)
 
-  const genererImage = async () => {
+    const genererImage = async () => {
     if (!iaQuestion.trim()) return
     const promptUtilisateur = iaQuestion
-    const newMsgs = [...iaMessages, { role: 'user' as const, content: promptUtilisateur }]
-    setIaMessages(newMsgs)
+    setIaMessages([...iaMessages, { role: 'user', content: promptUtilisateur }])
     setIaQuestion('')
     setIaLoading(true)
 
     try {
-      // On force l'appel vers l'API interne de Vercel
       const res = await fetch('/api/image', {
-        method: 'POST',
+        method: 'POST', // <-- VERIFIE QUE C'EST BIEN EN MAJUSCULES
         headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json' 
         },
-        body: JSON.stringify({ prompt: promptUtilisateur })
+        body: JSON.stringify({ prompt: promptUtilisateur }) // <-- ON ENVOIE LE TEXTE ICI
       })
+      
+      const data = await res.json()
+      
+      if (data.images && data.images[0]) {
+        setIaMessages(prev => [...prev, { role: 'ia', content: `![Génération](${data.images[0].url})` }])
+      } else {
+        setIaMessages(prev => [...prev, { role: 'ia', content: '❌ Erreur de génération' }])
+      }
+    } catch (err) {
+      setIaMessages(prev => [...prev, { role: 'ia', content: '❌ Erreur de connexion' }])
+    } finally {
+      setIaLoading(false)
+    }
+  }
       
       const data = await res.json()
       
