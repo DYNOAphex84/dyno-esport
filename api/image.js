@@ -1,6 +1,5 @@
 export default async function handler(req, res) {
   const { prompt } = req.body;
-
   try {
     const response = await fetch("https://queue.fal.run/fal-ai/flux/schnell", {
       method: "POST",
@@ -14,10 +13,9 @@ export default async function handler(req, res) {
         num_inference_steps: 4
       })
     });
-
     const data = await response.json();
     res.status(200).json(data);
   } catch (error) {
-    res.status(500).json({ error: "Erreur génération image" });
+    res.status(500).json({ error: "Erreur" });
   }
 }
