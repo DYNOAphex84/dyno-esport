@@ -128,26 +128,57 @@ function App() {
   }
 
   const handleAvatarUpload = async (e: any) => {
-    if (!user || !e.target.files?.[0]) return
-    const file = e.target.files[0]
-    if (file.size > 600 * 1024) { alert('⚠️ Image trop lourde ! Max 600KB.'); return }
-    const reader = new FileReader()
-    reader.onloadend = async () => {
-      const base64String = reader.result as string
-      setAvatarUrl(base64String)
-      await updateDoc(doc(db, 'users', user.uid), { avatarUrl: base64String })
-      addLog('Photo de profil mise à jour')
-      alert('✅ Photo enregistrée !')
-    }
-    reader.readAsDataURL(file)
+  if (!user || !e.target.files?.[0]) return
+  const file = e.target.files[0]
+
+  // ✅ Compression automatique via Canvas
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          
+          // ✅ On réduit à max 400x400px
+          const maxSize = 400
+          let width = img.width
+          let height = img.height
+          
+          if (width > height) {
+            if (width > maxSize) { height = (height * maxSize) / width; width = maxSize }
+          } else {
+            if (height > maxSize) { width = (width * maxSize) / height; height = maxSize }
+          }
+          
+          canvas.width = width
+          canvas.height = height
+          
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+          
+          // ✅ Qualité à 70% (bonne qualité, petit poids)
+          const compressed = canvas.toDataURL('image/jpeg', 0.7)
+          resolve(compressed)
+        }
+        img.src = event.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
-  const saveAvatar = async () => {
-    if (!user || !avatarUrl) return
-    await updateDoc(doc(db, 'users', user.uid), { avatarUrl })
-    addLog('Avatar URL mis à jour')
-    alert('✅ URL enregistrée !')
+  try {
+    alert('⏳ Compression en cours...')
+    const compressed = await compressImage(file)
+    
+    setAvatarUrl(compressed)
+    await updateDoc(doc(db, 'users', user.uid), { avatarUrl: compressed })
+    addLog('Photo de profil mise à jour')
+    alert('✅ Photo enregistrée !')
+  } catch (err: any) {
+    alert('❌ Erreur : ' + err.message)
   }
+}
 
   useEffect(() => { if (window.location.search.includes('reset=1')) { localStorage.clear(); window.location.href = window.location.pathname } }, [])
 
