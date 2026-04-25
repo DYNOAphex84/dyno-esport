@@ -1,12 +1,13 @@
 {
   "name": "DYNO Esport",
   "short_name": "DYNO",
-  "description": "Application officielle DYNO Esport Team",
-  "start_url": "/dyno-esport/",
+  "description": "Application de gestion d'équipe DYNO Esport",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
+  "background_color": "#030303",
   "theme_color": "#D4AF37",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "https://i.imgur.com/gTLj57a.png",
