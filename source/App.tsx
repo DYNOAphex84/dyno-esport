@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+9import { useState, useEffect, useCallback, useRef } from 'react'
 import { initializeApp } from 'firebase/app'
 import {
   getFirestore, collection, addDoc, updateDoc,
@@ -224,8 +224,7 @@ function App() {
       setUploadingAvatar(false)
     }
   }
-  }, [])
-
+  
   useEffect(() => {
     if (!notificationsEnabled) return
     try { if (!('Notification' in window) || Notification.permission !== 'granted') return } catch { return }
