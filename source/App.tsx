@@ -55,6 +55,44 @@ const isHP = (dateStr: string, timeStr: string): boolean => {
   } catch { return false }
 }
 
+interface StratVideo {
+  id: string
+  titre: string
+  description: string
+  youtubeUrl: string
+  youtubeId: string
+  jeu: string
+  map: string
+  categorie: 'strat' | 'tutorial' | 'highlight' | 'replay' | 'scrim'
+  tags: string[]
+  auteur: string
+  auteurId: string
+  vues: number
+  likes: string[]
+  publie: boolean
+  createdAt: number
+}
+
+const extractYoutubeId = (url: string): string => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?#\s]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ]
+  for (const p of patterns) {
+    const m = url.match(p)
+    if (m) return m[1]
+  }
+  return ''
+}
+
+const CATS = [
+  { v: 'strat', l: 'Stratégie', i: '🎯' },
+  { v: 'tutorial', l: 'Tutoriel', i: '📚' },
+  { v: 'highlight', l: 'Highlight', i: '⭐' },
+  { v: 'replay', l: 'Replay', i: '🎬' },
+  { v: 'scrim', l: 'Scrim', i: '⚔️' },
+]
+
 const P = () => (
   <div className="particles">
     {Array.from({ length: 12 }).map((_, i) => <div key={i} className="particle" />)}
@@ -84,9 +122,6 @@ function App() {
   const [analyses, setAnalyses] = useState<any[]>([])
   const [fichesAdversaires, setFichesAdversaires] = useState<any[]>([])
   const [logs, setLogs] = useState<any[]>([])
-  const [videos, setVideos] = useState<any[]>([])
-  const [videoStrats, setVideoStrats] = useState<any[]>([])
-  
   const [nouveauMatch, setNouveauMatch] = useState({
     adversaire: '', date: '', horaire1: '', horaire2: '',
     arene: 'Arène 1', type: 'Ligue',
@@ -123,14 +158,21 @@ function App() {
   const [allPasses, setAllPasses] = useState<any[]>([])
   const [avatarUrl, setAvatarUrl] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  
-  // YOUTUBE STATES
-  const [nouvelleVideo, setNouvelleVideo] = useState({ titre: '', description: '', youtubeUrl: '', status: 'draft', category: 'Tutorial', tags: '', targetAudience: '', duration: 0, views: 0, likes: 0, comments: 0 })
-  const [editingVideo, setEditingVideo] = useState<any>(null)
+
+  // STRAT VIDÉO STATE
+  const [stratVideos, setStratVideos] = useState<StratVideo[]>([])
   const [showAddVideo, setShowAddVideo] = useState(false)
-  const [nouvelleStratVideo, setNouvelleStratVideo] = useState({ nom: '', description: '', goal: '', targetAudience: '', uploadFrequency: '1 par semaine', contentTypes: '' })
-  const [showAddStratVideo, setShowAddStratVideo] = useState(false)
-  const [selectedStratVideo, setSelectedStratVideo] = useState<any>(null)
+  const [selectedVideo, setSelectedVideo] = useState<StratVideo | null>(null)
+  const [videoFilter, setVideoFilter] = useState<'all' | 'strat' | 'tutorial' | 'highlight' | 'replay' | 'scrim'>('all')
+  const [videoSearch, setVideoSearch] = useState('')
+  const [newVideo, setNewVideo] = useState({
+    titre: '', description: '', youtubeUrl: '',
+    jeu: 'Valorant', map: '', categorie: 'strat' as StratVideo['categorie'],
+    tags: '', publie: true
+  })
+  const [videoYtId, setVideoYtId] = useState('')
+  const [videoStep, setVideoStep] = useState<'form' | 'preview' | 'publishing' | 'done'>('form')
+  const [playerLoaded, setPlayerLoaded] = useState(false)
 
   const pm = useRef(0), pn = useRef(0), pc = useRef(0), ps = useRef(0), pi = useRef(0), ty = useRef(0)
 
@@ -139,54 +181,49 @@ function App() {
     try { await addDoc(collection(db, 'logs'), { joueur: pseudo, joueurId: user.uid, action, createdAt: Date.now() }) } catch {}
   }
 
-  const ytIdFromUrl = (url: string) => {
-    const regex = /(?:youtube\.com\/(?:[^\\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\\/\s]{11})/
-    const m = url.match(regex)
-    return m ? m[1] : null
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const maxSize = 400
+          let width = img.width, height = img.height
+          if (width > height) { if (width > maxSize) { height = (height * maxSize) / width; width = maxSize } }
+          else { if (height > maxSize) { width = (width * maxSize) / height; height = maxSize } }
+          canvas.width = width; canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/jpeg', 0.7))
+        }
+        img.onerror = reject
+        img.src = event.target?.result as string
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
   }
 
-  const ajouterVideo = async () => {
-    if (!nouvelleVideo.titre || !nouvelleVideo.description) { alert('Remplis les champs'); return }
-    const tagArray = nouvelleVideo.tags.split(',').map(t => t.trim()).filter(Boolean)
-    const videoData = { ...nouvelleVideo, tags: tagArray, createdAt: Date.now(), auteur: pseudo, auteurId: user?.uid, stratId: selectedStratVideo?.id || null }
-    await addDoc(collection(db, 'videos'), videoData)
-    addLog('Video: ' + nouvelleVideo.titre)
-    setNouvelleVideo({ titre: '', description: '', youtubeUrl: '', status: 'draft', category: 'Tutorial', tags: '', targetAudience: '', duration: 0, views: 0, likes: 0, comments: 0 })
-    setShowAddVideo(false)
-    alert('Video ajoutée!')
+  const handleAvatarUpload = async (e: any) => {
+    if (!user || !e.target.files?.[0]) return
+    const file = e.target.files[0]
+    setUploadingAvatar(true)
+    try {
+      const compressed = await compressImage(file)
+      setAvatarUrl(compressed)
+      await updateDoc(doc(db, 'users', user.uid), { avatarUrl: compressed })
+      addLog('Photo de profil mise à jour')
+      alert('✅ Photo enregistrée !')
+    } catch (err: any) { alert('❌ Erreur : ' + err.message) }
+    finally { setUploadingAvatar(false) }
   }
 
-  const ajouterStratVideo = async () => {
-    if (!nouvelleStratVideo.nom) { alert('Nom requis'); return }
-    const contentTypes = nouvelleStratVideo.contentTypes.split(',').map(t => t.trim()).filter(Boolean)
-    const stratData = { ...nouvelleStratVideo, contentTypes, videos: [], createdAt: Date.now(), auteur: pseudo, auteurId: user?.uid }
-    await addDoc(collection(db, 'videoStrats'), stratData)
-    addLog('Strat video: ' + nouvelleStratVideo.nom)
-    setNouvelleStratVideo({ nom: '', description: '', goal: '', targetAudience: '', uploadFrequency: '1 par semaine', contentTypes: '' })
-    setShowAddStratVideo(false)
-    alert('Strategie creee!')
-  }
-
-  const updateVideo = async () => {
-    if (!editingVideo) return
-    const tagArray = typeof editingVideo.tags === 'string' ? editingVideo.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : editingVideo.tags
-    await updateDoc(doc(db, 'videos', editingVideo.id), { ...editingVideo, tags: tagArray })
-    addLog('Video modifiee')
-    setEditingVideo(null)
-    setShowAddVideo(false)
-    alert('Mise a jour!')
-  }
-
-  const deleteVideo = async (id: string) => {
-    if (!confirm('Supprimer?')) return
-    await deleteDoc(doc(db, 'videos', id))
-    addLog('Video supprimee')
-  }
-
-  const deleteStratVideo = async (id: string) => {
-    if (!confirm('Supprimer la strategie?')) return
-    await deleteDoc(doc(db, 'videoStrats', id))
-    addLog('Strat video supprimee')
+  const saveAvatar = async () => {
+    if (!user || !avatarUrl) return
+    await updateDoc(doc(db, 'users', user.uid), { avatarUrl })
+    addLog('Avatar URL mis à jour')
+    alert('✅ URL enregistrée !')
   }
 
   useEffect(() => { if (window.location.search.includes('reset=1')) { localStorage.clear(); window.location.href = window.location.pathname } }, [])
@@ -201,11 +238,11 @@ function App() {
 
   const requestNotificationPermission = async () => {
     try {
-      if (!('Notification' in window)) { alert('Non'); return }
+      if (!('Notification' in window)) { alert('❌'); return }
       const p = await Notification.requestPermission()
-      if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('Activees!') }
-      else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false') }
-    } catch { }
+      if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('✅ Notifs activées !') }
+      else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false'); alert('❌') }
+    } catch { alert('❌') }
   }
 
   const getMatchDateTime = useCallback((m: any): Date | null => {
@@ -232,10 +269,13 @@ function App() {
         if (!mt) return
         const dm = (mt.getTime() - now.getTime()) / 60000
         const k1 = m.id + '-24h'
-        if (dm > 1410 && dm <= 1450 && !notifiedMatchs.includes(k1)) {
-          sendNotification('Match demain!', 'DYNO vs ' + m.adversaire, 'm24h')
-          const u = [...notifiedMatchs, k1]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u))
-        }
+        if (dm > 1410 && dm <= 1450 && !notifiedMatchs.includes(k1)) { sendNotification('📅 Match demain !', 'DYNO vs ' + m.adversaire + ' dans 24h !', 'm24h'); const u = [...notifiedMatchs, k1]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
+        const k2 = m.id + '-1h'
+        if (dm > 55 && dm <= 65 && !notifiedMatchs.includes(k2)) { sendNotification('🎮 Match dans 1h !', 'DYNO vs ' + m.adversaire + ' • Préparez-vous !', 'm1h'); const u = [...notifiedMatchs, k2]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
+        const k3 = m.id + '-15m'
+        if (dm > 10 && dm <= 20 && !notifiedMatchs.includes(k3)) { sendNotification('🔥 Match dans 15min !', 'DYNO vs ' + m.adversaire + ' • GO GO GO !', 'm15'); const u = [...notifiedMatchs, k3]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
+        const k4 = m.id + '-now'
+        if (dm >= -2 && dm <= 3 && !notifiedMatchs.includes(k4)) { sendNotification('⚡ C\'EST PARTI !', 'DYNO vs ' + m.adversaire + ' • EN COURS !', 'mnow'); const u = [...notifiedMatchs, k4]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
       })
     }
     ck()
@@ -252,11 +292,8 @@ function App() {
         const mt = getMatchDateTime(m)
         if (!mt) return
         const df = mt.getTime() - now.getTime()
-        if (df <= 0) { c[m.id] = 'EN COURS'; return }
-        const j = Math.floor(df / 86400000)
-        const h = Math.floor((df % 86400000) / 3600000)
-        const mi = Math.floor((df % 3600000) / 60000)
-        const s = Math.floor((df % 60000) / 1000)
+        if (df <= 0) { c[m.id] = '🔴 EN COURS'; return }
+        const j = Math.floor(df / 86400000), h = Math.floor((df % 86400000) / 3600000), mi = Math.floor((df % 3600000) / 60000), s = Math.floor((df % 60000) / 1000)
         c[m.id] = (j > 0 ? j + 'j ' : '') + ((h > 0 || j > 0) ? h + 'h ' : '') + mi + 'm ' + s + 's'
       })
       setCountdowns(c)
@@ -308,109 +345,193 @@ function App() {
   useEffect(() => { const q = query(collection(db, 'fichesAdversaires'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setFichesAdversaires(d) }); return () => u() }, [])
   useEffect(() => { const u = onSnapshot(collection(db, 'users'), (s: any) => { const d: any[] = []; s.forEach((x: any) => { const data = x.data(); if (data.evaPass) d.push({ oduserId: x.id, pseudo: data.pseudo, avatarUrl: data.avatarUrl, ...data.evaPass }) }); setAllPasses(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'logs'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setLogs(d.slice(0, 50)) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'videos'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setVideos(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'videoStrats'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setVideoStrats(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'stratVideos'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: StratVideo[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() } as StratVideo)); setStratVideos(d) }); return () => u() }, [])
+
+  useEffect(() => { if (!notificationsEnabled || pm.current === 0) { pm.current = matchs.length; return }; if (matchs.length > pm.current) { const n = matchs[0]; if (n) sendNotification('📅 Nouveau match !', 'DYNO vs ' + n.adversaire, 'nm') }; pm.current = matchs.length }, [matchs, notificationsEnabled, sendNotification])
+  useEffect(() => { if (!notificationsEnabled || pn.current === 0) { pn.current = notes.length; return }; if (notes.length > pn.current) { const n = notes[0]; if (n) sendNotification('📊 Nouvelle note !', n.joueur + ' a noté un match', 'nn') }; pn.current = notes.length }, [notes, notificationsEnabled, sendNotification])
+  useEffect(() => { if (!notificationsEnabled || pc.current === 0) { pc.current = commentaires.length; return }; if (commentaires.length > pc.current) { const n = commentaires[0]; if (n) sendNotification('💬 Nouveau commentaire !', n.joueur + ': ' + n.texte.substring(0, 50), 'nc') }; pc.current = commentaires.length }, [commentaires, notificationsEnabled, sendNotification])
+  useEffect(() => { if (!notificationsEnabled || ps.current === 0) { ps.current = strats.length; return }; if (strats.length > ps.current) { const n = strats[0]; if (n) sendNotification('🎯 Nouvelle strat !', 'vs ' + n.adversaire, 'ns') }; ps.current = strats.length }, [strats, notificationsEnabled, sendNotification])
+  useEffect(() => { if (!notificationsEnabled || pi.current === 0) { pi.current = idees.length; return }; if (idees.length > pi.current) { const n = idees[0]; if (n) sendNotification('💡 Nouvelle idée !', n.joueur + ': ' + n.texte?.substring(0, 50), 'ni') }; pi.current = idees.length }, [idees, notificationsEnabled, sendNotification])
+  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 2500); return () => clearTimeout(t) }, [])
+  useEffect(() => { window.addEventListener('beforeinstallprompt', (e: any) => { e.preventDefault(); setDeferredPrompt(e); setShowInstall(true) }) }, [])
 
   const handleInstall = () => { if (deferredPrompt) { deferredPrompt.prompt(); setDeferredPrompt(null); setShowInstall(false) } }
 
   const handleSignUp = async () => {
-    if (!email || !authPassword || !pseudo) { alert('Remplis tout'); return }
+    if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }
     try {
       const r = await createUserWithEmailAndPassword(auth, email, authPassword)
       await setDoc(doc(db, 'users', r.user.uid), { pseudo, email, createdAt: Date.now(), isAdmin: email === AE })
       await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', rang: 'Nouveau', userId: r.user.uid, createdAt: Date.now() })
-      alert('Compte cree!'); setIsSignUp(false); setEmail(''); setAuthPassword('')
-    } catch (e: any) { alert('Erreur: ' + e.message) }
+      alert('✅ Compte créé !'); setIsSignUp(false); setEmail(''); setAuthPassword('')
+    } catch (e: any) { alert('❌ ' + e.message) }
   }
 
   const handleSignIn = async () => {
-    if (!email || !authPassword) { alert('Remplis tout'); return }
+    if (!email || !authPassword) { alert('⚠️ Remplis tout !'); return }
     try {
       await setPersistence(auth, browserLocalPersistence)
       await signInWithEmailAndPassword(auth, email, authPassword)
       localStorage.setItem('user-email', email)
-      alert('Connecte!'); setEmail(''); setAuthPassword('')
-    } catch (e: any) { alert('Erreur: ' + e.message) }
+      alert('✅ Connecté !'); setEmail(''); setAuthPassword('')
+    } catch (e: any) { alert('❌ ' + e.message) }
   }
 
   const handleSignOut = async () => {
     await signOut(auth); setPseudo(''); setIsAdmin(false)
     localStorage.removeItem('dyno-admin'); localStorage.removeItem('user-email')
-    setMyPass(null); setAvatarUrl(''); alert('Deconnecte!')
+    setMyPass(null); setAvatarUrl(''); alert('✅ Déconnecté !')
   }
 
   const handleAdminLogin = () => {
     if (adminPassword === 'dyno2026') { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true'); setAdminPassword('') }
-    else alert('Mauvais mdp')
+    else alert('❌ Mot de passe incorrect !')
   }
 
   const handleAdminLogout = () => { setIsAdmin(false); localStorage.removeItem('dyno-admin') }
+
+  const selectPass = async (type: string) => {
+    if (!user) return
+    const pd = EVA_PASSES[type]; if (!pd) return
+    const passData = { type, hcTotal: pd.hc, hpTotal: pd.hp, hcUsed: 0, hpUsed: 0, dateReset: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0] }
+    await updateDoc(doc(db, 'users', user.uid), { evaPass: passData })
+    setMyPass(passData); addLog('Pass ' + pd.label); alert('✅ Pass activé !')
+  }
 
   const getMatchTimeType = (match: any): 'hc' | 'hp' => {
     const time = match.horaires?.[0] || match.horaire1 || '20:00'
     return isHP(match.date, time) ? 'hp' : 'hc'
   }
 
+  const ajouterSousMatch = () => { const adv = prompt('Adversaire :'); if (!adv) return; const sd = prompt('Score DYNO :'); if (!sd) return; const sa = prompt('Score ' + adv + ' :'); if (!sa) return; setNouveauMatch({ ...nouveauMatch, sousMatchs: [...nouveauMatch.sousMatchs, { adversaire: adv, scoreDyno: sd, scoreAdv: sa }] }) }
+  const supprimerSousMatch = (i: number) => { const sm = [...nouveauMatch.sousMatchs]; sm.splice(i, 1); setNouveauMatch({ ...nouveauMatch, sousMatchs: sm }) }
+  const ajouterEditSousMatch = () => { if (!editHistoriqueScore) return; const adv = prompt('Adversaire :'); if (!adv) return; const sd = prompt('Score DYNO :'); if (!sd) return; const sa = prompt('Score ' + adv + ' :'); if (!sa) return; setEditHistoriqueScore({ ...editHistoriqueScore, sousMatchs: [...(editHistoriqueScore.sousMatchs || []), { adversaire: adv, scoreDyno: sd, scoreAdv: sa }] }) }
+  const supprimerEditSousMatch = (i: number) => { if (!editHistoriqueScore) return; const sm = [...(editHistoriqueScore.sousMatchs || [])]; sm.splice(i, 1); setEditHistoriqueScore({ ...editHistoriqueScore, sousMatchs: sm }) }
+
   const ajouterMatch = async () => {
-    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('Remplis tout'); return }
+    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('⚠️ Remplis les champs obligatoires !'); return }
     const md: any = { ...nouveauMatch, termine: false, disponibles: [], indisponibles: [], createdAt: Date.now() }
+    if (nouveauMatch.type === 'Division' && nouveauMatch.sousMatchs.length > 0) {
+      md.termine = true; md.sousMatchs = nouveauMatch.sousMatchs
+      md.scoreDyno = nouveauMatch.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0)
+      md.scoreAdversaire = nouveauMatch.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0)
+    }
     await addDoc(collection(db, 'matchs'), md)
     addLog('Match vs ' + nouveauMatch.adversaire)
+    const h = [nouveauMatch.horaire1]; if (nouveauMatch.horaire2) h.push(nouveauMatch.horaire2)
+    try { await fetch(DW, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '🎮 DYNO vs ' + nouveauMatch.adversaire, color: 13934871, fields: [{ name: '⚔️', value: nouveauMatch.adversaire, inline: true }, { name: '📅', value: nouveauMatch.date, inline: true }, { name: '⏰', value: h.join(' / '), inline: true }, { name: '🏟️', value: nouveauMatch.arene, inline: true }, { name: '📊', value: nouveauMatch.type, inline: true }], footer: { text: 'DYNO Esport', icon_url: LG } }] }) }) } catch {}
     setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', sousMatchs: [] })
-    alert('Match ajoute!')
+    alert('✅ Match ajouté !')
   }
 
-  const toggleDispo = async (mid: string) => {
-    if (!user) return
-    const m = matchs.find((x: any) => x.id === mid)
-    if (!m) return
-    const d = m.disponibles || []
-    const i = m.indisponibles || []
-    const isDispo = d.includes(pseudo)
-    addLog(isDispo ? 'Retrait dispo' : 'Dispo')
-    await updateDoc(doc(db, 'matchs', mid), {
-      disponibles: isDispo ? d.filter((p: string) => p !== pseudo) : [...d, pseudo],
-      indisponibles: i.filter((p: string) => p !== pseudo)
-    })
+  const ajouterReplay = async () => { if (!nouveauReplay.titre || !nouveauReplay.lien) { alert('⚠️!'); return }; await addDoc(collection(db, 'replays'), { ...nouveauReplay, createdAt: Date.now() }); addLog('Replay: ' + nouveauReplay.titre); setNouveauReplay({ titre: '', lien: '' }); alert('✅!') }
+  const ajouterNote = async () => { if (!user) return; await addDoc(collection(db, 'notes'), { matchId: selectedMatchForNotes?.id, joueur: pseudo, joueurId: user.uid, mental: nouvelleNote.mental, communication: nouvelleNote.communication, gameplay: nouvelleNote.gameplay, createdAt: Date.now() }); addLog('Note'); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }); setSelectedMatchForNotes(null); alert('✅!') }
+  const ajouterCommentaire = async (id: string) => { if (!user || !nouveauCommentaire.trim()) return; await addDoc(collection(db, 'commentaires'), { matchId: id, joueur: pseudo, joueurId: user.uid, texte: nouveauCommentaire.trim(), createdAt: Date.now() }); addLog('Commentaire'); setNouveauCommentaire(''); setSelectedMatchForComment(null); alert('✅!') }
+  const ajouterStrat = async () => { if (!nouvelleStrat.adversaire || nouvelleStrat.picks.length === 0 || nouvelleStrat.bans.length === 0) { alert('⚠️!'); return }; await addDoc(collection(db, 'strats'), { adversaire: nouvelleStrat.adversaire, picks: nouvelleStrat.picks, bans: nouvelleStrat.bans, auteur: pseudo || 'Anonyme', auteurId: user?.uid || null, createdAt: Date.now() }); addLog('Strat vs ' + nouvelleStrat.adversaire); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }); setShowAddStrat(false); alert('✅!') }
+  const ajouterCompo = async () => { if (!selectedMapCompo || compoJoueurs.length === 0) { alert('⚠️!'); return }; const ex = compos.find((c: any) => c.map === selectedMapCompo); if (ex) { await updateDoc(doc(db, 'compos', ex.id), { joueurs: compoJoueurs, updatedAt: Date.now() }) } else { await addDoc(collection(db, 'compos'), { map: selectedMapCompo, joueurs: compoJoueurs, auteur: pseudo, createdAt: Date.now() }) }; addLog('Compo ' + selectedMapCompo); setShowAddCompo(false); setSelectedMapCompo(''); setCompoJoueurs([]); alert('✅!') }
+  const toggleCompoJoueur = (n: string) => { if (compoJoueurs.includes(n)) setCompoJoueurs(compoJoueurs.filter(j => j !== n)); else setCompoJoueurs([...compoJoueurs, n]) }
+  const sauvegarderAnniversaire = async () => { if (!user || !anniversaire) return; await updateDoc(doc(db, 'users', user.uid), { anniversaire }); alert('✅!') }
+
+  const ajouterIdee = async () => {
+    if (!user || !nouvelleIdee.trim()) return
+    await addDoc(collection(db, 'idees'), { texte: nouvelleIdee.trim(), joueur: pseudo, joueurId: user.uid, votes: {}, ideaComments: [], createdAt: Date.now() })
+    try { await fetch(DW_IDEES, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '💡 Nouvelle idée !', description: nouvelleIdee.trim(), color: 16766720, fields: [{ name: '👤 Par', value: pseudo, inline: true }], footer: { text: 'DYNO Esport', icon_url: LG } }] }) }) } catch {}
+    addLog('Idée: ' + nouvelleIdee.trim()); setNouvelleIdee(''); alert('✅ Idée ajoutée !')
   }
 
-  const toggleIndispo = async (mid: string) => {
-    if (!user) return
-    const m = matchs.find((x: any) => x.id === mid)
-    if (!m) return
-    const d = m.disponibles || []
-    const i = m.indisponibles || []
-    addLog('Indispo')
-    await updateDoc(doc(db, 'matchs', mid), {
-      indisponibles: i.includes(pseudo) ? i.filter((p: string) => p !== pseudo) : [...i, pseudo],
-      disponibles: d.filter((p: string) => p !== pseudo)
-    })
-  }
+  const voterIdee = async (ideeId: string, vote: string) => { if (!user) return; const idee = idees.find((i: any) => i.id === ideeId); if (!idee) return; const votes = { ...(idee.votes || {}) }; if (votes[user.uid] === vote) delete votes[user.uid]; else votes[user.uid] = vote; await updateDoc(doc(db, 'idees', ideeId), { votes }) }
+  const commenterIdee = async (ideeId: string, commentInput: HTMLInputElement) => { if (!user || !commentInput?.value.trim()) return; const idee = idees.find((i: any) => i.id === ideeId); if (!idee) return; const nc = [...(idee.ideaComments || []), { joueur: pseudo, joueurId: user.uid, texte: commentInput.value.trim(), createdAt: Date.now() }]; await updateDoc(doc(db, 'idees', ideeId), { ideaComments: nc }); commentInput.value = '' }
+  const ajouterAnalyse = async (mid: string) => { if (!user) return; await addDoc(collection(db, 'analyses'), { matchId: mid, joueur: pseudo, joueurId: user.uid, ...nouvelleAnalyse, createdAt: Date.now() }); addLog('Analyse'); setNouvelleAnalyse({ bien: '', mal: '', plan: '' }); setSelectedMatchForAnalyse(null); alert('✅!') }
+  const ajouterFiche = async () => { if (!nouvelleFiche.adversaire.trim()) return; await addDoc(collection(db, 'fichesAdversaires'), { ...nouvelleFiche, auteur: pseudo, auteurId: user?.uid, createdAt: Date.now() }); addLog('Fiche: ' + nouvelleFiche.adversaire); setNouvelleFiche({ adversaire: '', forces: '', faiblesses: '', notes: '' }); setShowAddFiche(false); alert('✅!') }
+  const del = async (col: string, id: string) => { await deleteDoc(doc(db, col, id)); addLog('Suppression ' + col) }
+  const updateScore = async () => { if (!scoreEdit) return; await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true }); addLog('Score'); setScoreEdit(null); alert('✅!') }
+  const updateHistoriqueScore = async () => { if (!editHistoriqueScore) return; const ud: any = { adversaire: editHistoriqueScore.adversaire, type: editHistoriqueScore.type, arene: editHistoriqueScore.arene, date: editHistoriqueScore.date, termine: editHistoriqueScore.termine !== false }; if (editHistoriqueScore.type === 'Division' && editHistoriqueScore.sousMatchs?.length > 0) { ud.sousMatchs = editHistoriqueScore.sousMatchs; ud.scoreDyno = editHistoriqueScore.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0); ud.scoreAdversaire = editHistoriqueScore.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0) } else { ud.scoreDyno = parseInt(editHistoriqueScore.scoreDyno); ud.scoreAdversaire = parseInt(editHistoriqueScore.scoreAdv); if (editHistoriqueScore.type !== 'Division') ud.sousMatchs = [] }; await updateDoc(doc(db, 'matchs', editHistoriqueScore.id), ud); addLog('Match modifié'); setEditHistoriqueScore(null); alert('✅!') }
+
+  const toggleDispo = async (mid: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === mid); if (!m) return; const d = m.disponibles || []; const i = m.indisponibles || []; const isDispo = d.includes(pseudo); if (!isDispo && myPass) { const tt = getMatchTimeType(m); const uk = tt === 'hp' ? 'hpUsed' : 'hcUsed'; const tk = tt === 'hp' ? 'hpTotal' : 'hcTotal'; const rem = (myPass[tk] || 0) - (myPass[uk] || 0); if (rem < 2) alert('⚠️ Plus que ' + rem + ' jeton(s) !'); const np = { ...myPass, [uk]: (myPass[uk] || 0) + 2 }; setMyPass(np); await updateDoc(doc(db, 'users', user.uid), { evaPass: np }) } else if (isDispo && myPass) { const tt = getMatchTimeType(m); const uk = tt === 'hp' ? 'hpUsed' : 'hcUsed'; const np = { ...myPass, [uk]: Math.max(0, (myPass[uk] || 0) - 2) }; setMyPass(np); await updateDoc(doc(db, 'users', user.uid), { evaPass: np }) }; addLog(isDispo ? 'Retrait dispo: ' + m.adversaire : 'Dispo: ' + m.adversaire); await updateDoc(doc(db, 'matchs', mid), { disponibles: isDispo ? d.filter((p: string) => p !== pseudo) : [...d, pseudo], indisponibles: i.filter((p: string) => p !== pseudo) }) }
+  const toggleIndispo = async (mid: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === mid); if (!m) return; const d = m.disponibles || []; const i = m.indisponibles || []; if (d.includes(pseudo) && myPass) { const tt = getMatchTimeType(m); const uk = tt === 'hp' ? 'hpUsed' : 'hcUsed'; const np = { ...myPass, [uk]: Math.max(0, (myPass[uk] || 0) - 2) }; setMyPass(np); await updateDoc(doc(db, 'users', user.uid), { evaPass: np }) }; addLog('Indispo: ' + m.adversaire); await updateDoc(doc(db, 'matchs', mid), { indisponibles: i.includes(pseudo) ? i.filter((p: string) => p !== pseudo) : [...i, pseudo], disponibles: d.filter((p: string) => p !== pseudo) }) }
 
   const fdf = (s: string) => { if (!s) return ''; if (s.includes('/')) return s; const [y, m, d] = s.split('-'); return d + '/' + m + '/' + y }
-  
+  const fts = (t: number) => { const d = new Date(t); return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
+  const atc = (m: any) => { try { if (!m?.date) return; let y: string, mo: string, d: string; if (m.date.includes('/')) { const p = m.date.split('/'); d = p[0]; mo = p[1]; y = p[2] } else { const p = m.date.split('-'); y = p[0]; mo = p[1]; d = p[2] }; const md = y + mo + d; let h = '20', mi = '00'; if (m.horaires?.length > 0) { const p = m.horaires[0].split(':'); h = p[0]; mi = p[1] || '00' } else if (m.horaire1) { const p = m.horaire1.split(':'); h = p[0]; mi = p[1] || '00' }; const st = h + mi + '00'; const et = (parseInt(h) + 2).toString().padStart(2, '0') + mi + '00'; if (/iPad|iPhone|iPod/.test(navigator.userAgent)) { const ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:' + m.id + '@d\nDTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z\nDTSTART:' + md + 'T' + st + '\nDTEND:' + md + 'T' + et + '\nSUMMARY:DYNO vs ' + m.adversaire + '\nLOCATION:' + m.arene + '\nEND:VEVENT\nEND:VCALENDAR'; const b = new Blob([ics], { type: 'text/calendar' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'D_' + m.adversaire + '.ics'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u) } else { window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent('DYNO vs ' + m.adversaire) + '&dates=' + md + 'T' + st + '/' + md + 'T' + et + '&location=' + encodeURIComponent(m.arene), '_blank') } } catch (e: any) { alert('❌ ' + e.message) } }
+  const hts = (e: React.TouchEvent) => { ty.current = e.touches[0].clientY }
+  const htm = (e: React.TouchEvent) => { if (window.scrollY > 0) return; const d = e.touches[0].clientY - ty.current; if (d > 0) setPullDistance(Math.min(d * 0.4, 80)) }
+  const hte = () => { if (pullDistance > 60) { setIsRefreshing(true); setTimeout(() => window.location.reload(), 500) }; setPullDistance(0) }
+  const toggleMap = (map: string, type: 'picks' | 'bans') => { if (type === 'picks') { if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) }); else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] }) } else { if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) }); else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] }) } }
+  const genBilan = () => { const now = new Date(); const mm = historique.filter((m: any) => { const d = new Date(m.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const w = mm.filter((m: any) => (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length; const l = mm.filter((m: any) => (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length; const mn = notes.filter((n: any) => { const d = new Date(n.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const am = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.mental || 0), 0) / mn.length) : 0; const ac = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.communication || 0), 0) / mn.length) : 0; const ap = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.gameplay || 0), 0) / mn.length) : 0; return { nom: ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][now.getMonth()], m: mm.length, w, l, wr: mm.length > 0 ? Math.round((w / (w + l || 1)) * 100) : 0, am, ac, ap } }
+
+  // STRAT VIDÉO FUNCTIONS
+  const handleVideoUrlChange = (url: string) => {
+    setNewVideo(v => ({ ...v, youtubeUrl: url }))
+    setVideoYtId(extractYoutubeId(url))
+  }
+
+  const publierStratVideo = async () => {
+    if (!user || !newVideo.titre || !videoYtId) return
+    setVideoStep('publishing')
+    try {
+      await addDoc(collection(db, 'stratVideos'), {
+        titre: newVideo.titre, description: newVideo.description,
+        youtubeUrl: newVideo.youtubeUrl, youtubeId: videoYtId,
+        jeu: newVideo.jeu, map: newVideo.map || 'All',
+        categorie: newVideo.categorie,
+        tags: newVideo.tags.split(',').map(t => t.trim()).filter(Boolean),
+        auteur: pseudo, auteurId: user.uid,
+        vues: 0, likes: [], publie: newVideo.publie, createdAt: Date.now()
+      })
+      addLog('Vidéo: ' + newVideo.titre)
+      try {
+        await fetch(DW, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '🎬 Nouvelle Strat Vidéo !', description: newVideo.titre, color: 13934871, fields: [{ name: '📂', value: newVideo.categorie, inline: true }, { name: '🎮', value: newVideo.jeu, inline: true }, { name: '👤', value: pseudo, inline: true }], thumbnail: { url: `https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg` }, footer: { text: 'DYNO Esport', icon_url: LG } }] }) })
+      } catch {}
+      setVideoStep('done')
+    } catch (e: any) { alert('❌ ' + e.message); setVideoStep('form') }
+  }
+
+  const likerVideo = async (vid: StratVideo) => {
+    if (!user) return
+    const likes = vid.likes || []
+    const newLikes = likes.includes(user.uid) ? likes.filter((id: string) => id !== user.uid) : [...likes, user.uid]
+    await updateDoc(doc(db, 'stratVideos', vid.id), { likes: newLikes })
+  }
+
+  const togglePublierVideo = async (vid: StratVideo) => {
+    await updateDoc(doc(db, 'stratVideos', vid.id), { publie: !vid.publie })
+    if (selectedVideo?.id === vid.id) setSelectedVideo({ ...vid, publie: !vid.publie })
+  }
+
+  const filteredVideos = stratVideos.filter(v => {
+    const matchCat = videoFilter === 'all' || v.categorie === videoFilter
+    const matchSearch = !videoSearch || v.titre.toLowerCase().includes(videoSearch.toLowerCase()) || v.description?.toLowerCase().includes(videoSearch.toLowerCase()) || v.tags?.some(t => t.toLowerCase().includes(videoSearch.toLowerCase()))
+    const visible = isAdmin || v.publie || v.auteurId === user?.uid
+    return matchCat && matchSearch && visible
+  })
+
   const victoires = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const totalMatchs = victoires + defaites
   const winRate = totalMatchs > 0 ? Math.round((victoires / totalMatchs) * 100) : 0
   const prochainsMatchs = matchs.filter((m: any) => !m.termine).sort((a: any, b: any) => new Date(a.date + 'T' + (a.horaires?.[0] || a.horaire1 || '20:00')).getTime() - new Date(b.date + 'T' + (b.horaires?.[0] || b.horaire1 || '20:00')).getTime())
   const historique = matchs.filter((m: any) => m.termine)
-  const ytId = (url: string) => { const m = url.match(/(?:youtube\.com\/(?:[^\\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\\/\s]{11})/); return m ? m[1] : null }
+  const ytId = (url: string) => { const m = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/); return m ? m[1] : null }
   const hcRem = myPass ? (myPass.hcTotal || 0) - (myPass.hcUsed || 0) : 0
   const hpRem = myPass ? (myPass.hpTotal || 0) - (myPass.hpUsed || 0) : 0
 
   const H = ({ title, icon }: { title: string; icon?: string }) => (
-    <div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15">
-      <img src={LG} alt="D" className="w-14 h-14 mx-auto mb-2 relative z-10" />
-      <h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{icon} {title}</h2>
+    <div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 glow-pulse tab-content">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
+      <img src={LG} alt="D" className="w-14 h-14 mx-auto mb-2 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+      <h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent relative z-10">{icon} {title}</h2>
     </div>
   )
 
   const menuItems = [
     { t: 'matchs', i: '📅', l: 'Matchs' },
-    { t: 'historique', i: '📜', l: 'Historique' },
+    { t: 'historique', i: '📜', l: 'Résultats' },
     { t: 'strats', i: '🎯', l: 'Strats' },
-    { t: 'videos', i: '📺', l: 'Videos YT' },
+    { t: 'compos', i: '📋', l: 'Compos' },
+    { t: 'fiches', i: '🔍', l: 'Fiches' },
+    { t: 'notes', i: '📊', l: 'Notes' },
+    { t: 'idees', i: '💡', l: 'Boîte à idées' },
+    { t: 'stratVideos', i: '📺', l: 'Strat Vidéo' },
     { t: 'rec', i: '🎬', l: 'Replays' },
     { t: 'roster', i: '👥', l: 'Roster' },
     { t: 'stats', i: '📈', l: 'Stats' },
@@ -422,9 +543,9 @@ function App() {
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
       <P />
       <div className="text-center relative z-10">
-        <img src={LG} alt="D" className="w-48 h-48 mx-auto" />
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6">DYNO</h1>
-        <p className="text-gray-400 mt-3 uppercase text-sm">Esport Team</p>
+        <img src={LG} alt="D" className="w-48 h-48 mx-auto splash-logo drop-shadow-[0_0_40px_rgba(212,175,55,0.6)]" />
+        <h1 className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 splash-text">DYNO</h1>
+        <p className="text-gray-400 mt-3 splash-sub tracking-[0.3em] uppercase text-sm">Esport Team</p>
       </div>
     </div>
   )
@@ -432,34 +553,39 @@ function App() {
   return (
     <div className="min-h-screen pb-6 relative">
       <P />
-      <header className="backdrop-blur-2xl bg-black/30 border-b border-white/5 sticky top-0 z-40">
+      <header className="backdrop-blur-2xl bg-black/30 border-b border-white/5 sticky top-0 z-40 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
         <div className="max-w-lg mx-auto px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowMenu(!showMenu)} className="w-9 h-9 rounded-xl flex items-center justify-center text-lg bg-white/5">☰</button>
-            <img src={LG} alt="D" className="w-8 h-8" />
+            <button onClick={() => setShowMenu(!showMenu)} className="w-9 h-9 rounded-xl flex items-center justify-center text-lg bg-white/5 border border-white/10 hover:bg-[#D4AF37]/20 transition-all">☰</button>
+            <img src={LG} alt="D" className="w-8 h-8 drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]" />
             <div>
-              <h1 className="text-base font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h1>
-              <p className="text-[8px] text-gray-600">Esport</p>
+              <h1 className="text-base font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent leading-tight">DYNO</h1>
+              <p className="text-[8px] text-gray-600 uppercase tracking-widest">Esport</p>
             </div>
           </div>
-          <div className="flex gap-1">
-            {user && myPass && <div className="text-[8px] font-bold text-[#D4AF37]">{hcRem}HC {hpRem}HP</div>}
-            {user ? <button onClick={handleSignOut} className="px-2 py-1 rounded-xl font-bold text-red-500 text-[10px]">👋</button> : <button onClick={() => setIsSignUp(false)} className="px-2 py-1 rounded-xl text-[#D4AF37] text-[10px]">👤</button>}
+          <div className="flex gap-1 items-center">
+            {user && myPass && <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-white/5 border border-white/10"><span className="text-blue-400 text-[8px] font-bold">{hcRem}HC</span><span className="text-gray-700 text-[7px]">|</span><span className="text-purple-400 text-[8px] font-bold">{hpRem}HP</span></div>}
+            {user && <button onClick={requestNotificationPermission} className={"w-7 h-7 rounded-full flex items-center justify-center text-xs " + (notificationsEnabled ? "bg-[#D4AF37]/20 border border-[#D4AF37]/40" : "bg-white/5 border border-white/10")}>{notificationsEnabled ? '🔔' : '🔕'}</button>}
+            {showInstall && <button onClick={handleInstall} className="px-2 py-1 rounded-lg text-[9px] font-bold bg-blue-600 text-white">📲</button>}
+            {user ? <button onClick={handleSignOut} className="px-2 py-1 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white text-[10px]">👋 {pseudo}</button> : <button onClick={() => setIsSignUp(false)} className="px-2 py-1 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-[10px]">👤</button>}
           </div>
         </div>
       </header>
 
       {showMenu && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="w-64 bg-black border-r border-[#D4AF37]/20 overflow-y-auto">
-            <div className="p-5 border-b">
-              <h2 className="text-lg font-bold text-[#D4AF37]">DYNO</h2>
+          <div className="w-64 bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border-r border-[#D4AF37]/20 shadow-[4px_0_32px_rgba(0,0,0,0.8)] overflow-y-auto">
+            <div className="p-5 border-b border-[#D4AF37]/10 flex items-center gap-3">
+              <img src={LG} alt="D" className="w-12 h-12" />
+              <div><h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h2><p className="text-[9px] text-gray-600 uppercase tracking-widest">Esport Team</p></div>
             </div>
             <div className="py-3">
               {menuItems.map(({ t, i, l }) => (
-                <button key={t} onClick={() => { setActiveTab(t); setShowMenu(false) }} className={`w-full px-5 py-3 flex items-center gap-3 ${activeTab === t ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-r-2 border-[#D4AF37]' : 'text-gray-500'}`}>
-                  <span>{i}</span>
-                  <span className="text-sm">{l}</span>
+                <button key={t} onClick={() => { setActiveTab(t); setShowMenu(false) }} className={"w-full px-5 py-3 flex items-center gap-3 transition-all " + (activeTab === t ? "bg-[#D4AF37]/15 text-[#D4AF37] border-r-2 border-[#D4AF37]" : "text-gray-500 hover:text-gray-300 hover:bg-white/5")}>
+                  <span className="text-lg">{i}</span>
+                  <span className="text-sm font-bold tracking-wider uppercase">{l}</span>
+                  {t === 'stratVideos' && <span className="ml-auto px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[8px] font-bold border border-red-500/20">YT</span>}
+                  {activeTab === t && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />}
                 </button>
               ))}
             </div>
@@ -468,319 +594,458 @@ function App() {
         </div>
       )}
 
-      <main className="max-w-lg mx-auto px-4 py-6">
-        {/* VIDEOS YOUTUBE */}
-        {activeTab === 'videos' && (
+      <main className="max-w-lg mx-auto px-4 py-6 relative z-10" onTouchStart={hts} onTouchMove={htm} onTouchEnd={hte}>
+        {pullDistance > 0 && <div className="flex justify-center mb-4" style={{ height: pullDistance }}><span className={"text-[#D4AF37] text-2xl " + (pullDistance > 60 ? 'animate-spin' : '')}>{isRefreshing ? '⏳' : pullDistance > 60 ? '🔄' : '⬇️'}</span></div>}
+
+        {activeTab === 'matchs' && <div><H title="Prochains Matchs" /><div className="flex justify-end mb-3"><div className="flex bg-white/5 rounded-xl border border-white/10 overflow-hidden"><button onClick={() => setViewMode('list')} className={"px-3 py-1.5 text-xs " + (viewMode === 'list' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>☰</button><button onClick={() => setViewMode('grid')} className={"px-3 py-1.5 text-xs " + (viewMode === 'grid' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>⊞</button></div></div>{loading ? <div className="space-y-4"><div className="skeleton h-48 w-full" /><div className="skeleton h-48 w-full" /></div> : prochainsMatchs.length === 0 ? <div className="text-center py-10 text-gray-600">📭 Aucun match planifié</div> : <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'space-y-4'}>{prochainsMatchs.map((match: any, idx: number) => <div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-3"><span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase " + (match.type === 'Ligue' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' : match.type === 'Scrim' ? 'bg-green-500/20 text-green-400 border border-green-500/20' : match.type === 'Tournoi' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/20' : match.type === 'Division' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' : 'bg-gray-500/20 text-gray-400 border border-gray-500/20')}>{match.type}</span><div className="flex items-center gap-1.5"><span className={"px-1.5 py-0.5 rounded text-[7px] font-bold " + (getMatchTimeType(match) === 'hp' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400')}>{getMatchTimeType(match) === 'hp' ? 'HP' : 'HC'}</span><span className="text-[#D4AF37] font-bold text-xs">{fdf(match.date)}</span></div></div>{countdowns[match.id] && <div className={"rounded-2xl p-2.5 mb-3 text-center border " + (countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-500/10 border-red-500/15' : 'bg-[#D4AF37]/10 border-[#D4AF37]/15')}><p className="text-[9px] text-gray-600 uppercase">Countdown</p><p className={"text-lg font-bold font-mono " + (countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent')}>{countdowns[match.id]}</p></div>}<div className="flex items-center gap-3 mb-3"><img src={LG} alt="D" className="w-10 h-10" /><span className="text-gray-700 font-light">VS</span><div className="flex-1 text-right"><p className="font-bold text-white text-sm">{match.adversaire}</p><p className="text-[10px] text-[#D4AF37]/60">🏟️ {match.arene}</p></div></div><div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 uppercase">⏰ Horaire</p><p className="text-[#D4AF37] font-bold text-xs">{match.horaires?.join(' / ') || [match.horaire1, match.horaire2].filter(Boolean).join(' / ') || '20:00'}</p></div><div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 mb-1.5 uppercase">👥 Disponibles ({(match.disponibles || []).length})</p>{(match.disponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.disponibles || []).map((p: string, i: number) => <span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[9px] font-bold border border-[#D4AF37]/15">{p}</span>)}</div>}</div><div className="bg-white/5 rounded-xl p-2.5 mb-3 border border-red-500/10"><p className="text-[9px] text-gray-600 mb-1.5 uppercase">🚫 Indisponibles ({(match.indisponibles || []).length})</p>{(match.indisponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.indisponibles || []).map((p: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2 py-0.5 rounded-lg text-[9px] font-bold border border-red-500/15">{p}</span>)}</div>}</div><button onClick={() => atc(match)} className="w-full mb-2 py-2 rounded-xl font-bold bg-blue-600/20 text-blue-400 border border-blue-500/15 text-xs">📅 Ajouter au Calendrier</button><div className="flex gap-2"><button onClick={() => toggleDispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30' : 'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]')}>{!user ? '🔐' : (match.disponibles || []).includes(pseudo) ? '✅ Dispo (-2🎟️)' : '📅 Dispo'}</button><button onClick={() => toggleIndispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.indisponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30' : 'bg-white/5 border border-red-500/15 text-red-400')}>{!user ? '🔐' : (match.indisponibles || []).includes(pseudo) ? '❌ Indispo' : '🚫 Indispo'}</button></div></div>)}</div>}</div>}
+
+        {activeTab === 'historique' && <div><H title="Historique" /><div className="grid grid-cols-2 gap-3 mb-5"><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold text-[#D4AF37]">{victoires}</p><p className="text-[9px] text-gray-600 mt-1 uppercase">Victoires</p></div><div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15 text-center"><p className="text-3xl font-bold text-red-500">{defaites}</p><p className="text-[9px] text-gray-600 mt-1 uppercase">Défaites</p></div></div>{historique.length === 0 ? <div className="text-center py-10 text-gray-600">📜 Aucun résultat</div> : <div className="space-y-3">{historique.map((match: any, idx: number) => <div key={match.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-3"><span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase " + ((match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/20' : 'bg-red-500/20 text-red-400 border border-red-500/20')}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span><div className="flex items-center gap-2"><span className="text-gray-600 text-xs">{fdf(match.date)}</span>{isAdmin && <button onClick={() => setEditHistoriqueScore({ id: match.id, adversaire: match.adversaire || '', scoreDyno: String(match.scoreDyno || 0), scoreAdv: String(match.scoreAdversaire || 0), type: match.type || 'Ligue', arene: match.arene || 'Arène 1', date: match.date || '', termine: true, sousMatchs: match.sousMatchs || [] })} className="w-7 h-7 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[10px]">✏️</button>}</div></div><div className="flex items-center justify-between mb-2"><div className="text-center"><p className="font-bold text-[#D4AF37] text-[10px] uppercase">DYNO</p><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{match.scoreDyno}</p></div><span className="text-gray-800 text-lg">-</span><div className="text-center"><p className="font-bold text-gray-600 text-[10px] uppercase">{match.adversaire}</p><p className="text-3xl font-bold text-gray-500">{match.scoreAdversaire}</p></div></div>{match.sousMatchs?.length > 0 && <div className="space-y-1 mb-2 pt-2 border-t border-white/5"><p className="text-[9px] text-gray-600 uppercase mb-1">Sous-matchs</p>{match.sousMatchs.map((sm: any, i: number) => <div key={i} className="flex justify-between bg-white/5 rounded-lg px-2 py-1"><span className="text-[10px] text-gray-400">{sm.adversaire}</span><span className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></span></div>)}</div>}{match.type && <p className="text-center text-gray-700 text-[9px] mt-2 uppercase">{match.type} • {match.arene}</p>}</div>)}</div>}</div>}
+
+        {editHistoriqueScore && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">✏️ Modifier</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">⚔️ Adversaire</label><input type="text" value={editHistoriqueScore.adversaire} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">📅 Date</label><input type="date" value={editHistoriqueScore.date?.includes('/') ? (() => { const p = editHistoriqueScore.date.split('/'); return p[2] + '-' + p[1] + '-' + p[0] })() : editHistoriqueScore.date} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" /></div><div className="grid grid-cols-2 gap-3"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Type</label><select value={editHistoriqueScore.type} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, type: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Arène</label><select value={editHistoriqueScore.arene} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, arene: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select></div></div>{editHistoriqueScore.type === 'Division' ? <div className="bg-white/5 rounded-xl p-3 border border-orange-500/15"><div className="flex justify-between mb-2"><p className="text-[10px] text-orange-400 font-bold uppercase">🏆 Sous-matchs</p><button onClick={ajouterEditSousMatch} className="px-2 py-1 rounded-lg bg-orange-500/20 text-orange-400 text-xs">➕</button></div>{(editHistoriqueScore.sousMatchs || []).length > 0 ? <div className="space-y-1">{(editHistoriqueScore.sousMatchs || []).map((sm: any, i: number) => <div key={i} className="flex justify-between bg-black/30 rounded-lg px-2 py-1.5"><div><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={() => supprimerEditSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>)}</div> : <p className="text-[9px] text-gray-600 text-center">Aucun</p>}{(editHistoriqueScore.sousMatchs || []).length > 0 && <div className="mt-2 pt-2 border-t border-white/5 text-center"><p className="text-[9px] text-gray-600 uppercase">Total</p><p className="text-sm font-bold"><span className="text-[#D4AF37]">{(editHistoriqueScore.sousMatchs || []).reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0)}</span> - <span className="text-gray-500">{(editHistoriqueScore.sousMatchs || []).reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0)}</span></p></div>}</div> : <div className="grid grid-cols-2 gap-3"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">🟡 DYNO</label><input type="number" value={editHistoriqueScore.scoreDyno} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">⚪ Adv</label><input type="number" value={editHistoriqueScore.scoreAdv} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div></div>}<label className="flex items-center gap-2 bg-white/5 rounded-xl p-3 border border-white/5 cursor-pointer"><input type="checkbox" checked={editHistoriqueScore.termine === false} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, termine: e.target.checked ? false : true })} className="w-4 h-4 rounded accent-[#D4AF37]" /><span className="text-gray-400 text-xs">Remettre en « à venir »</span></label></div><div className="flex gap-2"><button onClick={() => setEditHistoriqueScore(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateHistoriqueScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}
+
+        {activeTab === 'strats' && <div><H title="Stratégies" icon="🎯" /><button onClick={() => setShowAddStrat(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕ Nouvelle Stratégie</button>{strats.length === 0 ? <div className="text-center py-10 text-gray-600">📝 Aucune</div> : <div className="space-y-3">{strats.map((s: any, idx: number) => <div key={s.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-3"><div><p className="font-bold text-[#D4AF37]">DYNO vs {s.adversaire}</p><p className="text-[9px] text-gray-600">par {s.auteur || '?'}</p></div>{(isAdmin || user?.uid === s.auteurId) && <button onClick={() => del('strats', s.id)} className="text-red-400/40">🗑️</button>}</div><div className="mb-2"><p className="text-[9px] text-green-400 mb-1.5 uppercase">✅ Picks ({s.picks?.length || 0}/4)</p><div className="flex flex-wrap gap-1">{s.picks?.map((p: string, i: number) => <span key={i} className="bg-green-500/15 text-green-400 px-2.5 py-1 rounded-lg text-[10px] border border-green-500/15 font-bold">{p}</span>)}</div></div><div><p className="text-[9px] text-red-400 mb-1.5 uppercase">❌ Bans ({s.bans?.length || 0}/4)</p><div className="flex flex-wrap gap-1">{s.bans?.map((b: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2.5 py-1 rounded-lg text-[10px] border border-red-500/15 font-bold">{b}</span>)}</div></div></div>)}</div>}{showAddStrat && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">🎯 Nouvelle Stratégie</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">⚔️ Adversaire</label><input type="text" placeholder="Nom" value={nouvelleStrat.adversaire} onChange={e => setNouvelleStrat({ ...nouvelleStrat, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">✅ Picks (4)</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => toggleMap(m, 'picks')} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (nouvelleStrat.picks.includes(m) ? 'bg-green-600 text-white' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">❌ Bans (4)</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => toggleMap(m, 'bans')} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (nouvelleStrat.bans.includes(m) ? 'bg-red-600 text-white' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div></div><div className="flex gap-2"><button onClick={() => { setShowAddStrat(false); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterStrat} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}</div>}
+
+        {activeTab === 'compos' && <div><H title="Compositions" icon="📋" />{user && <button onClick={() => setShowAddCompo(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕ Nouvelle Compo</button>}{compos.length === 0 ? <div className="text-center py-10 text-gray-600">📋 Aucune</div> : <div className="space-y-3">{compos.map((c: any, idx: number) => <div key={c.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-2"><p className="font-bold text-[#D4AF37]">🗺️ {c.map}</p>{user && <button onClick={() => del('compos', c.id)} className="text-red-400/40">🗑️</button>}</div><div className="flex flex-wrap gap-1">{c.joueurs?.map((j: string, i: number) => <span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{j}</span>)}</div></div>)}</div>}{showAddCompo && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📋 Compo</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🗺️ Map</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => setSelectedMapCompo(m)} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (selectedMapCompo === m ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">👥 Joueurs</label><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j: any) => j.actif !== false).map((j: any) => <button key={j.id} onClick={() => toggleCompoJoueur(j.pseudo)} className={"px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (compoJoueurs.includes(j.pseudo) ? 'bg-green-600 text-white' : 'bg-white/5 text-gray-500')}>{j.pseudo}</button>)}</div></div></div><div className="flex gap-2"><button onClick={() => { setShowAddCompo(false); setSelectedMapCompo(''); setCompoJoueurs([]) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterCompo} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}</div>}
+
+        {activeTab === 'fiches' && <div><H title="Fiches Adversaires" icon="🔍" />{user && <button onClick={() => setShowAddFiche(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕ Nouvelle Fiche</button>}{fichesAdversaires.length === 0 ? <div className="text-center py-10 text-gray-600">🔍 Aucune</div> : <div className="space-y-3">{fichesAdversaires.map((f: any, idx: number) => <div key={f.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-3"><p className="font-bold text-[#D4AF37]">⚔️ {f.adversaire}</p>{(isAdmin || user?.uid === f.auteurId) && <button onClick={() => del('fichesAdversaires', f.id)} className="text-red-400/40">🗑️</button>}</div><div className="space-y-2"><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10"><p className="text-[9px] text-green-400 uppercase font-bold mb-1">💪 Forces</p><p className="text-gray-300 text-xs">{f.forces || '—'}</p></div><div className="bg-red-500/10 rounded-xl p-3 border border-red-500/10"><p className="text-[9px] text-red-400 uppercase font-bold mb-1">⚠️ Faiblesses</p><p className="text-gray-300 text-xs">{f.faiblesses || '—'}</p></div>{f.notes && <div className="bg-white/5 rounded-xl p-3 border border-white/5"><p className="text-[9px] text-gray-500 uppercase font-bold mb-1">📝 Notes</p><p className="text-gray-300 text-xs">{f.notes}</p></div>}</div><p className="text-gray-700 text-[9px] mt-2">par {f.auteur}</p></div>)}</div>}{showAddFiche && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">🔍 Fiche</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">⚔️ Adversaire</label><input type="text" placeholder="Nom" value={nouvelleFiche.adversaire} onChange={e => setNouvelleFiche({ ...nouvelleFiche, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">💪 Forces</label><textarea value={nouvelleFiche.forces} onChange={e => setNouvelleFiche({ ...nouvelleFiche, forces: e.target.value })} rows={2} className="w-full bg-white/5 border border-green-500/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">⚠️ Faiblesses</label><textarea value={nouvelleFiche.faiblesses} onChange={e => setNouvelleFiche({ ...nouvelleFiche, faiblesses: e.target.value })} rows={2} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">📝 Notes</label><textarea value={nouvelleFiche.notes} onChange={e => setNouvelleFiche({ ...nouvelleFiche, notes: e.target.value })} rows={2} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div></div><div className="flex gap-2"><button onClick={() => { setShowAddFiche(false); setNouvelleFiche({ adversaire: '', forces: '', faiblesses: '', notes: '' }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterFiche} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}</div>}
+
+        {activeTab === 'notes' && <div><H title="Notes & Analyses" icon="📊" />{historique.length === 0 ? <div className="text-center py-10 text-gray-600">📊 Aucun match</div> : <div className="space-y-4">{historique.map((match: any, idx: number) => { const mn = notes.filter((n: any) => n.matchId === match.id); const mc = commentaires.filter((c: any) => c.matchId === match.id); const ma = analyses.filter((a: any) => a.matchId === match.id); return <div key={match.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-3"><p className="font-bold text-[#D4AF37] text-sm">DYNO vs {match.adversaire}</p><div className="flex items-center gap-2"><span className={"px-2 py-0.5 rounded-full text-[8px] font-bold " + ((match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-red-500/20 text-red-400')}>{match.scoreDyno}-{match.scoreAdversaire}</span><span className="text-gray-700 text-[10px]">{fdf(match.date)}</span></div></div><div className="flex gap-1.5 mb-3"><button onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-1.5 rounded-lg font-bold bg-purple-500/15 text-purple-400 border border-purple-500/15 text-[9px]">📝 Note</button><button onClick={() => setSelectedMatchForComment(selectedMatchForComment?.id === match.id ? null : match)} className="flex-1 py-1.5 rounded-lg font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/15 text-[9px]">💬 Comm</button><button onClick={() => setSelectedMatchForAnalyse(selectedMatchForAnalyse?.id === match.id ? null : match)} className="flex-1 py-1.5 rounded-lg font-bold bg-orange-500/15 text-orange-400 border border-orange-500/15 text-[9px]">📋 Analyse</button></div>{selectedMatchForComment?.id === match.id && user && <div className="bg-white/5 rounded-xl p-3 mb-3 border border-cyan-500/10"><textarea placeholder="Commentaire..." value={nouveauCommentaire} onChange={e => setNouveauCommentaire(e.target.value)} rows={2} className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mb-2" /><button onClick={() => ajouterCommentaire(match.id)} className="w-full py-1.5 rounded-lg font-bold bg-cyan-500/20 text-cyan-400 text-[10px]">💬</button></div>}{selectedMatchForAnalyse?.id === match.id && user && <div className="bg-white/5 rounded-xl p-3 mb-3 border border-orange-500/10"><div className="space-y-2 mb-2"><div><label className="text-[8px] text-green-400 uppercase font-bold">✅ Bien</label><textarea value={nouvelleAnalyse.bien} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, bien: e.target.value })} rows={2} className="w-full bg-black/30 border border-green-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div><div><label className="text-[8px] text-red-400 uppercase font-bold">❌ Mal</label><textarea value={nouvelleAnalyse.mal} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, mal: e.target.value })} rows={2} className="w-full bg-black/30 border border-red-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div><div><label className="text-[8px] text-blue-400 uppercase font-bold">🎯 Plan</label><textarea value={nouvelleAnalyse.plan} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, plan: e.target.value })} rows={2} className="w-full bg-black/30 border border-blue-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div></div><button onClick={() => ajouterAnalyse(match.id)} className="w-full py-1.5 rounded-lg font-bold bg-orange-500/20 text-orange-400 text-[10px]">📋</button></div>}{mn.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-purple-400 uppercase font-bold">📊 Notes ({mn.length})</p>{mn.map((n: any) => <div key={n.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex justify-between mb-1.5"><p className="text-[#D4AF37] font-bold text-[10px]">{n.joueur}</p>{isAdmin && <button onClick={() => del('notes', n.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div><div className="grid grid-cols-3 gap-1.5 text-center"><div className="bg-purple-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">🧠</p><p className="text-purple-400 font-bold text-xs">{n.mental}/10</p></div><div className="bg-blue-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">💬</p><p className="text-blue-400 font-bold text-xs">{n.communication}/10</p></div><div className="bg-green-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">🎯</p><p className="text-green-400 font-bold text-xs">{n.gameplay}/10</p></div></div></div>)}</div>}{mc.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-cyan-400 uppercase font-bold">💬 ({mc.length})</p>{mc.map((c: any) => <div key={c.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex justify-between mb-0.5"><p className="text-cyan-400 font-bold text-[10px]">{c.joueur}</p><div className="flex items-center gap-1.5"><p className="text-gray-700 text-[9px]">{fts(c.createdAt)}</p>{(isAdmin || user?.uid === c.joueurId) && <button onClick={() => del('commentaires', c.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div></div><p className="text-gray-400 text-xs">{c.texte}</p></div>)}</div>}{ma.length > 0 && <div className="space-y-1.5"><p className="text-[9px] text-orange-400 uppercase font-bold">📋 ({ma.length})</p>{ma.map((a: any) => <div key={a.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex justify-between mb-2"><p className="text-orange-400 font-bold text-[10px]">{a.joueur}</p>{(isAdmin || user?.uid === a.joueurId) && <button onClick={() => del('analyses', a.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div>{a.bien && <div className="bg-green-500/10 rounded-lg p-2 mb-1"><p className="text-[8px] text-green-400 font-bold">✅</p><p className="text-gray-300 text-[10px]">{a.bien}</p></div>}{a.mal && <div className="bg-red-500/10 rounded-lg p-2 mb-1"><p className="text-[8px] text-red-400 font-bold">❌</p><p className="text-gray-300 text-[10px]">{a.mal}</p></div>}{a.plan && <div className="bg-blue-500/10 rounded-lg p-2"><p className="text-[8px] text-blue-400 font-bold">🎯</p><p className="text-gray-300 text-[10px]">{a.plan}</p></div>}</div>)}</div>}{mn.length === 0 && mc.length === 0 && ma.length === 0 && <p className="text-gray-700 text-[10px] text-center">Aucune donnée</p>}</div> })}</div>}{selectedMatchForNotes && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📊 vs {selectedMatchForNotes.adversaire}</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🧠 Mental (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.mental} onChange={e => setNouvelleNote({ ...nouvelleNote, mental: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">💬 Comm (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.communication} onChange={e => setNouvelleNote({ ...nouvelleNote, communication: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🎯 Perf (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.gameplay} onChange={e => setNouvelleNote({ ...nouvelleNote, gameplay: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div></div><div className="flex gap-2"><button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterNote} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}</div>}
+
+        {activeTab === 'idees' && <div><H title="Boîte à Idées" icon="💡" />{user && <div className="mb-5"><input type="text" placeholder="💡 Votre idée..." value={nouvelleIdee} onChange={e => setNouvelleIdee(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') ajouterIdee() }} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /><button onClick={ajouterIdee} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">💡 Proposer</button></div>}{idees.length === 0 ? <div className="text-center py-10 text-gray-600">💡 Aucune idée</div> : <div className="space-y-4">{idees.map((o: any, idx: number) => { const votes = o.votes || {}; const oui = Object.values(votes).filter((v: any) => v === 'oui').length; const non = Object.values(votes).filter((v: any) => v === 'non').length; const test = Object.values(votes).filter((v: any) => v === 'test').length; const myVote = user ? votes[user.uid] : null; const ic = (o.ideaComments || []) as any[]; return <div key={o.id} className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-start justify-between mb-3"><div className="flex-1"><p className="text-white text-sm font-medium">{o.texte}</p><p className="text-gray-600 text-[9px] mt-1">💡 par <span className="text-[#D4AF37]">{o.joueur}</span> • {new Date(o.createdAt).toLocaleDateString('fr-FR')}</p></div>{(isAdmin || user?.uid === o.joueurId) && <button onClick={() => del('idees', o.id)} className="text-red-400/40 text-sm ml-2">🗑️</button>}</div><div className="grid grid-cols-3 gap-2 mb-3"><button onClick={() => voterIdee(o.id, 'oui')} className={"py-2 rounded-xl font-bold text-xs transition-all " + (myVote === 'oui' ? 'bg-green-600 text-white shadow-lg shadow-green-500/30' : 'bg-green-500/10 text-green-400 border border-green-500/15')}>✅ Oui ({oui})</button><button onClick={() => voterIdee(o.id, 'non')} className={"py-2 rounded-xl font-bold text-xs transition-all " + (myVote === 'non' ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/15')}>❌ Non ({non})</button><button onClick={() => voterIdee(o.id, 'test')} className={"py-2 rounded-xl font-bold text-xs transition-all " + (myVote === 'test' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-blue-500/10 text-blue-400 border border-blue-500/15')}>🧪 Test ({test})</button></div>{Object.keys(votes).length > 0 && <div className="bg-white/5 rounded-lg p-2 mb-3 border border-white/5"><div className="flex flex-wrap gap-1">{Object.entries(votes).map(([uid, vote]: [string, any]) => { const vp = allPasses.find((p: any) => p.oduserId === uid); const vj = joueurs.find((j: any) => j.userId === uid); const nom = vj?.pseudo || vp?.pseudo || '?'; return <span key={uid} className={"px-1.5 py-0.5 rounded text-[8px] font-bold " + (vote === 'oui' ? 'bg-green-500/15 text-green-400' : vote === 'non' ? 'bg-red-500/15 text-red-400' : 'bg-blue-500/15 text-blue-400')}>{nom} {vote === 'oui' ? '✅' : vote === 'non' ? '❌' : '🧪'}</span> })}</div></div>}{ic.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-gray-500 uppercase font-bold">💬 ({ic.length})</p>{ic.map((c: any, ci: number) => <div key={ci} className="bg-white/5 rounded-lg p-2 border border-white/5"><div className="flex justify-between"><p className="text-[#D4AF37] font-bold text-[9px]">{c.joueur}</p><p className="text-gray-700 text-[8px]">{new Date(c.createdAt).toLocaleDateString('fr-FR')}</p></div><p className="text-gray-400 text-[10px] mt-0.5">{c.texte}</p></div>)}</div>}{user && <div className="flex gap-2"><input type="text" placeholder="Commenter..." id={'ic-' + o.id} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-[10px] focus:outline-none" /><button onClick={() => commenterIdee(o.id, document.getElementById('ic-' + o.id) as HTMLInputElement)} className="px-3 py-2 rounded-lg font-bold bg-[#D4AF37]/20 text-[#D4AF37] text-[10px]">💬</button></div>}</div> })}</div>}</div>}
+
+        {/* ══════════════ STRAT VIDÉO ══════════════ */}
+        {activeTab === 'stratVideos' && (
           <div>
-            <H title="Videos YouTube" icon="📺" />
-            <button onClick={() => setShowAddStratVideo(true)} className="w-full mb-3 py-2 rounded-lg font-bold bg-purple-600 text-white text-sm">Nouvelle Strategie</button>
-            {user && <button onClick={() => setShowAddVideo(true)} className="w-full mb-5 py-2 rounded-lg font-bold bg-red-600 text-white text-sm">Ajouter Video</button>}
-            
-            {videoStrats.length === 0 ? (
-              <div className="text-center py-10 text-gray-600">Aucune strategie</div>
-            ) : (
+            <H title="Strat Vidéo" icon="📺" />
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center"><p className="text-xl font-bold text-[#D4AF37]">{stratVideos.length}</p><p className="text-[9px] text-gray-600 uppercase">Total</p></div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center"><p className="text-xl font-bold text-green-400">{stratVideos.filter(v => v.publie).length}</p><p className="text-[9px] text-gray-600 uppercase">Publiées</p></div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center"><p className="text-xl font-bold text-red-400">{stratVideos.reduce((s, v) => s + (v.likes?.length || 0), 0)}</p><p className="text-[9px] text-gray-600 uppercase">Likes</p></div>
+            </div>
+            {user && <button onClick={() => { setShowAddVideo(true); setVideoStep('form'); setNewVideo({ titre: '', description: '', youtubeUrl: '', jeu: 'Valorant', map: '', categorie: 'strat', tags: '', publie: true }); setVideoYtId('') }} className="w-full mb-4 py-3 rounded-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white text-sm shadow-lg shadow-red-500/20 flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+              Publier une Strat Vidéo
+            </button>}
+            <a href={YT} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 w-full mb-4 py-2.5 rounded-xl font-bold bg-red-600/10 text-red-400 border border-red-500/20 text-center text-xs justify-center">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+              Chaîne YouTube DYNO Esport
+            </a>
+            <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
+              <button onClick={() => setVideoFilter('all')} className={"flex-shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all " + (videoFilter === 'all' ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30' : 'bg-white/5 text-gray-500 border-white/10')}>Toutes</button>
+              {CATS.map(c => <button key={c.v} onClick={() => setVideoFilter(c.v as any)} className={"flex-shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all " + (videoFilter === c.v ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30' : 'bg-white/5 text-gray-500 border-white/10')}>{c.i} {c.l}</button>)}
+            </div>
+            <div className="relative mb-4">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">🔍</span>
+              <input type="text" placeholder="Rechercher..." value={videoSearch} onChange={e => setVideoSearch(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/40" />
+            </div>
+            {filteredVideos.length === 0 ? <div className="text-center py-10 text-gray-600"><p className="text-4xl mb-3">📺</p><p>Aucune vidéo trouvée</p></div> : (
               <div className="space-y-4">
-                {videoStrats.map((s: any) => (
-                  <div key={s.id} className="bg-black/30 rounded-xl p-4 border border-[#D4AF37]/15">
-                    <div className="flex justify-between mb-3">
-                      <div>
-                        <p className="font-bold text-[#D4AF37]">{s.nom}</p>
-                        <p className="text-[9px] text-gray-600">{s.description}</p>
+                {filteredVideos.map((v, idx) => (
+                  <div key={v.id} className="card-glow bg-black/30 rounded-3xl border border-[#D4AF37]/15 overflow-hidden" style={{ animationDelay: (idx * 0.05) + 's' }}>
+                    <div className="relative cursor-pointer" onClick={() => { setSelectedVideo(v); setPlayerLoaded(false) }}>
+                      <img src={`https://img.youtube.com/vi/${v.youtubeId}/hqdefault.jpg`} alt={v.titre} className="w-full aspect-video object-cover" onError={e => { (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${v.youtubeId}/mqdefault.jpg` }} />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                        <div className="w-14 h-14 bg-red-600/90 rounded-full flex items-center justify-center shadow-xl">
+                          <svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
                       </div>
-                      {user?.uid === s.auteurId && <button onClick={() => deleteStratVideo(s.id)} className="text-red-400">🗑️</button>}
+                      {!v.publie && <div className="absolute top-2 left-2 bg-yellow-500/90 px-2 py-0.5 rounded-lg text-[9px] text-black font-black">BROUILLON</div>}
+                      <div className="absolute top-2 right-2"><span className="bg-black/70 px-2 py-0.5 rounded-lg text-[9px] text-white font-bold">{CATS.find(c => c.v === v.categorie)?.i} {CATS.find(c => c.v === v.categorie)?.l}</span></div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      <div className="text-center"><p className="text-lg text-[#D4AF37]">{videos.filter((v: any) => v.stratId === s.id).length}</p><p className="text-[8px]">Videos</p></div>
-                      <div className="text-center"><p className="text-lg text-blue-400">{videos.filter((v: any) => v.stratId === s.id && v.status === 'published').length}</p><p className="text-[8px]">Publiees</p></div>
-                      <div className="text-center"><p className="text-lg text-gray-400">{videos.filter((v: any) => v.stratId === s.id && v.status === 'draft').length}</p><p className="text-[8px]">Brouillon</p></div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-white text-sm mb-1 leading-tight">{v.titre}</h3>
+                      {v.description && <p className="text-gray-500 text-[10px] mb-2 line-clamp-2">{v.description}</p>}
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[9px] font-bold border border-[#D4AF37]/15">🎮 {v.jeu}</span>
+                        {v.map && v.map !== 'All' && <span className="bg-white/5 text-gray-500 px-2 py-0.5 rounded-lg text-[9px] border border-white/10">🗺️ {v.map}</span>}
+                        <span className="text-gray-600 text-[9px] ml-auto">par {v.auteur}</span>
+                      </div>
+                      {v.tags?.length > 0 && <div className="flex flex-wrap gap-1 mb-3">{v.tags.slice(0, 4).map(t => <span key={t} className="text-[8px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">#{t}</span>)}</div>}
+                      <div className="flex gap-2">
+                        <button onClick={() => { setSelectedVideo(v); setPlayerLoaded(false) }} className="flex-1 py-2 rounded-xl bg-red-600/15 text-red-400 border border-red-500/20 text-xs font-bold flex items-center justify-center gap-1">▶ Regarder</button>
+                        <button onClick={() => user && likerVideo(v)} className={"py-2 px-3 rounded-xl text-xs font-bold border transition-all " + (user && v.likes?.includes(user.uid) ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-white/5 text-gray-500 border-white/10')}>❤️ {v.likes?.length || 0}</button>
+                        <a href={v.youtubeUrl} target="_blank" rel="noopener noreferrer" className="py-2 px-3 rounded-xl bg-white/5 text-gray-500 border border-white/10 text-xs font-bold">YT</a>
+                        {(isAdmin || user?.uid === v.auteurId) && <>
+                          <button onClick={() => togglePublierVideo(v)} className={"py-2 px-2 rounded-xl text-xs border " + (v.publie ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20')}>{v.publie ? '👁' : '✅'}</button>
+                          <button onClick={() => { if (confirm('Supprimer ?')) del('stratVideos', v.id) }} className="py-2 px-2 rounded-xl bg-red-500/10 text-red-400/60 border border-red-500/10 text-xs">🗑️</button>
+                        </>}
+                      </div>
                     </div>
-                    <button onClick={() => setSelectedStratVideo(s)} className="w-full py-2 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">Voir Videos</button>
                   </div>
                 ))}
               </div>
             )}
 
-            {selectedStratVideo && (
-              <div className="mt-6">
-                <div className="flex justify-between mb-4">
-                  <h3 className="text-[#D4AF37]">{selectedStratVideo.nom}</h3>
-                  <button onClick={() => setSelectedStratVideo(null)}>✕</button>
+            {/* MODAL LECTEUR */}
+            {selectedVideo && (
+              <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                  <button onClick={() => setSelectedVideo(null)} className="text-gray-400 hover:text-white text-sm">← Retour</button>
+                  <div className="flex gap-2">
+                    {(isAdmin || user?.uid === selectedVideo.auteurId) && <button onClick={() => togglePublierVideo(selectedVideo)} className={"px-3 py-1 rounded-lg text-xs font-bold " + (selectedVideo.publie ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400')}>{selectedVideo.publie ? '📝 Brouillon' : '✅ Publier'}</button>}
+                    <a href={selectedVideo.youtubeUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-lg bg-red-600/20 text-red-400 text-xs font-bold flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                      YouTube
+                    </a>
+                  </div>
                 </div>
-                {videos.filter((v: any) => v.stratId === selectedStratVideo.id).length === 0 ? (
-                  <p className="text-center text-gray-600">Aucune video</p>
-                ) : (
-                  <div className="space-y-3">
-                    {videos.filter((v: any) => v.stratId === selectedStratVideo.id).map((v: any) => (
-                      <div key={v.id} className="bg-black/30 rounded-lg p-3 border border-red-500/15">
-                        <div className="flex justify-between mb-2">
-                          <p className="text-white text-sm">{v.titre}</p>
-                          <button onClick={() => { setEditingVideo(v); setShowAddVideo(true) }} className="text-[#D4AF37] text-xs">✏️</button>
+                <div className="flex-1 overflow-y-auto">
+                  {!playerLoaded ? (
+                    <div className="relative aspect-video cursor-pointer" onClick={() => setPlayerLoaded(true)}>
+                      <img src={`https://img.youtube.com/vi/${selectedVideo.youtubeId}/maxresdefault.jpg`} alt={selectedVideo.titre} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${selectedVideo.youtubeId}/hqdefault.jpg` }} />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center shadow-2xl shadow-red-500/40">
+                          <svg className="w-10 h-10 text-white ml-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </div>
-                        <div className="flex gap-2 mb-2">
-                          <span className={`text-[8px] px-2 py-0.5 rounded ${v.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20'}`}>{v.status}</span>
-                          <span className="text-[8px] bg-white/5 px-2 py-0.5 rounded">{v.category}</span>
-                        </div>
-                        {v.youtubeUrl && ytIdFromUrl(v.youtubeUrl) && (
-                          <div className="relative w-full pb-[56.25%] rounded mb-2 overflow-hidden">
-                            <iframe src={`https://www.youtube.com/embed/${ytIdFromUrl(v.youtubeUrl)}`} className="absolute inset-0 w-full h-full" frameBorder="0" allowFullScreen />
-                          </div>
-                        )}
-                        <div className="grid grid-cols-3 gap-2 text-center text-[9px] mb-2">
-                          <div className="bg-blue-500/10 p-1 rounded"><p className="text-blue-400">{v.views}</p><p className="text-gray-600">Vues</p></div>
-                          <div className="bg-red-500/10 p-1 rounded"><p className="text-red-400">{v.likes}</p><p className="text-gray-600">J'aime</p></div>
-                          <div className="bg-green-500/10 p-1 rounded"><p className="text-green-400">{v.comments}</p><p className="text-gray-600">Com</p></div>
-                        </div>
-                        <button onClick={() => deleteVideo(v.id)} className="w-full text-red-400 text-xs">Supprimer</button>
                       </div>
-                    ))}
+                      <p className="absolute bottom-3 left-0 right-0 text-center text-white/60 text-xs">Appuyer pour lancer</p>
+                    </div>
+                  ) : (
+                    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                      <iframe className="absolute top-0 left-0 w-full h-full" src={`https://www.youtube.com/embed/${selectedVideo.youtubeId}?autoplay=1&rel=0`} title={selectedVideo.titre} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                    </div>
+                  )}
+                  <div className="p-4 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <h2 className="text-white font-bold text-base flex-1">{selectedVideo.titre}</h2>
+                      <button onClick={() => user && likerVideo(selectedVideo)} className={"px-3 py-1.5 rounded-xl font-bold text-sm transition-all " + (user && selectedVideo.likes?.includes(user.uid) ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-white/5 text-gray-500 border border-white/10')}>❤️ {selectedVideo.likes?.length || 0}</button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{CATS.find(c => c.v === selectedVideo.categorie)?.i} {CATS.find(c => c.v === selectedVideo.categorie)?.l}</span>
+                      <span className="bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg text-[10px] border border-white/10">🎮 {selectedVideo.jeu}</span>
+                      {selectedVideo.map && selectedVideo.map !== 'All' && <span className="bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg text-[10px] border border-white/10">🗺️ {selectedVideo.map}</span>}
+                      {!selectedVideo.publie && <span className="bg-yellow-500/20 text-yellow-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-yellow-500/20">BROUILLON</span>}
+                    </div>
+                    {selectedVideo.description && <div className="bg-white/5 rounded-xl p-3 border border-white/10"><p className="text-[9px] text-gray-500 uppercase font-bold mb-1.5">📝 Description</p><p className="text-gray-300 text-xs whitespace-pre-wrap">{selectedVideo.description}</p></div>}
+                    {selectedVideo.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{selectedVideo.tags.map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg">#{t}</span>)}</div>}
+                    <div className="flex items-center gap-3 text-[10px] text-gray-600 border-t border-white/5 pt-3"><span>👤 {selectedVideo.auteur}</span><span>•</span><span>{new Date(selectedVideo.createdAt).toLocaleDateString('fr-FR')}</span></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL PUBLICATION */}
+            {showAddVideo && (
+              <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                  <button onClick={() => { setShowAddVideo(false); setVideoStep('form') }} className="text-gray-400 text-sm">✕ Fermer</button>
+                  <h3 className="text-sm font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{videoStep === 'form' ? '📺 Nouvelle vidéo' : videoStep === 'preview' ? '👁 Prévisualisation' : videoStep === 'publishing' ? '⏳ Publication...' : '✅ Publiée !'}</h3>
+                  <div className="w-16" />
+                </div>
+                <div className="flex items-center gap-0 px-4 py-3 border-b border-white/5">
+                  {['Infos','Preview','Pub.','OK'].map((s, i) => (
+                    <div key={s} className="flex items-center flex-1">
+                      <div className={"w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black " + (['form','preview','publishing','done'].indexOf(videoStep) >= i ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-gray-600')}>{i+1}</div>
+                      {i < 3 && <div className={"flex-1 h-px " + (['form','preview','publishing','done'].indexOf(videoStep) > i ? 'bg-[#D4AF37]/50' : 'bg-white/10')} />}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  {videoStep === 'form' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🔴 URL YouTube *</label>
+                        <input type="url" placeholder="https://www.youtube.com/watch?v=..." value={newVideo.youtubeUrl} onChange={e => handleVideoUrlChange(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-red-500/40" />
+                        {newVideo.youtubeUrl && !videoYtId && <p className="text-red-400 text-[10px] mt-1">⚠️ URL invalide</p>}
+                        {videoYtId && <p className="text-green-400 text-[10px] mt-1">✅ ID détecté : {videoYtId}</p>}
+                      </div>
+                      {videoYtId && <div className="rounded-xl overflow-hidden border border-white/10"><img src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`} alt="preview" className="w-full aspect-video object-cover" /></div>}
+                      <div>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Titre *</label>
+                        <input type="text" placeholder="Ex: Rush B Dust2 - Strat anti-éco" value={newVideo.titre} onChange={e => setNewVideo(v => ({ ...v, titre: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Description</label>
+                        <textarea value={newVideo.description} onChange={e => setNewVideo(v => ({ ...v, description: e.target.value }))} rows={3} placeholder="Décris la stratégie..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🎮 Jeu</label>
+                          <select value={newVideo.jeu} onChange={e => setNewVideo(v => ({ ...v, jeu: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none">
+                            {['Valorant','CS2','Overwatch 2','Apex Legends','League of Legends','R6 Siege'].map(g => <option key={g} value={g} className="bg-black">{g}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🗺️ Map</label>
+                          <input type="text" placeholder="Ascent, Mirage..." value={newVideo.map} onChange={e => setNewVideo(v => ({ ...v, map: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">📂 Catégorie</label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {CATS.map(c => <button key={c.v} type="button" onClick={() => setNewVideo(v => ({ ...v, categorie: c.v as any }))} className={"py-2 rounded-xl text-[10px] font-bold border transition-all " + (newVideo.categorie === c.v ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/40' : 'bg-white/5 text-gray-500 border-white/10')}>{c.i} {c.l}</button>)}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🏷️ Tags (virgules)</label>
+                        <input type="text" placeholder="rush, anti-éco, b-site" value={newVideo.tags} onChange={e => setNewVideo(v => ({ ...v, tags: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" />
+                      </div>
+                      <div className="flex items-center gap-3 bg-white/5 rounded-xl p-4 border border-white/10">
+                        <button type="button" onClick={() => setNewVideo(v => ({ ...v, publie: !v.publie }))} className={"relative w-12 h-6 rounded-full transition-colors " + (newVideo.publie ? 'bg-green-500' : 'bg-white/20')}>
+                          <div className={"absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-lg transition-transform " + (newVideo.publie ? 'translate-x-6' : 'translate-x-0.5')} />
+                        </button>
+                        <div>
+                          <p className="text-white text-sm font-bold">{newVideo.publie ? '✅ Publié' : '📝 Brouillon'}</p>
+                          <p className="text-gray-600 text-[9px]">{newVideo.publie ? 'Visible par tous les membres' : 'Visible uniquement par vous'}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <button onClick={() => setShowAddVideo(false)} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button>
+                        <button onClick={() => { if (!newVideo.titre || !videoYtId) { alert('⚠️ Titre et URL requis'); return }; setVideoStep('preview') }} disabled={!newVideo.titre || !videoYtId} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (newVideo.titre && videoYtId ? 'bg-gradient-to-r from-red-600 to-red-700 text-white' : 'bg-white/10 text-gray-600')}>Prévisualiser →</button>
+                      </div>
+                    </div>
+                  )}
+                  {videoStep === 'preview' && (
+                    <div className="space-y-4">
+                      <div className="rounded-xl overflow-hidden border border-white/10"><img src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`} alt={newVideo.titre} className="w-full aspect-video object-cover" /></div>
+                      <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-3">
+                        <h3 className="text-white font-bold">{newVideo.titre}</h3>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{CATS.find(c => c.v === newVideo.categorie)?.i} {CATS.find(c => c.v === newVideo.categorie)?.l}</span>
+                          <span className="bg-white/5 text-gray-400 px-2 py-0.5 rounded-lg text-[10px] border border-white/10">🎮 {newVideo.jeu}</span>
+                          {newVideo.map && <span className="bg-white/5 text-gray-400 px-2 py-0.5 rounded-lg text-[10px] border border-white/10">🗺️ {newVideo.map}</span>}
+                          <span className={"px-2 py-0.5 rounded-lg text-[10px] font-bold " + (newVideo.publie ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20')}>{newVideo.publie ? '✅ Public' : '📝 Brouillon'}</span>
+                        </div>
+                        {newVideo.description && <p className="text-gray-400 text-xs">{newVideo.description}</p>}
+                        {newVideo.tags && <div className="flex flex-wrap gap-1">{newVideo.tags.split(',').map(t => t.trim()).filter(Boolean).map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">#{t}</span>)}</div>}
+                      </div>
+                      <div className="bg-red-500/5 border border-red-500/15 rounded-xl p-3"><p className="text-red-400 text-[10px] font-bold mb-1">📺 Publication</p><p className="text-gray-500 text-[10px]">La vidéo sera ajoutée + notification Discord.</p></div>
+                      <div className="flex gap-3">
+                        <button onClick={() => setVideoStep('form')} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">← Modifier</button>
+                        <button onClick={publierStratVideo} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white text-sm flex items-center justify-center gap-2">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                          Publier !
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {videoStep === 'publishing' && (
+                    <div className="flex flex-col items-center justify-center py-20 space-y-6">
+                      <div className="w-20 h-20 rounded-full bg-red-600/20 border border-red-500/30 flex items-center justify-center animate-pulse">
+                        <svg className="w-10 h-10 text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                      </div>
+                      <p className="text-white font-bold">Publication en cours...</p>
+                      <div className="w-48 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full animate-pulse w-3/4" /></div>
+                    </div>
+                  )}
+                  {videoStep === 'done' && (
+                    <div className="flex flex-col items-center justify-center py-20 space-y-6 text-center">
+                      <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
+                        <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+                      </div>
+                      <div><h3 className="text-white font-bold text-xl mb-2">Vidéo publiée ! 🎉</h3><p className="text-gray-500 text-sm">Notification Discord envoyée</p></div>
+                      <div className="flex gap-3 w-full">
+                        <button onClick={() => { setShowAddVideo(false); setVideoStep('form') }} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-400 text-sm">Fermer</button>
+                        <a href={newVideo.youtubeUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white text-sm text-center">Voir sur YT</a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {/* ══════════════ FIN STRAT VIDÉO ══════════════ */}
+
+        {activeTab === 'rec' && <div><H title="Replays" icon="🎬" /><a href={YT} target="_blank" className="block w-full mb-5 py-2.5 rounded-xl font-bold bg-red-600/15 text-red-400 border border-red-500/15 text-center text-xs">🔴 Chaîne YouTube DYNO</a>{replays.length === 0 ? <div className="text-center py-10 text-gray-600">📹 Aucun replay</div> : <div className="space-y-3">{replays.map((r: any, idx: number) => <div key={r.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-2"><h3 className="font-bold text-[#D4AF37] text-sm">{r.titre}</h3>{isAdmin && <button onClick={() => del('replays', r.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div>{ytId(r.lien) ? <div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden"><iframe src={'https://www.youtube.com/embed/' + ytId(r.lien)} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen /></div> : <a href={r.lien} target="_blank" className="block py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-center text-sm">▶️</a>}</div>)}</div>}</div>}
+
+        {activeTab === 'roster' && (
+          <div>
+            <H title="Roster" icon="👥" />
+            {user && (
+              <div className="card-glow bg-black/30 rounded-3xl p-6 border border-[#D4AF37]/15 mb-6 relative overflow-hidden tab-content">
+                <div className="absolute -right-4 -top-4 text-6xl opacity-5">🛡️</div>
+                <p className="text-[10px] text-[#D4AF37] font-black mb-5 uppercase tracking-widest">👤 Mon Profil</p>
+                <div className="flex items-center gap-5 mb-6">
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-[#D4AF37] blur-lg opacity-10 group-hover:opacity-20 transition-opacity rounded-2xl"></div>
+                    {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-20 h-20 rounded-2xl object-cover border-2 border-[#D4AF37]/40 relative z-10 shadow-2xl" /> : <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-3xl border-2 border-[#D4AF37]/20 relative z-10">{pseudo?.[0]?.toUpperCase()}</div>}
+                    <label className={`absolute -bottom-2 -right-2 text-black w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-4 border-[#030303] cursor-pointer z-20 hover:scale-110 active:scale-90 transition-all ${uploadingAvatar ? 'bg-gray-500 animate-pulse' : 'bg-[#D4AF37]'}`}>
+                      <span className="text-xs">{uploadingAvatar ? '⏳' : '📷'}</span>
+                      <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={uploadingAvatar} />
+                    </label>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-black text-xl tracking-tight leading-none mb-1">{pseudo}</p>
+                    <p className="text-[#D4AF37] text-[10px] font-bold uppercase tracking-tighter opacity-70 mb-2">Membre Officiel DYNO</p>
+                    {myPass && <div className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/10"><span className="text-sm">{EVA_PASSES[myPass.type]?.icon}</span><span className="text-[9px] font-black text-gray-400 uppercase">{EVA_PASSES[myPass.type]?.label}</span></div>}
+                  </div>
+                </div>
+                <div className="space-y-3 pt-4 border-t border-white/5">
+                  <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest">Ou coller une URL</p>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="https://..." value={avatarUrl?.startsWith('data:') ? 'Image uploadée ✅' : avatarUrl} onChange={e => setAvatarUrl(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-[10px] focus:outline-none" />
+                    <button onClick={saveAvatar} className="px-4 rounded-xl font-bold bg-white/5 border border-white/10 text-[#D4AF37]">💾</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {user && (
+              <div className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15 mb-5">
+                <p className="text-[10px] text-[#D4AF37] font-bold mb-3 uppercase tracking-widest">🎟️ Mon EVA Pass</p>
+                {myPass ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2"><span className="text-lg">{EVA_PASSES[myPass.type]?.icon}</span><span className={"px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r text-white " + (EVA_PASSES[myPass.type]?.color || 'from-gray-500 to-gray-700')}>{EVA_PASSES[myPass.type]?.label}</span></div>
+                      <button onClick={() => { setMyPass(null); updateDoc(doc(db, 'users', user.uid), { evaPass: null }) }} className="text-red-400/40 text-[9px]">Changer</button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/15 text-center"><p className="text-[8px] text-blue-400 uppercase font-bold mb-1">🔵 HC</p><p className="text-xl font-bold text-blue-400">{hcRem}<span className="text-gray-600 text-sm">/{myPass.hcTotal || 0}</span></p><div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: (myPass.hcTotal > 0 ? (hcRem / myPass.hcTotal) * 100 : 0) + '%' }} /></div></div>
+                      <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/15 text-center"><p className="text-[8px] text-purple-400 uppercase font-bold mb-1">🟣 HP</p><p className="text-xl font-bold text-purple-400">{hpRem}<span className="text-gray-600 text-sm">/{myPass.hpTotal || 0}</span></p><div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-purple-500 h-1.5 rounded-full transition-all" style={{ width: (myPass.hpTotal > 0 ? (hpRem / myPass.hpTotal) * 100 : 0) + '%' }} /></div></div>
+                    </div>
+                    <div className="bg-white/5 rounded-xl p-3 border border-white/5 mb-2">
+                      <p className="text-[8px] text-gray-500 uppercase font-bold mb-2">✏️ Modifier</p>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div><label className="text-[8px] text-blue-400 mb-1 block">HC utilisés</label><input type="number" min="0" max={myPass.hcTotal || 99} value={myPass.hcUsed || 0} onChange={e => setMyPass({ ...myPass, hcUsed: parseInt(e.target.value) || 0 })} className="w-full bg-black/30 border border-blue-500/20 rounded-lg px-3 py-2 text-white text-center text-sm font-bold focus:outline-none" /></div>
+                        <div><label className="text-[8px] text-purple-400 mb-1 block">HP utilisés</label><input type="number" min="0" max={myPass.hpTotal || 99} value={myPass.hpUsed || 0} onChange={e => setMyPass({ ...myPass, hpUsed: parseInt(e.target.value) || 0 })} className="w-full bg-black/30 border border-purple-500/20 rounded-lg px-3 py-2 text-white text-center text-sm font-bold focus:outline-none" /></div>
+                      </div>
+                      <div className="mb-2"><label className="text-[8px] text-[#D4AF37] mb-1 block">📅 Reset</label><input type="date" value={myPass.dateReset || ''} onChange={e => setMyPass({ ...myPass, dateReset: e.target.value })} className="w-full bg-black/30 border border-[#D4AF37]/20 rounded-lg px-3 py-2 text-white text-xs focus:outline-none" /></div>
+                      {myPass.dateReset && <p className="text-[8px] text-gray-600 text-center mb-2">🔄 Reset le {fdf(myPass.dateReset)}</p>}
+                      <button onClick={async () => { await updateDoc(doc(db, 'users', user.uid), { evaPass: myPass }); addLog('Pass modifié'); alert('✅!') }} className="w-full py-2 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-xs">💾</button>
+                    </div>
+                    <p className="text-[8px] text-gray-600 text-center">HP = Ven 18h-23h20 • Sam/Dim 13h-23h</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-gray-500 text-xs mb-3 text-center">Sélectionne ton abonnement :</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {Object.entries(EVA_PASSES).map(([key, p]) => (
+                        <button key={key} onClick={() => selectPass(key)} className={"rounded-xl p-3 border text-center transition-all hover:scale-105 " + (key === 'bronze' ? 'bg-amber-900/20 border-amber-700/30' : key === 'argent' ? 'bg-gray-500/20 border-gray-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30')}>
+                          <span className="text-2xl block mb-1">{p.icon}</span>
+                          <p className="text-white text-[10px] font-bold">{p.label}</p>
+                          <p className="text-blue-400 text-[8px]">{p.hc} HC</p>
+                          <p className="text-purple-400 text-[8px]">{p.hp} HP</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             )}
-
-            {showAddVideo && (
-              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                <div className="bg-black rounded-lg p-5 w-full max-w-md max-h-[90vh] overflow-y-auto">
-                  <h3 className="text-[#D4AF37] font-bold mb-4">{editingVideo ? 'Modifier' : 'Ajouter'} Video</h3>
-                  <input type="text" placeholder="Titre" value={editingVideo ? editingVideo.titre : nouvelleVideo.titre} onChange={e => editingVideo ? setEditingVideo({...editingVideo, titre: e.target.value}) : setNouvelleVideo({...nouvelleVideo, titre: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm" />
-                  <textarea placeholder="Description" rows={3} value={editingVideo ? editingVideo.description : nouvelleVideo.description} onChange={e => editingVideo ? setEditingVideo({...editingVideo, description: e.target.value}) : setNouvelleVideo({...nouvelleVideo, description: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm resize-none" />
-                  <select value={editingVideo ? editingVideo.status : nouvelleVideo.status} onChange={e => editingVideo ? setEditingVideo({...editingVideo, status: e.target.value}) : setNouvelleVideo({...nouvelleVideo, status: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm">
-                    <option value="draft">Brouillon</option>
-                    <option value="scheduled">Programmee</option>
-                    <option value="published">Publiee</option>
-                  </select>
-                  <input type="url" placeholder="URL YouTube" value={editingVideo ? editingVideo.youtubeUrl : nouvelleVideo.youtubeUrl} onChange={e => editingVideo ? setEditingVideo({...editingVideo, youtubeUrl: e.target.value}) : setNouvelleVideo({...nouvelleVideo, youtubeUrl: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm" />
-                  <input type="text" placeholder="Tags (virgules)" value={editingVideo ? (typeof editingVideo.tags === 'string' ? editingVideo.tags : editingVideo.tags.join(', ')) : nouvelleVideo.tags} onChange={e => editingVideo ? setEditingVideo({...editingVideo, tags: e.target.value}) : setNouvelleVideo({...nouvelleVideo, tags: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm" />
-                  <input type="number" placeholder="Vues" value={editingVideo ? editingVideo.views : nouvelleVideo.views} onChange={e => editingVideo ? setEditingVideo({...editingVideo, views: parseInt(e.target.value) || 0}) : setNouvelleVideo({...nouvelleVideo, views: parseInt(e.target.value) || 0})} className="w-full bg-white/5 rounded px-3 py-2 mb-4 text-white text-sm" />
-                  <div className="flex gap-2">
-                    <button onClick={() => { setShowAddVideo(false); setEditingVideo(null) }} className="flex-1 py-2 rounded bg-white/5 text-gray-500 text-sm">Annuler</button>
-                    <button onClick={editingVideo ? updateVideo : ajouterVideo} className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-bold">OK</button>
-                  </div>
+            {user && (
+              <div className="card-glow bg-black/30 rounded-2xl p-3 border border-pink-500/10 mb-5">
+                <p className="text-[9px] text-pink-400 mb-1.5 uppercase font-bold">🎂 Anniversaire</p>
+                <div className="flex gap-2">
+                  <input type="date" value={anniversaire} onChange={e => setAnniversaire(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none" />
+                  <button onClick={sauvegarderAnniversaire} className="px-3 py-2 rounded-lg font-bold bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs">💾</button>
                 </div>
               </div>
             )}
-
-            {showAddStratVideo && (
-              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                <div className="bg-black rounded-lg p-5 w-full max-w-md">
-                  <h3 className="text-purple-400 font-bold mb-4">Nouvelle Strategie</h3>
-                  <input type="text" placeholder="Nom" value={nouvelleStratVideo.nom} onChange={e => setNouvelleStratVideo({...nouvelleStratVideo, nom: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm" />
-                  <textarea placeholder="Description" rows={2} value={nouvelleStratVideo.description} onChange={e => setNouvelleStratVideo({...nouvelleStratVideo, description: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm resize-none" />
-                  <input type="text" placeholder="Objectif" value={nouvelleStratVideo.goal} onChange={e => setNouvelleStratVideo({...nouvelleStratVideo, goal: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm" />
-                  <input type="text" placeholder="Audience" value={nouvelleStratVideo.targetAudience} onChange={e => setNouvelleStratVideo({...nouvelleStratVideo, targetAudience: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm" />
-                  <input type="text" placeholder="Types (virgules)" value={nouvelleStratVideo.contentTypes} onChange={e => setNouvelleStratVideo({...nouvelleStratVideo, contentTypes: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-4 text-white text-sm" />
-                  <div className="flex gap-2">
-                    <button onClick={() => { setShowAddStratVideo(false); setNouvelleStratVideo({ nom: '', description: '', goal: '', targetAudience: '', uploadFrequency: '1 par semaine', contentTypes: '' }) }} className="flex-1 py-2 rounded bg-white/5 text-gray-500 text-sm">Annuler</button>
-                    <button onClick={ajouterStratVideo} className="flex-1 py-2 rounded bg-purple-600 text-white text-sm font-bold">OK</button>
+            <div className="space-y-3">
+              {joueurs.filter((j: any) => j.actif !== false).map((j: any, idx: number) => {
+                const userDoc = allPasses.find((p: any) => p.pseudo === j.pseudo)
+                const playerAvatar = allPasses.find((p: any) => p.pseudo === j.pseudo)?.avatarUrl
+                return (
+                  <div key={j.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15 flex items-center gap-4" style={{ animationDelay: (idx * 0.1) + 's' }}>
+                    <div className="relative">
+                      {playerAvatar ? <img src={playerAvatar} alt={j.pseudo} className="w-14 h-14 rounded-2xl object-cover border border-[#D4AF37]/30 shadow-xl" /> : <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-xl border border-[#D4AF37]/15">{j.pseudo[0]?.toUpperCase()}</div>}
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-black animate-pulse"></div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-black text-white text-base">{j.pseudo}</p>
+                      <p className="text-[10px] text-gray-500 uppercase font-bold">🎮 {j.role}</p>
+                      {userDoc && <div className="flex gap-3 mt-1"><span className="text-[9px] text-blue-400 font-black">{(userDoc.hcTotal || 0) - (userDoc.hcUsed || 0)} HC</span><span className="text-[9px] text-purple-400 font-black">{(userDoc.hpTotal || 0) - (userDoc.hpUsed || 0)} HP</span></div>}
+                    </div>
+                    {isAdmin && <button onClick={() => del('players', j.id)} className="w-8 h-8 rounded-xl bg-red-500/10 text-red-500/40 flex items-center justify-center">🗑️</button>}
                   </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* MATCHS */}
-        {activeTab === 'matchs' && (
-          <div>
-            <H title="Prochains Matchs" />
-            {loading ? <div>Chargement...</div> : prochainsMatchs.length === 0 ? <div className="text-center py-10 text-gray-600">Aucun match</div> : (
-              <div className="space-y-3">
-                {prochainsMatchs.map((match: any) => (
-                  <div key={match.id} className="bg-black/30 rounded-lg p-4 border border-[#D4AF37]/15">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-[9px] px-2 py-1 rounded bg-blue-500/20 text-blue-400">{match.type}</span>
-                      <span className="text-[#D4AF37] text-sm">{fdf(match.date)}</span>
-                    </div>
-                    <p className="font-bold text-white mb-3">DYNO vs {match.adversaire}</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => toggleDispo(match.id)} disabled={!user} className="flex-1 py-2 rounded bg-white/5 text-white text-xs">{user ? 'Dispo' : '🔐'}</button>
-                      <button onClick={() => toggleIndispo(match.id)} disabled={!user} className="flex-1 py-2 rounded bg-red-500/10 text-red-400 text-xs">{user ? 'Indispo' : '🔐'}</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {isAdmin && (
-              <div className="mt-6 bg-black/30 rounded-lg p-4 border border-[#D4AF37]/15">
-                <h3 className="text-[#D4AF37] font-bold mb-3">Ajouter Match</h3>
-                <input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={e => setNouveauMatch({...nouveauMatch, adversaire: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm" />
-                <input type="date" value={nouveauMatch.date} onChange={e => setNouveauMatch({...nouveauMatch, date: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-2 text-white text-sm" />
-                <input type="time" value={nouveauMatch.horaire1} onChange={e => setNouveauMatch({...nouveauMatch, horaire1: e.target.value})} className="w-full bg-white/5 rounded px-3 py-2 mb-4 text-white text-sm" />
-                <button onClick={ajouterMatch} className="w-full py-2 rounded bg-[#D4AF37] text-black font-bold text-sm">Creer</button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* HISTORIQUE */}
-        {activeTab === 'historique' && (
-          <div>
-            <H title="Historique" />
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="bg-[#D4AF37]/10 rounded-lg p-3 text-center border border-[#D4AF37]/15">
-                <p className="text-3xl font-bold text-[#D4AF37]">{victoires}</p>
-                <p className="text-[9px] text-gray-600">Victoires</p>
-              </div>
-              <div className="bg-red-500/10 rounded-lg p-3 text-center border border-red-500/15">
-                <p className="text-3xl font-bold text-red-500">{defaites}</p>
-                <p className="text-[9px] text-gray-600">Defaites</p>
-              </div>
-            </div>
-            {historique.length === 0 ? <div className="text-center py-10 text-gray-600">Aucun resultat</div> : (
-              <div className="space-y-3">
-                {historique.map((match: any) => (
-                  <div key={match.id} className="bg-black/30 rounded-lg p-3 border border-[#D4AF37]/15">
-                    <div className="flex justify-between mb-2">
-                      <span className={`text-[9px] px-2 py-1 rounded ${(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-red-500/20 text-red-400'}`}>
-                        {(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'WIN' : 'LOSS'}
-                      </span>
-                      <span className="text-gray-600 text-[9px]">{fdf(match.date)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <p className="text-white"><span className="text-[#D4AF37] font-bold">{match.scoreDyno}</span> DYNO</p>
-                      <p className="text-gray-500"><span className="text-white font-bold">{match.scoreAdversaire}</span> {match.adversaire}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* STRATS */}
-        {activeTab === 'strats' && (
-          <div>
-            <H title="Strategies" icon="🎯" />
-            {strats.length === 0 ? <div className="text-center py-10 text-gray-600">Aucune</div> : (
-              <div className="space-y-3">
-                {strats.map((s: any) => (
-                  <div key={s.id} className="bg-black/30 rounded-lg p-3 border border-[#D4AF37]/15">
-                    <p className="font-bold text-[#D4AF37] mb-2">vs {s.adversaire}</p>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <p className="text-[8px] text-green-400 mb-1">Picks</p>
-                        <div className="flex gap-1">{s.picks?.map((p: string, i: number) => <span key={i} className="text-[7px] bg-green-500/15 text-green-400 px-1.5 py-0.5 rounded">{p}</span>)}</div>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-[8px] text-red-400 mb-1">Bans</p>
-                        <div className="flex gap-1">{s.bans?.map((b: string, i: number) => <span key={i} className="text-[7px] bg-red-500/15 text-red-400 px-1.5 py-0.5 rounded">{b}</span>)}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ROSTER */}
-        {activeTab === 'roster' && (
-          <div>
-            <H title="Roster" icon="👥" />
-            {joueurs.filter((j: any) => j.actif !== false).length === 0 ? <div className="text-center py-10 text-gray-600">Aucun joueur</div> : (
-              <div className="space-y-2">
-                {joueurs.filter((j: any) => j.actif !== false).map((j: any) => (
-                  <div key={j.id} className="bg-black/30 rounded-lg p-3 border border-[#D4AF37]/15 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-bold">{j.pseudo[0]?.toUpperCase()}</div>
-                    <div>
-                      <p className="font-bold text-white">{j.pseudo}</p>
-                      <p className="text-[10px] text-gray-600">{j.role}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* STATS */}
-        {activeTab === 'stats' && (
-          <div>
-            <H title="Stats" icon="📈" />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-[#D4AF37]/10 rounded-lg p-4 border border-[#D4AF37]/15 text-center">
-                <p className="text-3xl font-bold text-[#D4AF37]">{winRate}%</p>
-                <p className="text-[9px] text-gray-600">Win Rate</p>
-              </div>
-              <div className="bg-blue-500/10 rounded-lg p-4 border border-blue-500/15 text-center">
-                <p className="text-3xl font-bold text-blue-400">{totalMatchs}</p>
-                <p className="text-[9px] text-gray-600">Matchs</p>
-              </div>
+                )
+              })}
             </div>
           </div>
         )}
 
-        {/* LOGS */}
-        {activeTab === 'logs' && (
-          <div>
-            <H title="Logs" icon="📋" />
-            {logs.length === 0 ? <div className="text-center py-10 text-gray-600">Aucune activite</div> : (
-              <div className="space-y-2">
-                {logs.slice(0, 20).map((l: any) => (
-                  <div key={l.id} className="bg-white/5 rounded-lg p-3">
-                    <p className="text-white text-xs"><span className="text-[#D4AF37] font-bold">{l.joueur}</span> {l.action}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === 'stats' && <div><H title="Statistiques" icon="📈" /><div className="grid grid-cols-2 gap-3 mb-5"><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{winRate}%</p><p className="text-[9px] text-gray-600 mt-1.5 uppercase">Win Rate</p></div><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{totalMatchs}</p><p className="text-[9px] text-gray-600 mt-1.5 uppercase">Matchs</p></div></div><div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15 mb-5"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">📊 Répartition</h3><div className="space-y-3"><div><div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">🏆 Victoires</span><span className="text-[#D4AF37] font-bold text-xs">{victoires}</span></div><div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-2 rounded-full transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (victoires / totalMatchs) * 100 : 0) + '%' }} /></div></div><div><div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">❌ Défaites</span><span className="text-red-500 font-bold text-xs">{defaites}</span></div><div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-red-600 to-red-500 h-2 rounded-full transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (defaites / totalMatchs) * 100 : 0) + '%' }} /></div></div></div></div><button onClick={() => setShowBilan(true)} className="w-full py-3 rounded-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/20 text-sm">📊 Bilan du mois</button>{showBilan && (() => { const b = genBilan(); return <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📊 Bilan {b.nom}</h3><div className="space-y-3 mb-5"><div className="grid grid-cols-3 gap-2"><div className="bg-white/5 rounded-xl p-3 border border-white/5 text-center"><p className="text-2xl font-bold text-white">{b.m}</p><p className="text-[9px] text-gray-600 uppercase">Matchs</p></div><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-2xl font-bold text-green-400">{b.w}W</p><p className="text-[9px] text-gray-600 uppercase">Vic.</p></div><div className="bg-red-500/10 rounded-xl p-3 border border-red-500/10 text-center"><p className="text-2xl font-bold text-red-400">{b.l}L</p><p className="text-[9px] text-gray-600 uppercase">Déf.</p></div></div><div className="bg-[#D4AF37]/10 rounded-xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{b.wr}%</p><p className="text-[9px] text-gray-600 uppercase mt-1">Win Rate</p></div><div className="grid grid-cols-3 gap-2"><div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/10 text-center"><p className="text-xl font-bold text-purple-400">{b.am}</p><p className="text-[9px] text-gray-600">🧠</p></div><div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/10 text-center"><p className="text-xl font-bold text-blue-400">{b.ac}</p><p className="text-[9px] text-gray-600">💬</p></div><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-xl font-bold text-green-400">{b.ap}</p><p className="text-[9px] text-gray-600">🎯</p></div></div></div><button onClick={() => setShowBilan(false)} className="w-full py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-400 text-sm">Fermer</button></div></div> })()}</div>}
 
-        {/* ADMIN */}
+        {activeTab === 'logs' && <div><H title="Logs d'activité" icon="📋" />{logs.length === 0 ? <div className="text-center py-10 text-gray-600">📋 Aucune activité</div> : <div className="space-y-2">{logs.map((l: any, idx: number) => <div key={l.id || idx} className="bg-white/5 rounded-xl p-3 border border-white/5 flex items-start gap-3"><div className="w-8 h-8 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center text-[#D4AF37] font-bold text-xs flex-shrink-0">{l.joueur?.[0]?.toUpperCase() || '?'}</div><div className="flex-1"><p className="text-white text-xs"><span className="text-[#D4AF37] font-bold">{l.joueur}</span> {l.action}</p><p className="text-gray-700 text-[9px] mt-0.5">{fts(l.createdAt)}</p></div></div>)}</div>}</div>}
+
         {activeTab === 'admin' && (
           <div>
             <H title="Admin" icon="⚙️" />
             {!isAdmin ? (
-              <div className="bg-black/30 rounded-lg p-5">
-                <input type="password" placeholder="Mot de passe" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full bg-white/5 rounded px-4 py-2 mb-3 text-white text-sm" />
-                <button onClick={handleAdminLogin} className="w-full py-2 rounded bg-[#D4AF37] text-black font-bold">Connexion</button>
+              <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
+                <input type="password" placeholder="Mot de passe admin" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />
+                <button onClick={handleAdminLogin} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">🔐 Connexion Admin</button>
               </div>
             ) : (
-              <button onClick={handleAdminLogout} className="w-full py-2 rounded bg-red-600 text-white font-bold">Deconnexion</button>
-            )}
-          </div>
-        )}
-
-        {/* REPLAYS */}
-        {activeTab === 'rec' && (
-          <div>
-            <H title="Replays" icon="🎬" />
-            {replays.length === 0 ? <div className="text-center py-10 text-gray-600">Aucun replay</div> : (
-              <div className="space-y-3">
-                {replays.slice(0, 5).map((r: any) => (
-                  <div key={r.id} className="bg-black/30 rounded-lg p-3 border border-[#D4AF37]/15">
-                    <p className="font-bold text-[#D4AF37] mb-2">{r.titre}</p>
-                    {ytId(r.lien) ? (
-                      <div className="relative w-full pb-[56.25%] rounded overflow-hidden">
-                        <iframe src={`https://www.youtube.com/embed/${ytId(r.lien)}`} className="absolute inset-0 w-full h-full" frameBorder="0" allowFullScreen />
-                      </div>
-                    ) : (
-                      <a href={r.lien} target="_blank" className="block py-2 rounded bg-[#D4AF37] text-black text-center font-bold">▶️</a>
-                    )}
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Dernière activité</p><p className="text-[#D4AF37] font-bold text-xs">{logs[0]?.joueur || '—'}</p></div>
+                  <div className="card-glow bg-blue-500/10 rounded-2xl p-4 border border-blue-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Membres</p><p className="text-blue-400 font-bold text-xs">{joueurs.length} joueurs</p></div>
+                  <div className="card-glow bg-green-500/10 rounded-2xl p-4 border border-green-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Victoires</p><p className="text-green-400 font-bold text-xs">{victoires} wins</p></div>
+                  <div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Strat Vidéos</p><p className="text-red-400 font-bold text-xs">{stratVideos.length} vidéos</p></div>
+                </div>
+                <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
+                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">➕ Planifier un Match</h3>
+                  <input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={e => setNouveauMatch({ ...nouveauMatch, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
+                  <input type="date" value={nouveauMatch.date} onChange={e => setNouveauMatch({ ...nouveauMatch, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <input type="time" value={nouveauMatch.horaire1} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire1: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" />
+                    <input type="time" value={nouveauMatch.horaire2} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire2: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" />
                   </div>
-                ))}
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <select value={nouveauMatch.arene} onChange={e => setNouveauMatch({ ...nouveauMatch, arene: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select>
+                    <select value={nouveauMatch.type} onChange={e => setNouveauMatch({ ...nouveauMatch, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select>
+                  </div>
+                  {nouveauMatch.type === 'Division' && <div className="bg-white/5 rounded-xl p-3 mb-2 border border-white/5"><div className="flex justify-between mb-2"><p className="text-[10px] text-[#D4AF37] font-bold uppercase">🏆 Sous-matchs</p><button onClick={ajouterSousMatch} className="px-2 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">➕</button></div>{nouveauMatch.sousMatchs.length > 0 ? <div className="space-y-1">{nouveauMatch.sousMatchs.map((sm, i) => <div key={i} className="flex justify-between bg-black/30 rounded-lg px-2 py-1.5"><div><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={() => supprimerSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>)}</div> : <p className="text-[9px] text-gray-600 text-center">Aucun</p>}</div>}
+                  <button onClick={ajouterMatch} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">📅 Créer + Discord</button>
+                </div>
+                <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
+                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">🗑️ Gestion Matchs</h3>
+                  {matchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun match</p> : (
+                    <div className="space-y-1.5">
+                      {matchs.map((m: any) => (
+                        <div key={m.id} className="flex justify-between bg-white/5 rounded-xl p-2.5 border border-white/5">
+                          <div><p className="text-[#D4AF37] font-bold text-[10px]">{m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)} • {m.termine ? '✅' : '⏳'}</p></div>
+                          <div className="flex items-center gap-1.5">
+                            {m.termine && <button onClick={() => setEditHistoriqueScore({ id: m.id, adversaire: m.adversaire || '', scoreDyno: String(m.scoreDyno || 0), scoreAdv: String(m.scoreAdversaire || 0), type: m.type || 'Ligue', arene: m.arene || 'Arène 1', date: m.date || '', termine: true, sousMatchs: m.sousMatchs || [] })} className="text-[#D4AF37]/60 text-sm">✏️</button>}
+                            <button onClick={() => del('matchs', m.id)} className="text-red-400/40">🗑️</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
+                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">🎬 Ajouter Replay</h3>
+                  <input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={e => setNouveauReplay({ ...nouveauReplay, titre: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
+                  <input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={e => setNouveauReplay({ ...nouveauReplay, lien: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
+                  <button onClick={ajouterReplay} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕ Publier</button>
+                </div>
+                <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
+                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">✏️ Saisir Scores</h3>
+                  {prochainsMatchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun match à scorer</p> : (
+                    <div className="space-y-2">
+                      {prochainsMatchs.map((m: any) => (
+                        <div key={m.id} className="bg-white/5 rounded-xl p-3 border border-white/5 flex items-center justify-between">
+                          <p className="font-bold text-[#D4AF37] text-xs">vs {m.adversaire}</p>
+                          <button onClick={() => setScoreEdit({ id: m.id, scoreDyno: '', scoreAdv: '' })} className="px-3 py-1.5 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-[10px]">📝</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button onClick={handleAdminLogout} className="w-full bg-white/5 border border-red-500/15 text-red-400 py-2.5 rounded-xl font-bold text-sm">🚪 Déconnexion Admin</button>
               </div>
             )}
           </div>
         )}
       </main>
 
-      {/* LOGIN */}
+      {scoreEdit && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📝 Score</h3><div className="grid grid-cols-2 gap-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase text-center">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-3xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase text-center">Adversaire</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white text-center text-3xl font-bold focus:outline-none" /></div></div><div className="flex gap-2"><button onClick={() => setScoreEdit(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}
+
       {!user && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 p-4">
           <P />
-          <div className="bg-black rounded-lg p-7 w-full max-w-sm border border-[#D4AF37]/20 relative z-10">
-            <img src={LG} alt="D" className="w-20 h-20 mx-auto mb-6" />
-            <h3 className="text-xl font-bold text-[#D4AF37] text-center mb-6">{isSignUp ? 'REJOINDRE' : 'ACCES'}</h3>
-            {isSignUp && <input type="text" placeholder="Pseudo" value={pseudo} onChange={e => setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded px-4 py-3 mb-3 text-white text-sm" />}
-            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded px-4 py-3 mb-3 text-white text-sm" />
-            <input type="password" placeholder="Mot de passe" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded px-4 py-3 mb-6 text-white text-sm" />
-            {isSignUp ? (
-              <button onClick={handleSignUp} className="w-full py-4 rounded-lg font-bold bg-[#D4AF37] text-black mb-4">CREER</button>
-            ) : (
-              <button onClick={handleSignIn} className="w-full py-4 rounded-lg font-bold bg-[#D4AF37] text-black mb-4">CONNEXION</button>
-            )}
-            <button onClick={() => setIsSignUp(!isSignUp)} className="w-full text-[#D4AF37] text-[10px] font-bold">{isSignUp ? 'CONNEXION' : 'CREER'}</button>
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-7 w-full max-w-sm border border-[#D4AF37]/20 relative z-10 shadow-[0_0_50px_rgba(212,175,55,0.15)]">
+            <img src={LG} alt="D" className="w-20 h-20 mx-auto mb-6 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+            <h3 className="text-xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center uppercase tracking-widest">{isSignUp ? 'REJOINDRE DYNO' : 'ACCÈS ÉQUIPE'}</h3>
+            {isSignUp && <input type="text" placeholder="Pseudo" value={pseudo} onChange={e => setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />}
+            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />
+            <input type="password" placeholder="Mot de passe" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-6 text-white text-sm focus:outline-none" />
+            {isSignUp ? <button onClick={handleSignUp} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">CRÉER LE COMPTE</button> : <button onClick={handleSignIn} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">SE CONNECTER</button>}
+            <div className="border-t border-white/5 pt-4 text-center">
+              {isSignUp ? <button onClick={() => setIsSignUp(false)} className="text-[#D4AF37] text-[10px] font-bold hover:underline uppercase opacity-70">Déjà membre ? Connexion</button> : <button onClick={() => setIsSignUp(true)} className="text-[#D4AF37] text-[10px] font-bold hover:underline uppercase opacity-70">Pas encore de compte ? Rejoindre</button>}
+            </div>
           </div>
         </div>
       )}
