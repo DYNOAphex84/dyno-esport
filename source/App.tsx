@@ -159,7 +159,6 @@ function App() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
-  // STRAT VIDÉO STATE
   const [stratVideos, setStratVideos] = useState<StratVideo[]>([])
   const [showAddVideo, setShowAddVideo] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<StratVideo | null>(null)
@@ -167,7 +166,7 @@ function App() {
   const [videoSearch, setVideoSearch] = useState('')
   const [newVideo, setNewVideo] = useState({
     titre: '', description: '', youtubeUrl: '',
-    jeu: 'Valorant', map: '', categorie: 'strat' as StratVideo['categorie'],
+    jeu: 'EVA Esport Arena', map: '', categorie: 'strat' as StratVideo['categorie'],
     tags: '', publie: true
   })
   const [videoYtId, setVideoYtId] = useState('')
@@ -190,9 +189,13 @@ function App() {
           const canvas = document.createElement('canvas')
           const maxSize = 400
           let width = img.width, height = img.height
-          if (width > height) { if (width > maxSize) { height = (height * maxSize) / width; width = maxSize } }
-          else { if (height > maxSize) { width = (width * maxSize) / height; height = maxSize } }
-          canvas.width = width; canvas.height = height
+          if (width > height) {
+            if (width > maxSize) { height = (height * maxSize) / width; width = maxSize }
+          } else {
+            if (height > maxSize) { width = (width * maxSize) / height; height = maxSize }
+          }
+          canvas.width = width
+          canvas.height = height
           const ctx = canvas.getContext('2d')
           ctx?.drawImage(img, 0, 0, width, height)
           resolve(canvas.toDataURL('image/jpeg', 0.7))
@@ -215,47 +218,12 @@ function App() {
       await updateDoc(doc(db, 'users', user.uid), { avatarUrl: compressed })
       addLog('Photo de profil mise à jour')
       alert('✅ Photo enregistrée !')
-    } catch (err: any) { alert('❌ Erreur : ' + err.message) }
-    finally { setUploadingAvatar(false) }
+    } catch (err: any) {
+      alert('❌ Erreur : ' + err.message)
+    } finally {
+      setUploadingAvatar(false)
+    }
   }
-
-  const saveAvatar = async () => {
-    if (!user || !avatarUrl) return
-    await updateDoc(doc(db, 'users', user.uid), { avatarUrl })
-    addLog('Avatar URL mis à jour')
-    alert('✅ URL enregistrée !')
-  }
-
-  useEffect(() => { if (window.location.search.includes('reset=1')) { localStorage.clear(); window.location.href = window.location.pathname } }, [])
-
-  const sendNotification = useCallback((t: string, b: string, tg?: string) => {
-    try {
-      if (!('Notification' in window) || Notification.permission !== 'granted') return
-      const n = new Notification(t, { body: b, icon: LG, badge: LG, tag: tg || 'd', requireInteraction: false })
-      n.onclick = () => { window.focus(); n.close() }
-    } catch {}
-  }, [])
-
-  const requestNotificationPermission = async () => {
-    try {
-      if (!('Notification' in window)) { alert('❌'); return }
-      const p = await Notification.requestPermission()
-      if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('✅ Notifs activées !') }
-      else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false'); alert('❌') }
-    } catch { alert('❌') }
-  }
-
-  const getMatchDateTime = useCallback((m: any): Date | null => {
-    if (!m?.date) return null
-    let d = m.date
-    const t = m.horaires?.[0] || m.horaire1 || '20:00'
-    if (d.includes('/')) { const [dd, mm, yy] = d.split('/'); d = yy + '-' + mm + '-' + dd }
-    try { const dt = new Date(d + 'T' + t + ':00'); return isNaN(dt.getTime()) ? null : dt } catch { return null }
-  }, [])
-
-  useEffect(() => {
-    try { if ('Notification' in window && Notification.permission === 'granted' && localStorage.getItem('dyno-notifs') === 'true') setNotificationsEnabled(true) } catch {}
-    try { setNotifiedMatchs(JSON.parse(localStorage.getItem('dyno-notified') || '[]')) } catch { setNotifiedMatchs([]) }
   }, [])
 
   useEffect(() => {
@@ -345,7 +313,16 @@ function App() {
   useEffect(() => { const q = query(collection(db, 'fichesAdversaires'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setFichesAdversaires(d) }); return () => u() }, [])
   useEffect(() => { const u = onSnapshot(collection(db, 'users'), (s: any) => { const d: any[] = []; s.forEach((x: any) => { const data = x.data(); if (data.evaPass) d.push({ oduserId: x.id, pseudo: data.pseudo, avatarUrl: data.avatarUrl, ...data.evaPass }) }); setAllPasses(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'logs'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setLogs(d.slice(0, 50)) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'stratVideos'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: StratVideo[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() } as StratVideo)); setStratVideos(d) }); return () => u() }, [])
+
+  useEffect(() => {
+    const q = query(collection(db, 'stratVideos'), orderBy('createdAt', 'desc'))
+    const u = onSnapshot(q, (s: any) => {
+      const d: StratVideo[] = []
+      s.forEach((x: any) => d.push({ id: x.id, ...x.data() } as StratVideo))
+      setStratVideos(d)
+    })
+    return () => u()
+  }, [])
 
   useEffect(() => { if (!notificationsEnabled || pm.current === 0) { pm.current = matchs.length; return }; if (matchs.length > pm.current) { const n = matchs[0]; if (n) sendNotification('📅 Nouveau match !', 'DYNO vs ' + n.adversaire, 'nm') }; pm.current = matchs.length }, [matchs, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || pn.current === 0) { pn.current = notes.length; return }; if (notes.length > pn.current) { const n = notes[0]; if (n) sendNotification('📊 Nouvelle note !', n.joueur + ' a noté un match', 'nn') }; pn.current = notes.length }, [notes, notificationsEnabled, sendNotification])
@@ -459,10 +436,10 @@ function App() {
   const toggleMap = (map: string, type: 'picks' | 'bans') => { if (type === 'picks') { if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) }); else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] }) } else { if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) }); else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] }) } }
   const genBilan = () => { const now = new Date(); const mm = historique.filter((m: any) => { const d = new Date(m.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const w = mm.filter((m: any) => (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length; const l = mm.filter((m: any) => (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length; const mn = notes.filter((n: any) => { const d = new Date(n.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const am = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.mental || 0), 0) / mn.length) : 0; const ac = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.communication || 0), 0) / mn.length) : 0; const ap = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.gameplay || 0), 0) / mn.length) : 0; return { nom: ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][now.getMonth()], m: mm.length, w, l, wr: mm.length > 0 ? Math.round((w / (w + l || 1)) * 100) : 0, am, ac, ap } }
 
-  // STRAT VIDÉO FUNCTIONS
   const handleVideoUrlChange = (url: string) => {
     setNewVideo(v => ({ ...v, youtubeUrl: url }))
-    setVideoYtId(extractYoutubeId(url))
+    const id = extractYoutubeId(url)
+    setVideoYtId(id)
   }
 
   const publierStratVideo = async () => {
@@ -470,20 +447,48 @@ function App() {
     setVideoStep('publishing')
     try {
       await addDoc(collection(db, 'stratVideos'), {
-        titre: newVideo.titre, description: newVideo.description,
-        youtubeUrl: newVideo.youtubeUrl, youtubeId: videoYtId,
-        jeu: newVideo.jeu, map: newVideo.map || 'All',
+        titre: newVideo.titre,
+        description: newVideo.description,
+        youtubeUrl: newVideo.youtubeUrl,
+        youtubeId: videoYtId,
+        jeu: newVideo.jeu,
+        map: newVideo.map || 'All',
         categorie: newVideo.categorie,
         tags: newVideo.tags.split(',').map(t => t.trim()).filter(Boolean),
-        auteur: pseudo, auteurId: user.uid,
-        vues: 0, likes: [], publie: newVideo.publie, createdAt: Date.now()
+        auteur: pseudo,
+        auteurId: user.uid,
+        vues: 0,
+        likes: [],
+        publie: newVideo.publie,
+        createdAt: Date.now()
       })
       addLog('Vidéo: ' + newVideo.titre)
       try {
-        await fetch(DW, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '🎬 Nouvelle Strat Vidéo !', description: newVideo.titre, color: 13934871, fields: [{ name: '📂', value: newVideo.categorie, inline: true }, { name: '🎮', value: newVideo.jeu, inline: true }, { name: '👤', value: pseudo, inline: true }], thumbnail: { url: `https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg` }, footer: { text: 'DYNO Esport', icon_url: LG } }] }) })
+        await fetch(DW, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [{
+              title: '🎬 Nouvelle Strat Vidéo !',
+              description: newVideo.titre,
+              color: 13934871,
+              fields: [
+                { name: '📂 Catégorie', value: newVideo.categorie, inline: true },
+                { name: '🎮 Jeu', value: newVideo.jeu, inline: true },
+                { name: '👤 Par', value: pseudo, inline: true },
+                { name: '🔗 Lien', value: newVideo.youtubeUrl, inline: false }
+              ],
+              thumbnail: { url: `https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg` },
+              footer: { text: 'DYNO Esport', icon_url: LG }
+            }]
+          })
+        })
       } catch {}
       setVideoStep('done')
-    } catch (e: any) { alert('❌ ' + e.message); setVideoStep('form') }
+    } catch (e: any) {
+      alert('❌ ' + e.message)
+      setVideoStep('form')
+    }
   }
 
   const likerVideo = async (vid: StratVideo) => {
@@ -577,7 +582,10 @@ function App() {
           <div className="w-64 bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border-r border-[#D4AF37]/20 shadow-[4px_0_32px_rgba(0,0,0,0.8)] overflow-y-auto">
             <div className="p-5 border-b border-[#D4AF37]/10 flex items-center gap-3">
               <img src={LG} alt="D" className="w-12 h-12" />
-              <div><h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h2><p className="text-[9px] text-gray-600 uppercase tracking-widest">Esport Team</p></div>
+              <div>
+                <h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h2>
+                <p className="text-[9px] text-gray-600 uppercase tracking-widest">Esport Team</p>
+              </div>
             </div>
             <div className="py-3">
               {menuItems.map(({ t, i, l }) => (
@@ -598,77 +606,13 @@ function App() {
         {pullDistance > 0 && <div className="flex justify-center mb-4" style={{ height: pullDistance }}><span className={"text-[#D4AF37] text-2xl " + (pullDistance > 60 ? 'animate-spin' : '')}>{isRefreshing ? '⏳' : pullDistance > 60 ? '🔄' : '⬇️'}</span></div>}
 
         {activeTab === 'matchs' && <div><H title="Prochains Matchs" /><div className="flex justify-end mb-3"><div className="flex bg-white/5 rounded-xl border border-white/10 overflow-hidden"><button onClick={() => setViewMode('list')} className={"px-3 py-1.5 text-xs " + (viewMode === 'list' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>☰</button><button onClick={() => setViewMode('grid')} className={"px-3 py-1.5 text-xs " + (viewMode === 'grid' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>⊞</button></div></div>{loading ? <div className="space-y-4"><div className="skeleton h-48 w-full" /><div className="skeleton h-48 w-full" /></div> : prochainsMatchs.length === 0 ? <div className="text-center py-10 text-gray-600">📭 Aucun match planifié</div> : <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'space-y-4'}>{prochainsMatchs.map((match: any, idx: number) => <div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-3"><span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase " + (match.type === 'Ligue' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' : match.type === 'Scrim' ? 'bg-green-500/20 text-green-400 border border-green-500/20' : match.type === 'Tournoi' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/20' : match.type === 'Division' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' : 'bg-gray-500/20 text-gray-400 border border-gray-500/20')}>{match.type}</span><div className="flex items-center gap-1.5"><span className={"px-1.5 py-0.5 rounded text-[7px] font-bold " + (getMatchTimeType(match) === 'hp' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400')}>{getMatchTimeType(match) === 'hp' ? 'HP' : 'HC'}</span><span className="text-[#D4AF37] font-bold text-xs">{fdf(match.date)}</span></div></div>{countdowns[match.id] && <div className={"rounded-2xl p-2.5 mb-3 text-center border " + (countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-500/10 border-red-500/15' : 'bg-[#D4AF37]/10 border-[#D4AF37]/15')}><p className="text-[9px] text-gray-600 uppercase">Countdown</p><p className={"text-lg font-bold font-mono " + (countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent')}>{countdowns[match.id]}</p></div>}<div className="flex items-center gap-3 mb-3"><img src={LG} alt="D" className="w-10 h-10" /><span className="text-gray-700 font-light">VS</span><div className="flex-1 text-right"><p className="font-bold text-white text-sm">{match.adversaire}</p><p className="text-[10px] text-[#D4AF37]/60">🏟️ {match.arene}</p></div></div><div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 uppercase">⏰ Horaire</p><p className="text-[#D4AF37] font-bold text-xs">{match.horaires?.join(' / ') || [match.horaire1, match.horaire2].filter(Boolean).join(' / ') || '20:00'}</p></div><div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 mb-1.5 uppercase">👥 Disponibles ({(match.disponibles || []).length})</p>{(match.disponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.disponibles || []).map((p: string, i: number) => <span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[9px] font-bold border border-[#D4AF37]/15">{p}</span>)}</div>}</div><div className="bg-white/5 rounded-xl p-2.5 mb-3 border border-red-500/10"><p className="text-[9px] text-gray-600 mb-1.5 uppercase">🚫 Indisponibles ({(match.indisponibles || []).length})</p>{(match.indisponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.indisponibles || []).map((p: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2 py-0.5 rounded-lg text-[9px] font-bold border border-red-500/15">{p}</span>)}</div>}</div><button onClick={() => atc(match)} className="w-full mb-2 py-2 rounded-xl font-bold bg-blue-600/20 text-blue-400 border border-blue-500/15 text-xs">📅 Ajouter au Calendrier</button><div className="flex gap-2"><button onClick={() => toggleDispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30' : 'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]')}>{!user ? '🔐' : (match.disponibles || []).includes(pseudo) ? '✅ Dispo (-2🎟️)' : '📅 Dispo'}</button><button onClick={() => toggleIndispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.indisponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30' : 'bg-white/5 border border-red-500/15 text-red-400')}>{!user ? '🔐' : (match.indisponibles || []).includes(pseudo) ? '❌ Indispo' : '🚫 Indispo'}</button></div></div>)}</div>}</div>}
-
-        {activeTab === 'historique' && <div><H title="Historique" /><div className="grid grid-cols-2 gap-3 mb-5"><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold text-[#D4AF37]">{victoires}</p><p className="text-[9px] text-gray-600 mt-1 uppercase">Victoires</p></div><div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15 text-center"><p className="text-3xl font-bold text-red-500">{defaites}</p><p className="text-[9px] text-gray-600 mt-1 uppercase">Défaites</p></div></div>{historique.length === 0 ? <div className="text-center py-10 text-gray-600">📜 Aucun résultat</div> : <div className="space-y-3">{historique.map((match: any, idx: number) => <div key={match.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-3"><span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase " + ((match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/20' : 'bg-red-500/20 text-red-400 border border-red-500/20')}>{(match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? '🏆 VICTOIRE' : '❌ DÉFAITE'}</span><div className="flex items-center gap-2"><span className="text-gray-600 text-xs">{fdf(match.date)}</span>{isAdmin && <button onClick={() => setEditHistoriqueScore({ id: match.id, adversaire: match.adversaire || '', scoreDyno: String(match.scoreDyno || 0), scoreAdv: String(match.scoreAdversaire || 0), type: match.type || 'Ligue', arene: match.arene || 'Arène 1', date: match.date || '', termine: true, sousMatchs: match.sousMatchs || [] })} className="w-7 h-7 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[10px]">✏️</button>}</div></div><div className="flex items-center justify-between mb-2"><div className="text-center"><p className="font-bold text-[#D4AF37] text-[10px] uppercase">DYNO</p><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{match.scoreDyno}</p></div><span className="text-gray-800 text-lg">-</span><div className="text-center"><p className="font-bold text-gray-600 text-[10px] uppercase">{match.adversaire}</p><p className="text-3xl font-bold text-gray-500">{match.scoreAdversaire}</p></div></div>{match.sousMatchs?.length > 0 && <div className="space-y-1 mb-2 pt-2 border-t border-white/5"><p className="text-[9px] text-gray-600 uppercase mb-1">Sous-matchs</p>{match.sousMatchs.map((sm: any, i: number) => <div key={i} className="flex justify-between bg-white/5 rounded-lg px-2 py-1"><span className="text-[10px] text-gray-400">{sm.adversaire}</span><span className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></span></div>)}</div>}{match.type && <p className="text-center text-gray-700 text-[9px] mt-2 uppercase">{match.type} • {match.arene}</p>}</div>)}</div>}</div>}
-
-        {editHistoriqueScore && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">✏️ Modifier</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">⚔️ Adversaire</label><input type="text" value={editHistoriqueScore.adversaire} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">📅 Date</label><input type="date" value={editHistoriqueScore.date?.includes('/') ? (() => { const p = editHistoriqueScore.date.split('/'); return p[2] + '-' + p[1] + '-' + p[0] })() : editHistoriqueScore.date} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" /></div><div className="grid grid-cols-2 gap-3"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Type</label><select value={editHistoriqueScore.type} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, type: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Arène</label><select value={editHistoriqueScore.arene} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, arene: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select></div></div>{editHistoriqueScore.type === 'Division' ? <div className="bg-white/5 rounded-xl p-3 border border-orange-500/15"><div className="flex justify-between mb-2"><p className="text-[10px] text-orange-400 font-bold uppercase">🏆 Sous-matchs</p><button onClick={ajouterEditSousMatch} className="px-2 py-1 rounded-lg bg-orange-500/20 text-orange-400 text-xs">➕</button></div>{(editHistoriqueScore.sousMatchs || []).length > 0 ? <div className="space-y-1">{(editHistoriqueScore.sousMatchs || []).map((sm: any, i: number) => <div key={i} className="flex justify-between bg-black/30 rounded-lg px-2 py-1.5"><div><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={() => supprimerEditSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>)}</div> : <p className="text-[9px] text-gray-600 text-center">Aucun</p>}{(editHistoriqueScore.sousMatchs || []).length > 0 && <div className="mt-2 pt-2 border-t border-white/5 text-center"><p className="text-[9px] text-gray-600 uppercase">Total</p><p className="text-sm font-bold"><span className="text-[#D4AF37]">{(editHistoriqueScore.sousMatchs || []).reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0)}</span> - <span className="text-gray-500">{(editHistoriqueScore.sousMatchs || []).reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0)}</span></p></div>}</div> : <div className="grid grid-cols-2 gap-3"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">🟡 DYNO</label><input type="number" value={editHistoriqueScore.scoreDyno} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase">⚪ Adv</label><input type="number" value={editHistoriqueScore.scoreAdv} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div></div>}<label className="flex items-center gap-2 bg-white/5 rounded-xl p-3 border border-white/5 cursor-pointer"><input type="checkbox" checked={editHistoriqueScore.termine === false} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, termine: e.target.checked ? false : true })} className="w-4 h-4 rounded accent-[#D4AF37]" /><span className="text-gray-400 text-xs">Remettre en « à venir »</span></label></div><div className="flex gap-2"><button onClick={() => setEditHistoriqueScore(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateHistoriqueScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}
-
-        {activeTab === 'strats' && <div><H title="Stratégies" icon="🎯" /><button onClick={() => setShowAddStrat(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕ Nouvelle Stratégie</button>{strats.length === 0 ? <div className="text-center py-10 text-gray-600">📝 Aucune</div> : <div className="space-y-3">{strats.map((s: any, idx: number) => <div key={s.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-3"><div><p className="font-bold text-[#D4AF37]">DYNO vs {s.adversaire}</p><p className="text-[9px] text-gray-600">par {s.auteur || '?'}</p></div>{(isAdmin || user?.uid === s.auteurId) && <button onClick={() => del('strats', s.id)} className="text-red-400/40">🗑️</button>}</div><div className="mb-2"><p className="text-[9px] text-green-400 mb-1.5 uppercase">✅ Picks ({s.picks?.length || 0}/4)</p><div className="flex flex-wrap gap-1">{s.picks?.map((p: string, i: number) => <span key={i} className="bg-green-500/15 text-green-400 px-2.5 py-1 rounded-lg text-[10px] border border-green-500/15 font-bold">{p}</span>)}</div></div><div><p className="text-[9px] text-red-400 mb-1.5 uppercase">❌ Bans ({s.bans?.length || 0}/4)</p><div className="flex flex-wrap gap-1">{s.bans?.map((b: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2.5 py-1 rounded-lg text-[10px] border border-red-500/15 font-bold">{b}</span>)}</div></div></div>)}</div>}{showAddStrat && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">🎯 Nouvelle Stratégie</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">⚔️ Adversaire</label><input type="text" placeholder="Nom" value={nouvelleStrat.adversaire} onChange={e => setNouvelleStrat({ ...nouvelleStrat, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">✅ Picks (4)</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => toggleMap(m, 'picks')} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (nouvelleStrat.picks.includes(m) ? 'bg-green-600 text-white' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">❌ Bans (4)</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => toggleMap(m, 'bans')} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (nouvelleStrat.bans.includes(m) ? 'bg-red-600 text-white' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div></div><div className="flex gap-2"><button onClick={() => { setShowAddStrat(false); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterStrat} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}</div>}
-
-        {activeTab === 'compos' && <div><H title="Compositions" icon="📋" />{user && <button onClick={() => setShowAddCompo(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕ Nouvelle Compo</button>}{compos.length === 0 ? <div className="text-center py-10 text-gray-600">📋 Aucune</div> : <div className="space-y-3">{compos.map((c: any, idx: number) => <div key={c.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-2"><p className="font-bold text-[#D4AF37]">🗺️ {c.map}</p>{user && <button onClick={() => del('compos', c.id)} className="text-red-400/40">🗑️</button>}</div><div className="flex flex-wrap gap-1">{c.joueurs?.map((j: string, i: number) => <span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{j}</span>)}</div></div>)}</div>}{showAddCompo && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📋 Compo</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🗺️ Map</label><div className="grid grid-cols-3 gap-1.5">{AM.map(m => <button key={m} onClick={() => setSelectedMapCompo(m)} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (selectedMapCompo === m ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-gray-500')}>{m}</button>)}</div></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">👥 Joueurs</label><div className="grid grid-cols-2 gap-1.5">{joueurs.filter((j: any) => j.actif !== false).map((j: any) => <button key={j.id} onClick={() => toggleCompoJoueur(j.pseudo)} className={"px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all " + (compoJoueurs.includes(j.pseudo) ? 'bg-green-600 text-white' : 'bg-white/5 text-gray-500')}>{j.pseudo}</button>)}</div></div></div><div className="flex gap-2"><button onClick={() => { setShowAddCompo(false); setSelectedMapCompo(''); setCompoJoueurs([]) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterCompo} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}</div>}
-
-        {activeTab === 'fiches' && <div><H title="Fiches Adversaires" icon="🔍" />{user && <button onClick={() => setShowAddFiche(true)} className="w-full mb-5 py-3 rounded-2xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕ Nouvelle Fiche</button>}{fichesAdversaires.length === 0 ? <div className="text-center py-10 text-gray-600">🔍 Aucune</div> : <div className="space-y-3">{fichesAdversaires.map((f: any, idx: number) => <div key={f.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-3"><p className="font-bold text-[#D4AF37]">⚔️ {f.adversaire}</p>{(isAdmin || user?.uid === f.auteurId) && <button onClick={() => del('fichesAdversaires', f.id)} className="text-red-400/40">🗑️</button>}</div><div className="space-y-2"><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10"><p className="text-[9px] text-green-400 uppercase font-bold mb-1">💪 Forces</p><p className="text-gray-300 text-xs">{f.forces || '—'}</p></div><div className="bg-red-500/10 rounded-xl p-3 border border-red-500/10"><p className="text-[9px] text-red-400 uppercase font-bold mb-1">⚠️ Faiblesses</p><p className="text-gray-300 text-xs">{f.faiblesses || '—'}</p></div>{f.notes && <div className="bg-white/5 rounded-xl p-3 border border-white/5"><p className="text-[9px] text-gray-500 uppercase font-bold mb-1">📝 Notes</p><p className="text-gray-300 text-xs">{f.notes}</p></div>}</div><p className="text-gray-700 text-[9px] mt-2">par {f.auteur}</p></div>)}</div>}{showAddFiche && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-5 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">🔍 Fiche</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">⚔️ Adversaire</label><input type="text" placeholder="Nom" value={nouvelleFiche.adversaire} onChange={e => setNouvelleFiche({ ...nouvelleFiche, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">💪 Forces</label><textarea value={nouvelleFiche.forces} onChange={e => setNouvelleFiche({ ...nouvelleFiche, forces: e.target.value })} rows={2} className="w-full bg-white/5 border border-green-500/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">⚠️ Faiblesses</label><textarea value={nouvelleFiche.faiblesses} onChange={e => setNouvelleFiche({ ...nouvelleFiche, faiblesses: e.target.value })} rows={2} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">📝 Notes</label><textarea value={nouvelleFiche.notes} onChange={e => setNouvelleFiche({ ...nouvelleFiche, notes: e.target.value })} rows={2} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" /></div></div><div className="flex gap-2"><button onClick={() => { setShowAddFiche(false); setNouvelleFiche({ adversaire: '', forces: '', faiblesses: '', notes: '' }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterFiche} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}</div>}
-
-        {activeTab === 'notes' && <div><H title="Notes & Analyses" icon="📊" />{historique.length === 0 ? <div className="text-center py-10 text-gray-600">📊 Aucun match</div> : <div className="space-y-4">{historique.map((match: any, idx: number) => { const mn = notes.filter((n: any) => n.matchId === match.id); const mc = commentaires.filter((c: any) => c.matchId === match.id); const ma = analyses.filter((a: any) => a.matchId === match.id); return <div key={match.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-3"><p className="font-bold text-[#D4AF37] text-sm">DYNO vs {match.adversaire}</p><div className="flex items-center gap-2"><span className={"px-2 py-0.5 rounded-full text-[8px] font-bold " + ((match.scoreDyno || 0) > (match.scoreAdversaire || 0) ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-red-500/20 text-red-400')}>{match.scoreDyno}-{match.scoreAdversaire}</span><span className="text-gray-700 text-[10px]">{fdf(match.date)}</span></div></div><div className="flex gap-1.5 mb-3"><button onClick={() => { setSelectedMatchForNotes(match); setNouvelleNote({ matchId: match.id, mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-1.5 rounded-lg font-bold bg-purple-500/15 text-purple-400 border border-purple-500/15 text-[9px]">📝 Note</button><button onClick={() => setSelectedMatchForComment(selectedMatchForComment?.id === match.id ? null : match)} className="flex-1 py-1.5 rounded-lg font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/15 text-[9px]">💬 Comm</button><button onClick={() => setSelectedMatchForAnalyse(selectedMatchForAnalyse?.id === match.id ? null : match)} className="flex-1 py-1.5 rounded-lg font-bold bg-orange-500/15 text-orange-400 border border-orange-500/15 text-[9px]">📋 Analyse</button></div>{selectedMatchForComment?.id === match.id && user && <div className="bg-white/5 rounded-xl p-3 mb-3 border border-cyan-500/10"><textarea placeholder="Commentaire..." value={nouveauCommentaire} onChange={e => setNouveauCommentaire(e.target.value)} rows={2} className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mb-2" /><button onClick={() => ajouterCommentaire(match.id)} className="w-full py-1.5 rounded-lg font-bold bg-cyan-500/20 text-cyan-400 text-[10px]">💬</button></div>}{selectedMatchForAnalyse?.id === match.id && user && <div className="bg-white/5 rounded-xl p-3 mb-3 border border-orange-500/10"><div className="space-y-2 mb-2"><div><label className="text-[8px] text-green-400 uppercase font-bold">✅ Bien</label><textarea value={nouvelleAnalyse.bien} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, bien: e.target.value })} rows={2} className="w-full bg-black/30 border border-green-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div><div><label className="text-[8px] text-red-400 uppercase font-bold">❌ Mal</label><textarea value={nouvelleAnalyse.mal} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, mal: e.target.value })} rows={2} className="w-full bg-black/30 border border-red-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div><div><label className="text-[8px] text-blue-400 uppercase font-bold">🎯 Plan</label><textarea value={nouvelleAnalyse.plan} onChange={e => setNouvelleAnalyse({ ...nouvelleAnalyse, plan: e.target.value })} rows={2} className="w-full bg-black/30 border border-blue-500/15 rounded-lg px-3 py-2 text-white text-xs focus:outline-none resize-none mt-1" /></div></div><button onClick={() => ajouterAnalyse(match.id)} className="w-full py-1.5 rounded-lg font-bold bg-orange-500/20 text-orange-400 text-[10px]">📋</button></div>}{mn.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-purple-400 uppercase font-bold">📊 Notes ({mn.length})</p>{mn.map((n: any) => <div key={n.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex justify-between mb-1.5"><p className="text-[#D4AF37] font-bold text-[10px]">{n.joueur}</p>{isAdmin && <button onClick={() => del('notes', n.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div><div className="grid grid-cols-3 gap-1.5 text-center"><div className="bg-purple-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">🧠</p><p className="text-purple-400 font-bold text-xs">{n.mental}/10</p></div><div className="bg-blue-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">💬</p><p className="text-blue-400 font-bold text-xs">{n.communication}/10</p></div><div className="bg-green-500/10 rounded-lg p-1.5"><p className="text-[9px] text-gray-600">🎯</p><p className="text-green-400 font-bold text-xs">{n.gameplay}/10</p></div></div></div>)}</div>}{mc.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-cyan-400 uppercase font-bold">💬 ({mc.length})</p>{mc.map((c: any) => <div key={c.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex justify-between mb-0.5"><p className="text-cyan-400 font-bold text-[10px]">{c.joueur}</p><div className="flex items-center gap-1.5"><p className="text-gray-700 text-[9px]">{fts(c.createdAt)}</p>{(isAdmin || user?.uid === c.joueurId) && <button onClick={() => del('commentaires', c.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div></div><p className="text-gray-400 text-xs">{c.texte}</p></div>)}</div>}{ma.length > 0 && <div className="space-y-1.5"><p className="text-[9px] text-orange-400 uppercase font-bold">📋 ({ma.length})</p>{ma.map((a: any) => <div key={a.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5"><div className="flex justify-between mb-2"><p className="text-orange-400 font-bold text-[10px]">{a.joueur}</p>{(isAdmin || user?.uid === a.joueurId) && <button onClick={() => del('analyses', a.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div>{a.bien && <div className="bg-green-500/10 rounded-lg p-2 mb-1"><p className="text-[8px] text-green-400 font-bold">✅</p><p className="text-gray-300 text-[10px]">{a.bien}</p></div>}{a.mal && <div className="bg-red-500/10 rounded-lg p-2 mb-1"><p className="text-[8px] text-red-400 font-bold">❌</p><p className="text-gray-300 text-[10px]">{a.mal}</p></div>}{a.plan && <div className="bg-blue-500/10 rounded-lg p-2"><p className="text-[8px] text-blue-400 font-bold">🎯</p><p className="text-gray-300 text-[10px]">{a.plan}</p></div>}</div>)}</div>}{mn.length === 0 && mc.length === 0 && ma.length === 0 && <p className="text-gray-700 text-[10px] text-center">Aucune donnée</p>}</div> })}</div>}{selectedMatchForNotes && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📊 vs {selectedMatchForNotes.adversaire}</h3><div className="space-y-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🧠 Mental (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.mental} onChange={e => setNouvelleNote({ ...nouvelleNote, mental: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">💬 Comm (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.communication} onChange={e => setNouvelleNote({ ...nouvelleNote, communication: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1.5 block uppercase">🎯 Perf (0-10)</label><input type="number" min="0" max="10" value={nouvelleNote.gameplay} onChange={e => setNouvelleNote({ ...nouvelleNote, gameplay: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-xl font-bold focus:outline-none" /></div></div><div className="flex gap-2"><button onClick={() => { setSelectedMatchForNotes(null); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }) }} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={ajouterNote} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}</div>}
-
-        {activeTab === 'idees' && <div><H title="Boîte à Idées" icon="💡" />{user && <div className="mb-5"><input type="text" placeholder="💡 Votre idée..." value={nouvelleIdee} onChange={e => setNouvelleIdee(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') ajouterIdee() }} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-2 text-white text-sm focus:outline-none focus:border-[#D4AF37]/50" /><button onClick={ajouterIdee} className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">💡 Proposer</button></div>}{idees.length === 0 ? <div className="text-center py-10 text-gray-600">💡 Aucune idée</div> : <div className="space-y-4">{idees.map((o: any, idx: number) => { const votes = o.votes || {}; const oui = Object.values(votes).filter((v: any) => v === 'oui').length; const non = Object.values(votes).filter((v: any) => v === 'non').length; const test = Object.values(votes).filter((v: any) => v === 'test').length; const myVote = user ? votes[user.uid] : null; const ic = (o.ideaComments || []) as any[]; return <div key={o.id} className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-start justify-between mb-3"><div className="flex-1"><p className="text-white text-sm font-medium">{o.texte}</p><p className="text-gray-600 text-[9px] mt-1">💡 par <span className="text-[#D4AF37]">{o.joueur}</span> • {new Date(o.createdAt).toLocaleDateString('fr-FR')}</p></div>{(isAdmin || user?.uid === o.joueurId) && <button onClick={() => del('idees', o.id)} className="text-red-400/40 text-sm ml-2">🗑️</button>}</div><div className="grid grid-cols-3 gap-2 mb-3"><button onClick={() => voterIdee(o.id, 'oui')} className={"py-2 rounded-xl font-bold text-xs transition-all " + (myVote === 'oui' ? 'bg-green-600 text-white shadow-lg shadow-green-500/30' : 'bg-green-500/10 text-green-400 border border-green-500/15')}>✅ Oui ({oui})</button><button onClick={() => voterIdee(o.id, 'non')} className={"py-2 rounded-xl font-bold text-xs transition-all " + (myVote === 'non' ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/15')}>❌ Non ({non})</button><button onClick={() => voterIdee(o.id, 'test')} className={"py-2 rounded-xl font-bold text-xs transition-all " + (myVote === 'test' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-blue-500/10 text-blue-400 border border-blue-500/15')}>🧪 Test ({test})</button></div>{Object.keys(votes).length > 0 && <div className="bg-white/5 rounded-lg p-2 mb-3 border border-white/5"><div className="flex flex-wrap gap-1">{Object.entries(votes).map(([uid, vote]: [string, any]) => { const vp = allPasses.find((p: any) => p.oduserId === uid); const vj = joueurs.find((j: any) => j.userId === uid); const nom = vj?.pseudo || vp?.pseudo || '?'; return <span key={uid} className={"px-1.5 py-0.5 rounded text-[8px] font-bold " + (vote === 'oui' ? 'bg-green-500/15 text-green-400' : vote === 'non' ? 'bg-red-500/15 text-red-400' : 'bg-blue-500/15 text-blue-400')}>{nom} {vote === 'oui' ? '✅' : vote === 'non' ? '❌' : '🧪'}</span> })}</div></div>}{ic.length > 0 && <div className="space-y-1.5 mb-3"><p className="text-[9px] text-gray-500 uppercase font-bold">💬 ({ic.length})</p>{ic.map((c: any, ci: number) => <div key={ci} className="bg-white/5 rounded-lg p-2 border border-white/5"><div className="flex justify-between"><p className="text-[#D4AF37] font-bold text-[9px]">{c.joueur}</p><p className="text-gray-700 text-[8px]">{new Date(c.createdAt).toLocaleDateString('fr-FR')}</p></div><p className="text-gray-400 text-[10px] mt-0.5">{c.texte}</p></div>)}</div>}{user && <div className="flex gap-2"><input type="text" placeholder="Commenter..." id={'ic-' + o.id} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-[10px] focus:outline-none" /><button onClick={() => commenterIdee(o.id, document.getElementById('ic-' + o.id) as HTMLInputElement)} className="px-3 py-2 rounded-lg font-bold bg-[#D4AF37]/20 text-[#D4AF37] text-[10px]">💬</button></div>}</div> })}</div>}</div>}
-
-        {/* ══════════════ STRAT VIDÉO ══════════════ */}
-        {activeTab === 'stratVideos' && (
-          <div>
-            <H title="Strat Vidéo" icon="📺" />
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center"><p className="text-xl font-bold text-[#D4AF37]">{stratVideos.length}</p><p className="text-[9px] text-gray-600 uppercase">Total</p></div>
-              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center"><p className="text-xl font-bold text-green-400">{stratVideos.filter(v => v.publie).length}</p><p className="text-[9px] text-gray-600 uppercase">Publiées</p></div>
-              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center"><p className="text-xl font-bold text-red-400">{stratVideos.reduce((s, v) => s + (v.likes?.length || 0), 0)}</p><p className="text-[9px] text-gray-600 uppercase">Likes</p></div>
-            </div>
-            {user && <button onClick={() => { setShowAddVideo(true); setVideoStep('form'); setNewVideo({ titre: '', description: '', youtubeUrl: '', jeu: 'Valorant', map: '', categorie: 'strat', tags: '', publie: true }); setVideoYtId('') }} className="w-full mb-4 py-3 rounded-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white text-sm shadow-lg shadow-red-500/20 flex items-center justify-center gap-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
-              Publier une Strat Vidéo
-            </button>}
-            <a href={YT} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 w-full mb-4 py-2.5 rounded-xl font-bold bg-red-600/10 text-red-400 border border-red-500/20 text-center text-xs justify-center">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
-              Chaîne YouTube DYNO Esport
-            </a>
-            <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
-              <button onClick={() => setVideoFilter('all')} className={"flex-shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all " + (videoFilter === 'all' ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30' : 'bg-white/5 text-gray-500 border-white/10')}>Toutes</button>
-              {CATS.map(c => <button key={c.v} onClick={() => setVideoFilter(c.v as any)} className={"flex-shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all " + (videoFilter === c.v ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30' : 'bg-white/5 text-gray-500 border-white/10')}>{c.i} {c.l}</button>)}
-            </div>
-            <div className="relative mb-4">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">🔍</span>
-              <input type="text" placeholder="Rechercher..." value={videoSearch} onChange={e => setVideoSearch(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/40" />
-            </div>
-            {filteredVideos.length === 0 ? <div className="text-center py-10 text-gray-600"><p className="text-4xl mb-3">📺</p><p>Aucune vidéo trouvée</p></div> : (
-              <div className="space-y-4">
-                {filteredVideos.map((v, idx) => (
-                  <div key={v.id} className="card-glow bg-black/30 rounded-3xl border border-[#D4AF37]/15 overflow-hidden" style={{ animationDelay: (idx * 0.05) + 's' }}>
-                    <div className="relative cursor-pointer" onClick={() => { setSelectedVideo(v); setPlayerLoaded(false) }}>
-                      <img src={`https://img.youtube.com/vi/${v.youtubeId}/hqdefault.jpg`} alt={v.titre} className="w-full aspect-video object-cover" onError={e => { (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${v.youtubeId}/mqdefault.jpg` }} />
-                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                        <div className="w-14 h-14 bg-red-600/90 rounded-full flex items-center justify-center shadow-xl">
-                          <svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                      </div>
-                      {!v.publie && <div className="absolute top-2 left-2 bg-yellow-500/90 px-2 py-0.5 rounded-lg text-[9px] text-black font-black">BROUILLON</div>}
-                      <div className="absolute top-2 right-2"><span className="bg-black/70 px-2 py-0.5 rounded-lg text-[9px] text-white font-bold">{CATS.find(c => c.v === v.categorie)?.i} {CATS.find(c => c.v === v.categorie)?.l}</span></div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-white text-sm mb-1 leading-tight">{v.titre}</h3>
-                      {v.description && <p className="text-gray-500 text-[10px] mb-2 line-clamp-2">{v.description}</p>}
-                      <div className="flex items-center gap-2 mb-3 flex-wrap">
-                        <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[9px] font-bold border border-[#D4AF37]/15">🎮 {v.jeu}</span>
-                        {v.map && v.map !== 'All' && <span className="bg-white/5 text-gray-500 px-2 py-0.5 rounded-lg text-[9px] border border-white/10">🗺️ {v.map}</span>}
-                        <span className="text-gray-600 text-[9px] ml-auto">par {v.auteur}</span>
-                      </div>
-                      {v.tags?.length > 0 && <div className="flex flex-wrap gap-1 mb-3">{v.tags.slice(0, 4).map(t => <span key={t} className="text-[8px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">#{t}</span>)}</div>}
-                      <div className="flex gap-2">
-                        <button onClick={() => { setSelectedVideo(v); setPlayerLoaded(false) }} className="flex-1 py-2 rounded-xl bg-red-600/15 text-red-400 border border-red-500/20 text-xs font-bold flex items-center justify-center gap-1">▶ Regarder</button>
-                        <button onClick={() => user && likerVideo(v)} className={"py-2 px-3 rounded-xl text-xs font-bold border transition-all " + (user && v.likes?.includes(user.uid) ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-white/5 text-gray-500 border-white/10')}>❤️ {v.likes?.length || 0}</button>
-                        <a href={v.youtubeUrl} target="_blank" rel="noopener noreferrer" className="py-2 px-3 rounded-xl bg-white/5 text-gray-500 border border-white/10 text-xs font-bold">YT</a>
-                        {(isAdmin || user?.uid === v.auteurId) && <>
-                          <button onClick={() => togglePublierVideo(v)} className={"py-2 px-2 rounded-xl text-xs border " + (v.publie ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20')}>{v.publie ? '👁' : '✅'}</button>
-                          <button onClick={() => { if (confirm('Supprimer ?')) del('stratVideos', v.id) }} className="py-2 px-2 rounded-xl bg-red-500/10 text-red-400/60 border border-red-500/10 text-xs">🗑️</button>
-                        </>}
+                          <>
+                            <button onClick={() => togglePublierVideo(v)} className={"py-2 px-2 rounded-xl text-xs border " + (v.publie ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20')}>
+                              {v.publie ? '👁' : '✅'}
+                            </button>
+                            <button onClick={() => { if (confirm('Supprimer ?')) del('stratVideos', v.id) }} className="py-2 px-2 rounded-xl bg-red-500/10 text-red-400/60 border border-red-500/10 text-xs">🗑️</button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -676,110 +620,183 @@ function App() {
               </div>
             )}
 
-            {/* MODAL LECTEUR */}
             {selectedVideo && (
               <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
-                  <button onClick={() => setSelectedVideo(null)} className="text-gray-400 hover:text-white text-sm">← Retour</button>
+                  <button onClick={() => setSelectedVideo(null)} className="text-gray-400 hover:text-white text-sm flex items-center gap-2">
+                    ← Retour
+                  </button>
                   <div className="flex gap-2">
-                    {(isAdmin || user?.uid === selectedVideo.auteurId) && <button onClick={() => togglePublierVideo(selectedVideo)} className={"px-3 py-1 rounded-lg text-xs font-bold " + (selectedVideo.publie ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400')}>{selectedVideo.publie ? '📝 Brouillon' : '✅ Publier'}</button>}
+                    {(isAdmin || user?.uid === selectedVideo.auteurId) && (
+                      <button onClick={() => togglePublierVideo(selectedVideo)} className={"px-3 py-1 rounded-lg text-xs font-bold " + (selectedVideo.publie ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400')}>
+                        {selectedVideo.publie ? '📝 Brouillon' : '✅ Publier'}
+                      </button>
+                    )}
                     <a href={selectedVideo.youtubeUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-lg bg-red-600/20 text-red-400 text-xs font-bold flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
                       YouTube
                     </a>
                   </div>
                 </div>
+
                 <div className="flex-1 overflow-y-auto">
                   {!playerLoaded ? (
                     <div className="relative aspect-video cursor-pointer" onClick={() => setPlayerLoaded(true)}>
                       <img src={`https://img.youtube.com/vi/${selectedVideo.youtubeId}/maxresdefault.jpg`} alt={selectedVideo.titre} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${selectedVideo.youtubeId}/hqdefault.jpg` }} />
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                         <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center shadow-2xl shadow-red-500/40">
-                          <svg className="w-10 h-10 text-white ml-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                          <svg className="w-10 h-10 text-white ml-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                         </div>
                       </div>
                       <p className="absolute bottom-3 left-0 right-0 text-center text-white/60 text-xs">Appuyer pour lancer</p>
                     </div>
                   ) : (
                     <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                      <iframe className="absolute top-0 left-0 w-full h-full" src={`https://www.youtube.com/embed/${selectedVideo.youtubeId}?autoplay=1&rel=0`} title={selectedVideo.titre} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                      <iframe
+                        className="absolute top-0 left-0 w-full h-full"
+                        src={`https://www.youtube.com/embed/${selectedVideo.youtubeId}?autoplay=1&rel=0`}
+                        title={selectedVideo.titre}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
                     </div>
                   )}
+
                   <div className="p-4 space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <h2 className="text-white font-bold text-base flex-1">{selectedVideo.titre}</h2>
-                      <button onClick={() => user && likerVideo(selectedVideo)} className={"px-3 py-1.5 rounded-xl font-bold text-sm transition-all " + (user && selectedVideo.likes?.includes(user.uid) ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-white/5 text-gray-500 border border-white/10')}>❤️ {selectedVideo.likes?.length || 0}</button>
+                      <button onClick={() => user && likerVideo(selectedVideo)} className={"px-3 py-1.5 rounded-xl font-bold text-sm transition-all " + (user && selectedVideo.likes?.includes(user.uid) ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-white/5 text-gray-500 border border-white/10')}>
+                        ❤️ {selectedVideo.likes?.length || 0}
+                      </button>
                     </div>
+
                     <div className="flex flex-wrap gap-2">
-                      <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{CATS.find(c => c.v === selectedVideo.categorie)?.i} {CATS.find(c => c.v === selectedVideo.categorie)?.l}</span>
+                      <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">
+                        {CATS.find(c => c.v === selectedVideo.categorie)?.i} {CATS.find(c => c.v === selectedVideo.categorie)?.l}
+                      </span>
                       <span className="bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg text-[10px] border border-white/10">🎮 {selectedVideo.jeu}</span>
                       {selectedVideo.map && selectedVideo.map !== 'All' && <span className="bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg text-[10px] border border-white/10">🗺️ {selectedVideo.map}</span>}
                       {!selectedVideo.publie && <span className="bg-yellow-500/20 text-yellow-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-yellow-500/20">BROUILLON</span>}
                     </div>
-                    {selectedVideo.description && <div className="bg-white/5 rounded-xl p-3 border border-white/10"><p className="text-[9px] text-gray-500 uppercase font-bold mb-1.5">📝 Description</p><p className="text-gray-300 text-xs whitespace-pre-wrap">{selectedVideo.description}</p></div>}
-                    {selectedVideo.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{selectedVideo.tags.map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg">#{t}</span>)}</div>}
-                    <div className="flex items-center gap-3 text-[10px] text-gray-600 border-t border-white/5 pt-3"><span>👤 {selectedVideo.auteur}</span><span>•</span><span>{new Date(selectedVideo.createdAt).toLocaleDateString('fr-FR')}</span></div>
+
+                    {selectedVideo.description && (
+                      <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                        <p className="text-[9px] text-gray-500 uppercase font-bold mb-1.5">📝 Description</p>
+                        <p className="text-gray-300 text-xs whitespace-pre-wrap">{selectedVideo.description}</p>
+                      </div>
+                    )}
+
+                    {selectedVideo.tags?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedVideo.tags.map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg">#{t}</span>)}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 text-[10px] text-gray-600 border-t border-white/5 pt-3">
+                      <span>👤 {selectedVideo.auteur}</span>
+                      <span>•</span>
+                      <span>{new Date(selectedVideo.createdAt).toLocaleDateString('fr-FR')}</span>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* MODAL PUBLICATION */}
             {showAddVideo && (
               <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
                   <button onClick={() => { setShowAddVideo(false); setVideoStep('form') }} className="text-gray-400 text-sm">✕ Fermer</button>
-                  <h3 className="text-sm font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{videoStep === 'form' ? '📺 Nouvelle vidéo' : videoStep === 'preview' ? '👁 Prévisualisation' : videoStep === 'publishing' ? '⏳ Publication...' : '✅ Publiée !'}</h3>
+                  <h3 className="text-sm font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">
+                    {videoStep === 'form' ? '📺 Nouvelle vidéo' : videoStep === 'preview' ? '👁 Prévisualisation' : videoStep === 'publishing' ? '⏳ Publication...' : '✅ Publiée !'}
+                  </h3>
                   <div className="w-16" />
                 </div>
+
                 <div className="flex items-center gap-0 px-4 py-3 border-b border-white/5">
-                  {['Infos','Preview','Pub.','OK'].map((s, i) => (
+                  {['Infos', 'Preview', 'Pub.', 'OK'].map((s, i) => (
                     <div key={s} className="flex items-center flex-1">
-                      <div className={"w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black " + (['form','preview','publishing','done'].indexOf(videoStep) >= i ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-gray-600')}>{i+1}</div>
+                      <div className={"w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black " + (['form','preview','publishing','done'].indexOf(videoStep) >= i ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-gray-600')}>{i + 1}</div>
                       {i < 3 && <div className={"flex-1 h-px " + (['form','preview','publishing','done'].indexOf(videoStep) > i ? 'bg-[#D4AF37]/50' : 'bg-white/10')} />}
                     </div>
                   ))}
                 </div>
+
                 <div className="flex-1 overflow-y-auto p-4">
                   {videoStep === 'form' && (
                     <div className="space-y-4">
                       <div>
-                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🔴 URL YouTube *</label>
-                        <input type="url" placeholder="https://www.youtube.com/watch?v=..." value={newVideo.youtubeUrl} onChange={e => handleVideoUrlChange(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-red-500/40" />
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 flex items-center gap-1.5 block">
+                          <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
+                          URL YouTube *
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          value={newVideo.youtubeUrl}
+                          onChange={e => handleVideoUrlChange(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-red-500/40"
+                        />
                         {newVideo.youtubeUrl && !videoYtId && <p className="text-red-400 text-[10px] mt-1">⚠️ URL invalide</p>}
                         {videoYtId && <p className="text-green-400 text-[10px] mt-1">✅ ID détecté : {videoYtId}</p>}
                       </div>
-                      {videoYtId && <div className="rounded-xl overflow-hidden border border-white/10"><img src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`} alt="preview" className="w-full aspect-video object-cover" /></div>}
+
+                      {videoYtId && (
+                        <div className="rounded-xl overflow-hidden border border-white/10">
+                          <img src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`} alt="preview" className="w-full aspect-video object-cover" />
+                        </div>
+                      )}
+
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Titre *</label>
                         <input type="text" placeholder="Ex: Rush B Dust2 - Strat anti-éco" value={newVideo.titre} onChange={e => setNewVideo(v => ({ ...v, titre: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" />
                       </div>
+
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Description</label>
-                        <textarea value={newVideo.description} onChange={e => setNewVideo(v => ({ ...v, description: e.target.value }))} rows={3} placeholder="Décris la stratégie..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" />
+                        <textarea value={newVideo.description} onChange={e => setNewVideo(v => ({ ...v, description: e.target.value }))} rows={3} placeholder="Décris la stratégie, les timing clés..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" />
                       </div>
+
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🎮 Jeu</label>
-                          <select value={newVideo.jeu} onChange={e => setNewVideo(v => ({ ...v, jeu: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none">
-                            {['Valorant','CS2','Overwatch 2','Apex Legends','League of Legends','R6 Siege'].map(g => <option key={g} value={g} className="bg-black">{g}</option>)}
-                          </select>
+                          <div className="w-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-xl px-3 py-2.5 text-[#D4AF37] text-sm font-bold flex items-center gap-2">
+                            <img src={LG} alt="EVA" className="w-5 h-5" />
+                            EVA Esport Arena
+                          </div>
                         </div>
                         <div>
                           <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🗺️ Map</label>
-                          <input type="text" placeholder="Ascent, Mirage..." value={newVideo.map} onChange={e => setNewVideo(v => ({ ...v, map: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" />
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {AM.map(m => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setNewVideo(v => ({ ...v, map: v.map === m ? '' : m }))}
+                                className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border " + (newVideo.map === m ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-lg shadow-[#D4AF37]/20' : 'bg-white/5 text-gray-500 border-white/10 hover:border-[#D4AF37]/40')}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
+
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">📂 Catégorie</label>
                         <div className="grid grid-cols-3 gap-1.5">
-                          {CATS.map(c => <button key={c.v} type="button" onClick={() => setNewVideo(v => ({ ...v, categorie: c.v as any }))} className={"py-2 rounded-xl text-[10px] font-bold border transition-all " + (newVideo.categorie === c.v ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/40' : 'bg-white/5 text-gray-500 border-white/10')}>{c.i} {c.l}</button>)}
+                          {CATS.map(c => (
+                            <button key={c.v} type="button" onClick={() => setNewVideo(v => ({ ...v, categorie: c.v as any }))} className={"py-2 rounded-xl text-[10px] font-bold border transition-all " + (newVideo.categorie === c.v ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/40' : 'bg-white/5 text-gray-500 border-white/10')}>
+                              {c.i} {c.l}
+                            </button>
+                          ))}
                         </div>
                       </div>
+
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🏷️ Tags (virgules)</label>
                         <input type="text" placeholder="rush, anti-éco, b-site" value={newVideo.tags} onChange={e => setNewVideo(v => ({ ...v, tags: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" />
                       </div>
+
                       <div className="flex items-center gap-3 bg-white/5 rounded-xl p-4 border border-white/10">
                         <button type="button" onClick={() => setNewVideo(v => ({ ...v, publie: !v.publie }))} className={"relative w-12 h-6 rounded-full transition-colors " + (newVideo.publie ? 'bg-green-500' : 'bg-white/20')}>
                           <div className={"absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-lg transition-transform " + (newVideo.publie ? 'translate-x-6' : 'translate-x-0.5')} />
@@ -789,19 +806,30 @@ function App() {
                           <p className="text-gray-600 text-[9px]">{newVideo.publie ? 'Visible par tous les membres' : 'Visible uniquement par vous'}</p>
                         </div>
                       </div>
+
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setShowAddVideo(false)} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button>
-                        <button onClick={() => { if (!newVideo.titre || !videoYtId) { alert('⚠️ Titre et URL requis'); return }; setVideoStep('preview') }} disabled={!newVideo.titre || !videoYtId} className={"flex-1 py-3 rounded-xl font-bold text-sm " + (newVideo.titre && videoYtId ? 'bg-gradient-to-r from-red-600 to-red-700 text-white' : 'bg-white/10 text-gray-600')}>Prévisualiser →</button>
+                        <button
+                          onClick={() => { if (!newVideo.titre || !videoYtId) { alert('⚠️ Titre et URL requis'); return }; setVideoStep('preview') }}
+                          disabled={!newVideo.titre || !videoYtId}
+                          className={"flex-1 py-3 rounded-xl font-bold text-sm " + (newVideo.titre && videoYtId ? 'bg-gradient-to-r from-red-600 to-red-700 text-white' : 'bg-white/10 text-gray-600')}
+                        >
+                          Prévisualiser →
+                        </button>
                       </div>
                     </div>
                   )}
                   {videoStep === 'preview' && (
                     <div className="space-y-4">
-                      <div className="rounded-xl overflow-hidden border border-white/10"><img src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`} alt={newVideo.titre} className="w-full aspect-video object-cover" /></div>
+                      <div className="rounded-xl overflow-hidden border border-white/10">
+                        <img src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`} alt={newVideo.titre} className="w-full aspect-video object-cover" />
+                      </div>
                       <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-3">
                         <h3 className="text-white font-bold">{newVideo.titre}</h3>
                         <div className="flex flex-wrap gap-2">
-                          <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{CATS.find(c => c.v === newVideo.categorie)?.i} {CATS.find(c => c.v === newVideo.categorie)?.l}</span>
+                          <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">
+                            {CATS.find(c => c.v === newVideo.categorie)?.i} {CATS.find(c => c.v === newVideo.categorie)?.l}
+                          </span>
                           <span className="bg-white/5 text-gray-400 px-2 py-0.5 rounded-lg text-[10px] border border-white/10">🎮 {newVideo.jeu}</span>
                           {newVideo.map && <span className="bg-white/5 text-gray-400 px-2 py-0.5 rounded-lg text-[10px] border border-white/10">🗺️ {newVideo.map}</span>}
                           <span className={"px-2 py-0.5 rounded-lg text-[10px] font-bold " + (newVideo.publie ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20')}>{newVideo.publie ? '✅ Public' : '📝 Brouillon'}</span>
@@ -809,31 +837,42 @@ function App() {
                         {newVideo.description && <p className="text-gray-400 text-xs">{newVideo.description}</p>}
                         {newVideo.tags && <div className="flex flex-wrap gap-1">{newVideo.tags.split(',').map(t => t.trim()).filter(Boolean).map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">#{t}</span>)}</div>}
                       </div>
-                      <div className="bg-red-500/5 border border-red-500/15 rounded-xl p-3"><p className="text-red-400 text-[10px] font-bold mb-1">📺 Publication</p><p className="text-gray-500 text-[10px]">La vidéo sera ajoutée + notification Discord.</p></div>
+                      <div className="bg-red-500/5 border border-red-500/15 rounded-xl p-3">
+                        <p className="text-red-400 text-[10px] font-bold mb-1">📺 Publication</p>
+                        <p className="text-gray-500 text-[10px]">La vidéo sera ajoutée à la section Strat Vidéo et une notification sera envoyée sur Discord.</p>
+                      </div>
                       <div className="flex gap-3">
                         <button onClick={() => setVideoStep('form')} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">← Modifier</button>
                         <button onClick={publierStratVideo} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white text-sm flex items-center justify-center gap-2">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
                           Publier !
                         </button>
                       </div>
                     </div>
                   )}
+
                   {videoStep === 'publishing' && (
                     <div className="flex flex-col items-center justify-center py-20 space-y-6">
                       <div className="w-20 h-20 rounded-full bg-red-600/20 border border-red-500/30 flex items-center justify-center animate-pulse">
-                        <svg className="w-10 h-10 text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                        <svg className="w-10 h-10 text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
                       </div>
                       <p className="text-white font-bold">Publication en cours...</p>
-                      <div className="w-48 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full animate-pulse w-3/4" /></div>
+                      <p className="text-gray-500 text-sm text-center">Envoi sur Discord et sauvegarde dans Firebase</p>
+                      <div className="w-48 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full animate-pulse w-3/4" />
+                      </div>
                     </div>
                   )}
+
                   {videoStep === 'done' && (
                     <div className="flex flex-col items-center justify-center py-20 space-y-6 text-center">
                       <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
-                        <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+                        <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                       </div>
-                      <div><h3 className="text-white font-bold text-xl mb-2">Vidéo publiée ! 🎉</h3><p className="text-gray-500 text-sm">Notification Discord envoyée</p></div>
+                      <div>
+                        <h3 className="text-white font-bold text-xl mb-2">Vidéo publiée ! 🎉</h3>
+                        <p className="text-gray-500 text-sm">Notification Discord envoyée</p>
+                      </div>
                       <div className="flex gap-3 w-full">
                         <button onClick={() => { setShowAddVideo(false); setVideoStep('form') }} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-400 text-sm">Fermer</button>
                         <a href={newVideo.youtubeUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white text-sm text-center">Voir sur YT</a>
@@ -845,7 +884,6 @@ function App() {
             )}
           </div>
         )}
-        {/* ══════════════ FIN STRAT VIDÉO ══════════════ */}
 
         {activeTab === 'rec' && <div><H title="Replays" icon="🎬" /><a href={YT} target="_blank" className="block w-full mb-5 py-2.5 rounded-xl font-bold bg-red-600/15 text-red-400 border border-red-500/15 text-center text-xs">🔴 Chaîne YouTube DYNO</a>{replays.length === 0 ? <div className="text-center py-10 text-gray-600">📹 Aucun replay</div> : <div className="space-y-3">{replays.map((r: any, idx: number) => <div key={r.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-2"><h3 className="font-bold text-[#D4AF37] text-sm">{r.titre}</h3>{isAdmin && <button onClick={() => del('replays', r.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div>{ytId(r.lien) ? <div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden"><iframe src={'https://www.youtube.com/embed/' + ytId(r.lien)} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen /></div> : <a href={r.lien} target="_blank" className="block py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-center text-sm">▶️</a>}</div>)}</div>}</div>}
 
@@ -859,7 +897,13 @@ function App() {
                 <div className="flex items-center gap-5 mb-6">
                   <div className="relative group">
                     <div className="absolute inset-0 bg-[#D4AF37] blur-lg opacity-10 group-hover:opacity-20 transition-opacity rounded-2xl"></div>
-                    {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-20 h-20 rounded-2xl object-cover border-2 border-[#D4AF37]/40 relative z-10 shadow-2xl" /> : <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-3xl border-2 border-[#D4AF37]/20 relative z-10">{pseudo?.[0]?.toUpperCase()}</div>}
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="avatar" className="w-20 h-20 rounded-2xl object-cover border-2 border-[#D4AF37]/40 relative z-10 shadow-2xl" />
+                    ) : (
+                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-3xl border-2 border-[#D4AF37]/20 relative z-10">
+                        {pseudo?.[0]?.toUpperCase()}
+                      </div>
+                    )}
                     <label className={`absolute -bottom-2 -right-2 text-black w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-4 border-[#030303] cursor-pointer z-20 hover:scale-110 active:scale-90 transition-all ${uploadingAvatar ? 'bg-gray-500 animate-pulse' : 'bg-[#D4AF37]'}`}>
                       <span className="text-xs">{uploadingAvatar ? '⏳' : '📷'}</span>
                       <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={uploadingAvatar} />
@@ -868,7 +912,12 @@ function App() {
                   <div className="flex-1">
                     <p className="text-white font-black text-xl tracking-tight leading-none mb-1">{pseudo}</p>
                     <p className="text-[#D4AF37] text-[10px] font-bold uppercase tracking-tighter opacity-70 mb-2">Membre Officiel DYNO</p>
-                    {myPass && <div className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/10"><span className="text-sm">{EVA_PASSES[myPass.type]?.icon}</span><span className="text-[9px] font-black text-gray-400 uppercase">{EVA_PASSES[myPass.type]?.label}</span></div>}
+                    {myPass && (
+                      <div className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
+                        <span className="text-sm">{EVA_PASSES[myPass.type]?.icon}</span>
+                        <span className="text-[9px] font-black text-gray-400 uppercase">{EVA_PASSES[myPass.type]?.label}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-3 pt-4 border-t border-white/5">
@@ -880,13 +929,17 @@ function App() {
                 </div>
               </div>
             )}
+
             {user && (
               <div className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15 mb-5">
                 <p className="text-[10px] text-[#D4AF37] font-bold mb-3 uppercase tracking-widest">🎟️ Mon EVA Pass</p>
                 {myPass ? (
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2"><span className="text-lg">{EVA_PASSES[myPass.type]?.icon}</span><span className={"px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r text-white " + (EVA_PASSES[myPass.type]?.color || 'from-gray-500 to-gray-700')}>{EVA_PASSES[myPass.type]?.label}</span></div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{EVA_PASSES[myPass.type]?.icon}</span>
+                        <span className={"px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r text-white " + (EVA_PASSES[myPass.type]?.color || 'from-gray-500 to-gray-700')}>{EVA_PASSES[myPass.type]?.label}</span>
+                      </div>
                       <button onClick={() => { setMyPass(null); updateDoc(doc(db, 'users', user.uid), { evaPass: null }) }} className="text-red-400/40 text-[9px]">Changer</button>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mb-3">
@@ -931,6 +984,7 @@ function App() {
                 </div>
               </div>
             )}
+
             <div className="space-y-3">
               {joueurs.filter((j: any) => j.actif !== false).map((j: any, idx: number) => {
                 const userDoc = allPasses.find((p: any) => p.pseudo === j.pseudo)
@@ -938,13 +992,24 @@ function App() {
                 return (
                   <div key={j.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15 flex items-center gap-4" style={{ animationDelay: (idx * 0.1) + 's' }}>
                     <div className="relative">
-                      {playerAvatar ? <img src={playerAvatar} alt={j.pseudo} className="w-14 h-14 rounded-2xl object-cover border border-[#D4AF37]/30 shadow-xl" /> : <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-xl border border-[#D4AF37]/15">{j.pseudo[0]?.toUpperCase()}</div>}
+                      {playerAvatar ? (
+                        <img src={playerAvatar} alt={j.pseudo} className="w-14 h-14 rounded-2xl object-cover border border-[#D4AF37]/30 shadow-xl" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-xl border border-[#D4AF37]/15">
+                          {j.pseudo[0]?.toUpperCase()}
+                        </div>
+                      )}
                       <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-black animate-pulse"></div>
                     </div>
                     <div className="flex-1">
                       <p className="font-black text-white text-base">{j.pseudo}</p>
                       <p className="text-[10px] text-gray-500 uppercase font-bold">🎮 {j.role}</p>
-                      {userDoc && <div className="flex gap-3 mt-1"><span className="text-[9px] text-blue-400 font-black">{(userDoc.hcTotal || 0) - (userDoc.hcUsed || 0)} HC</span><span className="text-[9px] text-purple-400 font-black">{(userDoc.hpTotal || 0) - (userDoc.hpUsed || 0)} HP</span></div>}
+                      {userDoc && (
+                        <div className="flex gap-3 mt-1">
+                          <span className="text-[9px] text-blue-400 font-black">{(userDoc.hcTotal || 0) - (userDoc.hcUsed || 0)} HC</span>
+                          <span className="text-[9px] text-purple-400 font-black">{(userDoc.hpTotal || 0) - (userDoc.hpUsed || 0)} HP</span>
+                        </div>
+                      )}
                     </div>
                     {isAdmin && <button onClick={() => del('players', j.id)} className="w-8 h-8 rounded-xl bg-red-500/10 text-red-500/40 flex items-center justify-center">🗑️</button>}
                   </div>
@@ -1042,9 +1107,17 @@ function App() {
             {isSignUp && <input type="text" placeholder="Pseudo" value={pseudo} onChange={e => setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />}
             <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />
             <input type="password" placeholder="Mot de passe" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-6 text-white text-sm focus:outline-none" />
-            {isSignUp ? <button onClick={handleSignUp} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">CRÉER LE COMPTE</button> : <button onClick={handleSignIn} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">SE CONNECTER</button>}
+            {isSignUp ? (
+              <button onClick={handleSignUp} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">CRÉER LE COMPTE</button>
+            ) : (
+              <button onClick={handleSignIn} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">SE CONNECTER</button>
+            )}
             <div className="border-t border-white/5 pt-4 text-center">
-              {isSignUp ? <button onClick={() => setIsSignUp(false)} className="text-[#D4AF37] text-[10px] font-bold hover:underline uppercase opacity-70">Déjà membre ? Connexion</button> : <button onClick={() => setIsSignUp(true)} className="text-[#D4AF37] text-[10px] font-bold hover:underline uppercase opacity-70">Pas encore de compte ? Rejoindre</button>}
+              {isSignUp ? (
+                <button onClick={() => setIsSignUp(false)} className="text-[#D4AF37] text-[10px] font-bold hover:underline uppercase opacity-70">Déjà membre ? Connexion</button>
+              ) : (
+                <button onClick={() => setIsSignUp(true)} className="text-[#D4AF37] text-[10px] font-bold hover:underline uppercase opacity-70">Pas encore de compte ? Rejoindre</button>
+              )}
             </div>
           </div>
         </div>
