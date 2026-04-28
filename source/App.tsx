@@ -225,6 +225,7 @@ function App() {
     }
   }
   
+
   useEffect(() => {
     if (!notificationsEnabled) return
     try { if (!('Notification' in window) || Notification.permission !== 'granted') return } catch { return }
