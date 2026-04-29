@@ -28,6 +28,8 @@ setPersistence(auth, browserLocalPersistence).catch(() => {})
 
 const DW = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const DW_IDEES = 'https://discord.com/api/webhooks/1494393266441945180/FZWrs3w9Oz-TjsU5oKaPCn7FpmFJLXPlZrq6jWzS8Oxi8Rl54LKz8XA8Q7IQED_NEcLZ'
+const DW_IDEES = 'https://discord.com/api/webhooks/1494393266441945180/FZWrs3w9Oz-TjsU5oKaPCn7FpmFJLXPlZrq6jWzS8Oxi8Rl54LKz8XA8Q7IQED_NEcLZ'
+const DW_VIDEOS = 'https://discord.com/api/webhooks/1499033761914814566/k6-FPqkt-9raiw-FR9Gb2rSHqYr3NXzf52mmWYk4Y9aNwR0kSm0kpRC5UuDph9gc-FAd'
 const YT = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const LG = 'https://i.imgur.com/gTLj57a.png'
 const AE = 'thibaut.llorens@hotmail.com'
@@ -479,7 +481,7 @@ function App() {
     try {
       await addDoc(collection(db, 'stratVideos'), { titre: newVideo.titre, description: newVideo.description, youtubeUrl: newVideo.youtubeUrl, youtubeId: videoYtId, jeu: newVideo.jeu, map: newVideo.map || 'All', categorie: newVideo.categorie, tags: newVideo.tags.split(',').map(t => t.trim()).filter(Boolean), auteur: pseudo, auteurId: user.uid, vues: 0, likes: [], publie: newVideo.publie, createdAt: Date.now() })
       addLog('Video: ' + newVideo.titre)
-      try { await fetch(DW, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: 'Nouvelle Strat Video !', description: newVideo.titre, color: 13934871, fields: [{ name: 'Categorie', value: newVideo.categorie, inline: true }, { name: 'Jeu', value: newVideo.jeu, inline: true }, { name: 'Par', value: pseudo, inline: true }], thumbnail: { url: 'https://img.youtube.com/vi/' + videoYtId + '/hqdefault.jpg' }, footer: { text: 'DYNO Esport', icon_url: LG } }] }) }) } catch {}
+            try { await fetch(DW_VIDEOS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: 'Nouvelle Strat Video !', description: newVideo.titre, color: 13934871, fields: [{ name: 'Categorie', value: newVideo.categorie, inline: true }, { name: 'Jeu', value: newVideo.jeu, inline: true }, { name: 'Par', value: pseudo, inline: true }], thumbnail: { url: 'https://img.youtube.com/vi/' + videoYtId + '/hqdefault.jpg' }, footer: { text: 'DYNO Esport', icon_url: LG } }] }) }) } catch {}
       setVideoStep('done')
     } catch (e: any) { alert(e.message); setVideoStep('form') }
   }
