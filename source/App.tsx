@@ -1,61 +1,75 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { initializeApp } from 'firebase/app'
 import {
-  getFirestore, collection, addDoc, updateDoc,
-  deleteDoc, doc, onSnapshot, query, orderBy,
-  getDoc, setDoc
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getFirestore,
+  onSnapshot,
+  orderBy,
+  query,
+  setDoc,
+  updateDoc
 } from 'firebase/firestore'
 import {
-  getAuth, createUserWithEmailAndPassword,
-  signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  setPersistence,
+  signInWithEmailAndPassword,
+  signOut
 } from 'firebase/auth'
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDXwItLM0OZ0VmHj-DLZcH8OBy7wXiHBsM",
-  authDomain: "dyno-esport.firebaseapp.com",
-  projectId: "dyno-esport",
-  storageBucket: "dyno-esport.firebasestorage.app",
-  messagingSenderId: "808658404731",
-  appId: "1:808658404731:web:f3cf29142d3038816f29de"
+  apiKey: 'AIzaSyDXwItLM0OZ0VmHj-DLZcH8OBy7wXiHBsM',
+  authDomain: 'dyno-esport.firebaseapp.com',
+  projectId: 'dyno-esport',
+  storageBucket: 'dyno-esport.firebasestorage.app',
+  messagingSenderId: '808658404731',
+  appId: '1:808658404731:web:f3cf29142d3038816f29de'
 }
 
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 const auth = getAuth(app)
+
 setPersistence(auth, browserLocalPersistence).catch(() => {})
 
-const DW = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
-const DW_IDEES = 'https://discord.com/api/webhooks/1494393266441945180/FZWrs3w9Oz-TjsU5oKaPCn7FpmFJLXPlZrq6jWzS8Oxi8Rl54LKz8XA8Q7IQED_NEcLZ'
-const YT = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const LG = 'https://i.imgur.com/gTLj57a.png'
+const YT = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const AE = 'thibaut.llorens@hotmail.com'
-const AM = ['Engine','Helios','Silva','The Cliff','Artefact','Outlaw','Atlantis','Horizon','Polaris','Lunar','Ceres']
 
-const EVA_PASSES: Record<string, { label: string; icon: string; hc: number; hp: number; color: string }> = {
-  bronze: { label: 'Bronze', icon: '🥉', hc: 3, hp: 1, color: 'from-amber-700 to-amber-900' },
-  argent: { label: 'Argent', icon: '🥈', hc: 6, hp: 2, color: 'from-gray-400 to-gray-600' },
-  or: { label: 'Or', icon: '🥇', hc: 12, hp: 4, color: 'from-[#D4AF37] to-[#FFD700]' },
-}
+const DW =
+  'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 
-const isHP = (dateStr: string, timeStr: string): boolean => {
-  if (!dateStr) return false
-  let d = dateStr
-  if (d.includes('/')) { const [dd, mm, yy] = d.split('/'); d = yy + '-' + mm + '-' + dd }
-  try {
-    const dt = new Date(d + 'T' + (timeStr || '20:00') + ':00')
-    if (isNaN(dt.getTime())) return false
-    const day = dt.getDay()
-    const totalMin = dt.getHours() * 60 + dt.getMinutes()
-    if (day === 5) return totalMin >= 1080 && totalMin <= 1400
-    if (day === 6) return totalMin >= 780 && totalMin <= 1380
-    if (day === 0) return totalMin >= 780 && totalMin <= 1380
-    return false
-  } catch { return false }
-}
+const AM = [
+  'Engine',
+  'Helios',
+  'Silva',
+  'The Cliff',
+  'Artefact',
+  'Outlaw',
+  'Atlantis',
+  'Horizon',
+  'Polaris',
+  'Lunar',
+  'Ceres'
+]
 
-interface StratVideo {
+const CATS = [
+  { v: 'strat', l: 'Stratégie', i: '🎯' },
+  { v: 'tutorial', l: 'Tutoriel', i: '📚' },
+  { v: 'highlight', l: 'Highlight', i: '⭐' },
+  { v: 'replay', l: 'Replay', i: '🎬' },
+  { v: 'scrim', l: 'Scrim', i: '⚔️' }
+] as const
+
+type VideoCat = (typeof CATS)[number]['v']
+
+type StratVideo = {
   id: string
   titre: string
   description: string
@@ -63,554 +77,733 @@ interface StratVideo {
   youtubeId: string
   jeu: string
   map: string
-  categorie: 'strat' | 'tutorial' | 'highlight' | 'replay' | 'scrim'
+  categorie: VideoCat
   tags: string[]
   auteur: string
   auteurId: string
-  vues: number
   likes: string[]
   publie: boolean
   createdAt: number
 }
 
-const extractYoutubeId = (url: string): string => {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?#\s]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/
-  ]
-  for (const p of patterns) {
-    const m = url.match(p)
-    if (m) return m[1]
-  }
+type Match = {
+  id: string
+  adversaire: string
+  date: string
+  horaire1: string
+  horaire2?: string
+  arene: string
+  type: string
+  termine: boolean
+  scoreDyno?: number
+  scoreAdversaire?: number
+  disponibles?: string[]
+  indisponibles?: string[]
+  createdAt: number
+}
+
+type Replay = {
+  id: string
+  titre: string
+  lien: string
+  createdAt: number
+}
+
+type Player = {
+  id: string
+  pseudo: string
+  role?: string
+  userId?: string
+  createdAt: number
+}
+
+const ytId = (url: string) => {
+  const match = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([^"&?/\s]{11})/
+  )
+  if (match) return match[1]
+  if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url
   return ''
 }
 
-const CATS = [
-  { v: 'strat', l: 'Stratégie', i: '🎯' },
-  { v: 'tutorial', l: 'Tutoriel', i: '📚' },
-  { v: 'highlight', l: 'Highlight', i: '⭐' },
-  { v: 'replay', l: 'Replay', i: '🎬' },
-  { v: 'scrim', l: 'Scrim', i: '⚔️' },
-]
+const fdf = (s: string) => {
+  if (!s) return ''
+  if (s.includes('/')) return s
+  const [y, m, d] = s.split('-')
+  if (!y || !m || !d) return s
+  return `${d}/${m}/${y}`
+}
 
 const P = () => (
   <div className="particles">
-    {Array.from({ length: 12 }).map((_, i) => <div key={i} className="particle" />)}
+    {Array.from({ length: 12 }).map((_, i) => (
+      <div key={i} className="particle" />
+    ))}
   </div>
 )
 
-function App() {
+export default function App() {
   const [activeTab, setActiveTab] = useState('matchs')
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [adminPassword, setAdminPassword] = useState('')
   const [showSplash, setShowSplash] = useState(true)
-  const [loading, setLoading] = useState(true)
+  const [showMenu, setShowMenu] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [pseudo, setPseudo] = useState('')
   const [email, setEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
-  const [matchs, setMatchs] = useState<any[]>([])
-  const [replays, setReplays] = useState<any[]>([])
-  const [joueurs, setJoueurs] = useState<any[]>([])
-  const [notes, setNotes] = useState<any[]>([])
-  const [strats, setStrats] = useState<any[]>([])
-  const [commentaires, setCommentaires] = useState<any[]>([])
-  const [compos, setCompos] = useState<any[]>([])
-  const [idees, setIdees] = useState<any[]>([])
-  const [analyses, setAnalyses] = useState<any[]>([])
-  const [fichesAdversaires, setFichesAdversaires] = useState<any[]>([])
-  const [logs, setLogs] = useState<any[]>([])
-  const [nouveauMatch, setNouveauMatch] = useState({
-    adversaire: '', date: '', horaire1: '', horaire2: '',
-    arene: 'Arène 1', type: 'Ligue',
-    sousMatchs: [] as { adversaire: string; scoreDyno: string; scoreAdv: string }[]
-  })
-  const [scoreEdit, setScoreEdit] = useState<any>(null)
-  const [editHistoriqueScore, setEditHistoriqueScore] = useState<any>(null)
-  const [nouveauReplay, setNouveauReplay] = useState({ titre: '', lien: '' })
-  const [nouvelleNote, setNouvelleNote] = useState({ matchId: '', mental: '', communication: '', gameplay: '' })
-  const [selectedMatchForNotes, setSelectedMatchForNotes] = useState<any>(null)
-  const [nouvelleStrat, setNouvelleStrat] = useState({ adversaire: '', picks: [] as string[], bans: [] as string[] })
-  const [showAddStrat, setShowAddStrat] = useState(false)
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-  const [showInstall, setShowInstall] = useState(false)
-  const [countdowns, setCountdowns] = useState<Record<string, string>>({})
-  const [nouveauCommentaire, setNouveauCommentaire] = useState('')
-  const [selectedMatchForComment, setSelectedMatchForComment] = useState<any>(null)
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
-  const [notifiedMatchs, setNotifiedMatchs] = useState<string[]>([])
-  const [selectedMapCompo, setSelectedMapCompo] = useState('')
-  const [compoJoueurs, setCompoJoueurs] = useState<string[]>([])
-  const [showAddCompo, setShowAddCompo] = useState(false)
-  const [anniversaire, setAnniversaire] = useState('')
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
-  const [pullDistance, setPullDistance] = useState(0)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [nouvelleIdee, setNouvelleIdee] = useState('')
-  const [showBilan, setShowBilan] = useState(false)
-  const [selectedMatchForAnalyse, setSelectedMatchForAnalyse] = useState<any>(null)
-  const [nouvelleAnalyse, setNouvelleAnalyse] = useState({ bien: '', mal: '', plan: '' })
-  const [showAddFiche, setShowAddFiche] = useState(false)
-  const [nouvelleFiche, setNouvelleFiche] = useState({ adversaire: '', forces: '', faiblesses: '', notes: '' })
-  const [myPass, setMyPass] = useState<any>(null)
-  const [allPasses, setAllPasses] = useState<any[]>([])
-  const [avatarUrl, setAvatarUrl] = useState('')
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [adminPassword, setAdminPassword] = useState('')
 
+  const [matchs, setMatchs] = useState<Match[]>([])
+  const [replays, setReplays] = useState<Replay[]>([])
+  const [players, setPlayers] = useState<Player[]>([])
   const [stratVideos, setStratVideos] = useState<StratVideo[]>([])
+
   const [showAddVideo, setShowAddVideo] = useState(false)
-  const [selectedVideo, setSelectedVideo] = useState<StratVideo | null>(null)
-  const [videoFilter, setVideoFilter] = useState<'all' | 'strat' | 'tutorial' | 'highlight' | 'replay' | 'scrim'>('all')
-  const [videoSearch, setVideoSearch] = useState('')
-  const [newVideo, setNewVideo] = useState({
-    titre: '', description: '', youtubeUrl: '',
-    jeu: 'EVA Esport Arena', map: '', categorie: 'strat' as StratVideo['categorie'],
-    tags: '', publie: true
-  })
-  const [videoYtId, setVideoYtId] = useState('')
   const [videoStep, setVideoStep] = useState<'form' | 'preview' | 'publishing' | 'done'>('form')
+  const [selectedVideo, setSelectedVideo] = useState<StratVideo | null>(null)
   const [playerLoaded, setPlayerLoaded] = useState(false)
+  const [videoFilter, setVideoFilter] = useState<'all' | VideoCat>('all')
+  const [videoSearch, setVideoSearch] = useState('')
+  const [videoYtId, setVideoYtId] = useState('')
 
-  const pm = useRef(0), pn = useRef(0), pc = useRef(0), ps = useRef(0), pi = useRef(0), ty = useRef(0)
+  const [newVideo, setNewVideo] = useState({
+    titre: '',
+    description: '',
+    youtubeUrl: '',
+    jeu: 'EVA Esport Arena',
+    map: '',
+    categorie: 'strat' as VideoCat,
+    tags: '',
+    publie: true
+  })
 
-  const addLog = async (action: string) => {
-    if (!user) return
-    try { await addDoc(collection(db, 'logs'), { joueur: pseudo, joueurId: user.uid, action, createdAt: Date.now() }) } catch {}
-  }
+  const [newMatch, setNewMatch] = useState({
+    adversaire: '',
+    date: '',
+    horaire1: '',
+    horaire2: '',
+    arene: 'Arène 1',
+    type: 'Ligue'
+  })
 
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const img = new Image()
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          const maxSize = 400
-          let width = img.width, height = img.height
-          if (width > height) {
-            if (width > maxSize) { height = (height * maxSize) / width; width = maxSize }
-          } else {
-            if (height > maxSize) { width = (width * maxSize) / height; height = maxSize }
-          }
-          canvas.width = width
-          canvas.height = height
-          const ctx = canvas.getContext('2d')
-          ctx?.drawImage(img, 0, 0, width, height)
-          resolve(canvas.toDataURL('image/jpeg', 0.7))
-        }
-        img.onerror = reject
-        img.src = event.target?.result as string
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-  }
-
-  const handleAvatarUpload = async (e: any) => {
-    if (!user || !e.target.files?.[0]) return
-    const file = e.target.files[0]
-    setUploadingAvatar(true)
-    try {
-      const compressed = await compressImage(file)
-      setAvatarUrl(compressed)
-      await updateDoc(doc(db, 'users', user.uid), { avatarUrl: compressed })
-      addLog('Photo de profil mise à jour')
-      alert('✅ Photo enregistrée !')
-    } catch (err: any) {
-      alert('❌ Erreur : ' + err.message)
-    } finally {
-      setUploadingAvatar(false)
-    }
-  }
-  
+  const [newReplay, setNewReplay] = useState({
+    titre: '',
+    lien: ''
+  })
 
   useEffect(() => {
-    if (!notificationsEnabled) return
-    try { if (!('Notification' in window) || Notification.permission !== 'granted') return } catch { return }
-    const ck = () => {
-      const now = new Date()
-      matchs.forEach((m: any) => {
-        if (m.termine) return
-        const mt = getMatchDateTime(m)
-        if (!mt) return
-        const dm = (mt.getTime() - now.getTime()) / 60000
-        const k1 = m.id + '-24h'
-        if (dm > 1410 && dm <= 1450 && !notifiedMatchs.includes(k1)) { sendNotification('📅 Match demain !', 'DYNO vs ' + m.adversaire + ' dans 24h !', 'm24h'); const u = [...notifiedMatchs, k1]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
-        const k2 = m.id + '-1h'
-        if (dm > 55 && dm <= 65 && !notifiedMatchs.includes(k2)) { sendNotification('🎮 Match dans 1h !', 'DYNO vs ' + m.adversaire + ' • Préparez-vous !', 'm1h'); const u = [...notifiedMatchs, k2]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
-        const k3 = m.id + '-15m'
-        if (dm > 10 && dm <= 20 && !notifiedMatchs.includes(k3)) { sendNotification('🔥 Match dans 15min !', 'DYNO vs ' + m.adversaire + ' • GO GO GO !', 'm15'); const u = [...notifiedMatchs, k3]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
-        const k4 = m.id + '-now'
-        if (dm >= -2 && dm <= 3 && !notifiedMatchs.includes(k4)) { sendNotification('⚡ C\'EST PARTI !', 'DYNO vs ' + m.adversaire + ' • EN COURS !', 'mnow'); const u = [...notifiedMatchs, k4]; setNotifiedMatchs(u); localStorage.setItem('dyno-notified', JSON.stringify(u)) }
-      })
-    }
-    ck()
-    const i = setInterval(ck, 60000)
-    return () => clearInterval(i)
-  }, [notificationsEnabled, matchs, notifiedMatchs, sendNotification, getMatchDateTime])
+    const t = setTimeout(() => setShowSplash(false), 1600)
+    return () => clearTimeout(t)
+  }, [])
 
   useEffect(() => {
-    const u = () => {
-      const now = new Date()
-      const c: Record<string, string> = {}
-      matchs.forEach((m: any) => {
-        if (m.termine) return
-        const mt = getMatchDateTime(m)
-        if (!mt) return
-        const df = mt.getTime() - now.getTime()
-        if (df <= 0) { c[m.id] = '🔴 EN COURS'; return }
-        const j = Math.floor(df / 86400000), h = Math.floor((df % 86400000) / 3600000), mi = Math.floor((df % 3600000) / 60000), s = Math.floor((df % 60000) / 1000)
-        c[m.id] = (j > 0 ? j + 'j ' : '') + ((h > 0 || j > 0) ? h + 'h ' : '') + mi + 'm ' + s + 's'
-      })
-      setCountdowns(c)
-    }
-    u()
-    const i = setInterval(u, 1000)
-    return () => clearInterval(i)
-  }, [matchs, getMatchDateTime])
-
-  useEffect(() => { if (localStorage.getItem('dyno-admin') === 'true') setIsAdmin(true) }, [])
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u: any) => {
+    const unsub = onAuthStateChanged(auth, async u => {
       setUser(u)
-      if (u) {
-        const d = await getDoc(doc(db, 'users', u.uid))
-        if (d.exists()) {
-          const data = d.data()
-          setPseudo(data.pseudo || '')
-          if (data.anniversaire) setAnniversaire(data.anniversaire)
-          if (data.avatarUrl) setAvatarUrl(data.avatarUrl)
-          if (u.email === AE || data.isAdmin) { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true') }
-          if (data.evaPass) {
-            const pass = data.evaPass
-            if (pass.dateReset) {
-              const rd = new Date(pass.dateReset)
-              if (new Date() >= rd) {
-                const np = { ...pass, hcUsed: 0, hpUsed: 0, dateReset: new Date(rd.getTime() + 30 * 86400000).toISOString().split('T')[0] }
-                setMyPass(np); updateDoc(doc(db, 'users', u.uid), { evaPass: np })
-              } else setMyPass(pass)
-            } else setMyPass(pass)
-          }
+      if (!u) return
+
+      const snap = await getDoc(doc(db, 'users', u.uid))
+      if (snap.exists()) {
+        const data = snap.data()
+        setPseudo(data.pseudo || '')
+        if (u.email === AE || data.isAdmin) {
+          setIsAdmin(true)
+          localStorage.setItem('dyno-admin', 'true')
         }
       }
-      setLoading(false)
+    })
+
+    return () => unsub()
+  }, [])
+
+  useEffect(() => {
+    if (localStorage.getItem('dyno-admin') === 'true') setIsAdmin(true)
+  }, [])
+
+  useEffect(() => {
+    const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc'))
+    const unsub = onSnapshot(q, snap => {
+      const data: Match[] = []
+      snap.forEach(d => data.push({ id: d.id, ...(d.data() as Omit<Match, 'id'>) }))
+      setMatchs(data)
     })
     return () => unsub()
   }, [])
 
-  useEffect(() => { const q = query(collection(db, 'matchs'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setMatchs(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setNotes(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'commentaires'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setCommentaires(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'strats'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setStrats(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'replays'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setReplays(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'players'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setJoueurs(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'compos'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setCompos(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'idees'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setIdees(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'analyses'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setAnalyses(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'fichesAdversaires'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setFichesAdversaires(d) }); return () => u() }, [])
-  useEffect(() => { const u = onSnapshot(collection(db, 'users'), (s: any) => { const d: any[] = []; s.forEach((x: any) => { const data = x.data(); if (data.evaPass) d.push({ oduserId: x.id, pseudo: data.pseudo, avatarUrl: data.avatarUrl, ...data.evaPass }) }); setAllPasses(d) }); return () => u() }, [])
-  useEffect(() => { const q = query(collection(db, 'logs'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setLogs(d.slice(0, 50)) }); return () => u() }, [])
+  useEffect(() => {
+    const q = query(collection(db, 'replays'), orderBy('createdAt', 'desc'))
+    const unsub = onSnapshot(q, snap => {
+      const data: Replay[] = []
+      snap.forEach(d => data.push({ id: d.id, ...(d.data() as Omit<Replay, 'id'>) }))
+      setReplays(data)
+    })
+    return () => unsub()
+  }, [])
+
+  useEffect(() => {
+    const q = query(collection(db, 'players'), orderBy('createdAt', 'desc'))
+    const unsub = onSnapshot(q, snap => {
+      const data: Player[] = []
+      snap.forEach(d => data.push({ id: d.id, ...(d.data() as Omit<Player, 'id'>) }))
+      setPlayers(data)
+    })
+    return () => unsub()
+  }, [])
 
   useEffect(() => {
     const q = query(collection(db, 'stratVideos'), orderBy('createdAt', 'desc'))
-    const u = onSnapshot(q, (s: any) => {
-      const d: StratVideo[] = []
-      s.forEach((x: any) => d.push({ id: x.id, ...x.data() } as StratVideo))
-      setStratVideos(d)
+    const unsub = onSnapshot(q, snap => {
+      const data: StratVideo[] = []
+      snap.forEach(d => data.push({ id: d.id, ...(d.data() as Omit<StratVideo, 'id'>) }))
+      setStratVideos(data)
     })
-    return () => u()
+    return () => unsub()
   }, [])
 
-  useEffect(() => { if (!notificationsEnabled || pm.current === 0) { pm.current = matchs.length; return }; if (matchs.length > pm.current) { const n = matchs[0]; if (n) sendNotification('📅 Nouveau match !', 'DYNO vs ' + n.adversaire, 'nm') }; pm.current = matchs.length }, [matchs, notificationsEnabled, sendNotification])
-  useEffect(() => { if (!notificationsEnabled || pn.current === 0) { pn.current = notes.length; return }; if (notes.length > pn.current) { const n = notes[0]; if (n) sendNotification('📊 Nouvelle note !', n.joueur + ' a noté un match', 'nn') }; pn.current = notes.length }, [notes, notificationsEnabled, sendNotification])
-  useEffect(() => { if (!notificationsEnabled || pc.current === 0) { pc.current = commentaires.length; return }; if (commentaires.length > pc.current) { const n = commentaires[0]; if (n) sendNotification('💬 Nouveau commentaire !', n.joueur + ': ' + n.texte.substring(0, 50), 'nc') }; pc.current = commentaires.length }, [commentaires, notificationsEnabled, sendNotification])
-  useEffect(() => { if (!notificationsEnabled || ps.current === 0) { ps.current = strats.length; return }; if (strats.length > ps.current) { const n = strats[0]; if (n) sendNotification('🎯 Nouvelle strat !', 'vs ' + n.adversaire, 'ns') }; ps.current = strats.length }, [strats, notificationsEnabled, sendNotification])
-  useEffect(() => { if (!notificationsEnabled || pi.current === 0) { pi.current = idees.length; return }; if (idees.length > pi.current) { const n = idees[0]; if (n) sendNotification('💡 Nouvelle idée !', n.joueur + ': ' + n.texte?.substring(0, 50), 'ni') }; pi.current = idees.length }, [idees, notificationsEnabled, sendNotification])
-  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 2500); return () => clearTimeout(t) }, [])
-  useEffect(() => { window.addEventListener('beforeinstallprompt', (e: any) => { e.preventDefault(); setDeferredPrompt(e); setShowInstall(true) }) }, [])
-
-  const handleInstall = () => { if (deferredPrompt) { deferredPrompt.prompt(); setDeferredPrompt(null); setShowInstall(false) } }
+  const addLog = async (action: string) => {
+    if (!user) return
+    try {
+      await addDoc(collection(db, 'logs'), {
+        joueur: pseudo || user.email,
+        joueurId: user.uid,
+        action,
+        createdAt: Date.now()
+      })
+    } catch {}
+  }
 
   const handleSignUp = async () => {
-    if (!email || !authPassword || !pseudo) { alert('⚠️ Remplis tout !'); return }
+    if (!pseudo || !email || !authPassword) {
+      alert('⚠️ Remplis tout !')
+      return
+    }
+
     try {
-      const r = await createUserWithEmailAndPassword(auth, email, authPassword)
-      await setDoc(doc(db, 'users', r.user.uid), { pseudo, email, createdAt: Date.now(), isAdmin: email === AE })
-      await addDoc(collection(db, 'players'), { pseudo, role: 'Joueur', rang: 'Nouveau', userId: r.user.uid, createdAt: Date.now() })
-      alert('✅ Compte créé !'); setIsSignUp(false); setEmail(''); setAuthPassword('')
-    } catch (e: any) { alert('❌ ' + e.message) }
+      const res = await createUserWithEmailAndPassword(auth, email, authPassword)
+      await setDoc(doc(db, 'users', res.user.uid), {
+        pseudo,
+        email,
+        createdAt: Date.now(),
+        isAdmin: email === AE
+      })
+      await addDoc(collection(db, 'players'), {
+        pseudo,
+        role: 'Joueur',
+        userId: res.user.uid,
+        createdAt: Date.now()
+      })
+      setIsSignUp(false)
+      setEmail('')
+      setAuthPassword('')
+      alert('✅ Compte créé !')
+    } catch (e: any) {
+      alert('❌ ' + e.message)
+    }
   }
 
   const handleSignIn = async () => {
-    if (!email || !authPassword) { alert('⚠️ Remplis tout !'); return }
+    if (!email || !authPassword) {
+      alert('⚠️ Remplis tout !')
+      return
+    }
+
     try {
       await setPersistence(auth, browserLocalPersistence)
       await signInWithEmailAndPassword(auth, email, authPassword)
-      localStorage.setItem('user-email', email)
-      alert('✅ Connecté !'); setEmail(''); setAuthPassword('')
-    } catch (e: any) { alert('❌ ' + e.message) }
+      setEmail('')
+      setAuthPassword('')
+      alert('✅ Connecté !')
+    } catch (e: any) {
+      alert('❌ ' + e.message)
+    }
   }
 
   const handleSignOut = async () => {
-    await signOut(auth); setPseudo(''); setIsAdmin(false)
-    localStorage.removeItem('dyno-admin'); localStorage.removeItem('user-email')
-    setMyPass(null); setAvatarUrl(''); alert('✅ Déconnecté !')
+    await signOut(auth)
+    setUser(null)
+    setPseudo('')
+    setIsAdmin(false)
+    localStorage.removeItem('dyno-admin')
   }
 
   const handleAdminLogin = () => {
-    if (adminPassword === 'dyno2026') { setIsAdmin(true); localStorage.setItem('dyno-admin', 'true'); setAdminPassword('') }
-    else alert('❌ Mot de passe incorrect !')
-  }
-
-  const handleAdminLogout = () => { setIsAdmin(false); localStorage.removeItem('dyno-admin') }
-
-  const selectPass = async (type: string) => {
-    if (!user) return
-    const pd = EVA_PASSES[type]; if (!pd) return
-    const passData = { type, hcTotal: pd.hc, hpTotal: pd.hp, hcUsed: 0, hpUsed: 0, dateReset: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0] }
-    await updateDoc(doc(db, 'users', user.uid), { evaPass: passData })
-    setMyPass(passData); addLog('Pass ' + pd.label); alert('✅ Pass activé !')
-  }
-
-  const getMatchTimeType = (match: any): 'hc' | 'hp' => {
-    const time = match.horaires?.[0] || match.horaire1 || '20:00'
-    return isHP(match.date, time) ? 'hp' : 'hc'
-  }
-
-  const ajouterSousMatch = () => { const adv = prompt('Adversaire :'); if (!adv) return; const sd = prompt('Score DYNO :'); if (!sd) return; const sa = prompt('Score ' + adv + ' :'); if (!sa) return; setNouveauMatch({ ...nouveauMatch, sousMatchs: [...nouveauMatch.sousMatchs, { adversaire: adv, scoreDyno: sd, scoreAdv: sa }] }) }
-  const supprimerSousMatch = (i: number) => { const sm = [...nouveauMatch.sousMatchs]; sm.splice(i, 1); setNouveauMatch({ ...nouveauMatch, sousMatchs: sm }) }
-  const ajouterEditSousMatch = () => { if (!editHistoriqueScore) return; const adv = prompt('Adversaire :'); if (!adv) return; const sd = prompt('Score DYNO :'); if (!sd) return; const sa = prompt('Score ' + adv + ' :'); if (!sa) return; setEditHistoriqueScore({ ...editHistoriqueScore, sousMatchs: [...(editHistoriqueScore.sousMatchs || []), { adversaire: adv, scoreDyno: sd, scoreAdv: sa }] }) }
-  const supprimerEditSousMatch = (i: number) => { if (!editHistoriqueScore) return; const sm = [...(editHistoriqueScore.sousMatchs || [])]; sm.splice(i, 1); setEditHistoriqueScore({ ...editHistoriqueScore, sousMatchs: sm }) }
-
-  const ajouterMatch = async () => {
-    if (!nouveauMatch.adversaire || !nouveauMatch.date || !nouveauMatch.horaire1) { alert('⚠️ Remplis les champs obligatoires !'); return }
-    const md: any = { ...nouveauMatch, termine: false, disponibles: [], indisponibles: [], createdAt: Date.now() }
-    if (nouveauMatch.type === 'Division' && nouveauMatch.sousMatchs.length > 0) {
-      md.termine = true; md.sousMatchs = nouveauMatch.sousMatchs
-      md.scoreDyno = nouveauMatch.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0)
-      md.scoreAdversaire = nouveauMatch.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0)
+    if (adminPassword === 'dyno2026') {
+      setIsAdmin(true)
+      localStorage.setItem('dyno-admin', 'true')
+      setAdminPassword('')
+    } else {
+      alert('❌ Mot de passe incorrect')
     }
-    await addDoc(collection(db, 'matchs'), md)
-    addLog('Match vs ' + nouveauMatch.adversaire)
-    const h = [nouveauMatch.horaire1]; if (nouveauMatch.horaire2) h.push(nouveauMatch.horaire2)
-    try { await fetch(DW, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '🎮 DYNO vs ' + nouveauMatch.adversaire, color: 13934871, fields: [{ name: '⚔️', value: nouveauMatch.adversaire, inline: true }, { name: '📅', value: nouveauMatch.date, inline: true }, { name: '⏰', value: h.join(' / '), inline: true }, { name: '🏟️', value: nouveauMatch.arene, inline: true }, { name: '📊', value: nouveauMatch.type, inline: true }], footer: { text: 'DYNO Esport', icon_url: LG } }] }) }) } catch {}
-    setNouveauMatch({ adversaire: '', date: '', horaire1: '', horaire2: '', arene: 'Arène 1', type: 'Ligue', sousMatchs: [] })
-    alert('✅ Match ajouté !')
   }
-
-  const ajouterReplay = async () => { if (!nouveauReplay.titre || !nouveauReplay.lien) { alert('⚠️!'); return }; await addDoc(collection(db, 'replays'), { ...nouveauReplay, createdAt: Date.now() }); addLog('Replay: ' + nouveauReplay.titre); setNouveauReplay({ titre: '', lien: '' }); alert('✅!') }
-  const ajouterNote = async () => { if (!user) return; await addDoc(collection(db, 'notes'), { matchId: selectedMatchForNotes?.id, joueur: pseudo, joueurId: user.uid, mental: nouvelleNote.mental, communication: nouvelleNote.communication, gameplay: nouvelleNote.gameplay, createdAt: Date.now() }); addLog('Note'); setNouvelleNote({ matchId: '', mental: '', communication: '', gameplay: '' }); setSelectedMatchForNotes(null); alert('✅!') }
-  const ajouterCommentaire = async (id: string) => { if (!user || !nouveauCommentaire.trim()) return; await addDoc(collection(db, 'commentaires'), { matchId: id, joueur: pseudo, joueurId: user.uid, texte: nouveauCommentaire.trim(), createdAt: Date.now() }); addLog('Commentaire'); setNouveauCommentaire(''); setSelectedMatchForComment(null); alert('✅!') }
-  const ajouterStrat = async () => { if (!nouvelleStrat.adversaire || nouvelleStrat.picks.length === 0 || nouvelleStrat.bans.length === 0) { alert('⚠️!'); return }; await addDoc(collection(db, 'strats'), { adversaire: nouvelleStrat.adversaire, picks: nouvelleStrat.picks, bans: nouvelleStrat.bans, auteur: pseudo || 'Anonyme', auteurId: user?.uid || null, createdAt: Date.now() }); addLog('Strat vs ' + nouvelleStrat.adversaire); setNouvelleStrat({ adversaire: '', picks: [], bans: [] }); setShowAddStrat(false); alert('✅!') }
-  const ajouterCompo = async () => { if (!selectedMapCompo || compoJoueurs.length === 0) { alert('⚠️!'); return }; const ex = compos.find((c: any) => c.map === selectedMapCompo); if (ex) { await updateDoc(doc(db, 'compos', ex.id), { joueurs: compoJoueurs, updatedAt: Date.now() }) } else { await addDoc(collection(db, 'compos'), { map: selectedMapCompo, joueurs: compoJoueurs, auteur: pseudo, createdAt: Date.now() }) }; addLog('Compo ' + selectedMapCompo); setShowAddCompo(false); setSelectedMapCompo(''); setCompoJoueurs([]); alert('✅!') }
-  const toggleCompoJoueur = (n: string) => { if (compoJoueurs.includes(n)) setCompoJoueurs(compoJoueurs.filter(j => j !== n)); else setCompoJoueurs([...compoJoueurs, n]) }
-  const sauvegarderAnniversaire = async () => { if (!user || !anniversaire) return; await updateDoc(doc(db, 'users', user.uid), { anniversaire }); alert('✅!') }
-
-  const ajouterIdee = async () => {
-    if (!user || !nouvelleIdee.trim()) return
-    await addDoc(collection(db, 'idees'), { texte: nouvelleIdee.trim(), joueur: pseudo, joueurId: user.uid, votes: {}, ideaComments: [], createdAt: Date.now() })
-    try { await fetch(DW_IDEES, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: '💡 Nouvelle idée !', description: nouvelleIdee.trim(), color: 16766720, fields: [{ name: '👤 Par', value: pseudo, inline: true }], footer: { text: 'DYNO Esport', icon_url: LG } }] }) }) } catch {}
-    addLog('Idée: ' + nouvelleIdee.trim()); setNouvelleIdee(''); alert('✅ Idée ajoutée !')
-  }
-
-  const voterIdee = async (ideeId: string, vote: string) => { if (!user) return; const idee = idees.find((i: any) => i.id === ideeId); if (!idee) return; const votes = { ...(idee.votes || {}) }; if (votes[user.uid] === vote) delete votes[user.uid]; else votes[user.uid] = vote; await updateDoc(doc(db, 'idees', ideeId), { votes }) }
-  const commenterIdee = async (ideeId: string, commentInput: HTMLInputElement) => { if (!user || !commentInput?.value.trim()) return; const idee = idees.find((i: any) => i.id === ideeId); if (!idee) return; const nc = [...(idee.ideaComments || []), { joueur: pseudo, joueurId: user.uid, texte: commentInput.value.trim(), createdAt: Date.now() }]; await updateDoc(doc(db, 'idees', ideeId), { ideaComments: nc }); commentInput.value = '' }
-  const ajouterAnalyse = async (mid: string) => { if (!user) return; await addDoc(collection(db, 'analyses'), { matchId: mid, joueur: pseudo, joueurId: user.uid, ...nouvelleAnalyse, createdAt: Date.now() }); addLog('Analyse'); setNouvelleAnalyse({ bien: '', mal: '', plan: '' }); setSelectedMatchForAnalyse(null); alert('✅!') }
-  const ajouterFiche = async () => { if (!nouvelleFiche.adversaire.trim()) return; await addDoc(collection(db, 'fichesAdversaires'), { ...nouvelleFiche, auteur: pseudo, auteurId: user?.uid, createdAt: Date.now() }); addLog('Fiche: ' + nouvelleFiche.adversaire); setNouvelleFiche({ adversaire: '', forces: '', faiblesses: '', notes: '' }); setShowAddFiche(false); alert('✅!') }
-  const del = async (col: string, id: string) => { await deleteDoc(doc(db, col, id)); addLog('Suppression ' + col) }
-  const updateScore = async () => { if (!scoreEdit) return; await updateDoc(doc(db, 'matchs', scoreEdit.id), { scoreDyno: parseInt(scoreEdit.scoreDyno), scoreAdversaire: parseInt(scoreEdit.scoreAdv), termine: true }); addLog('Score'); setScoreEdit(null); alert('✅!') }
-  const updateHistoriqueScore = async () => { if (!editHistoriqueScore) return; const ud: any = { adversaire: editHistoriqueScore.adversaire, type: editHistoriqueScore.type, arene: editHistoriqueScore.arene, date: editHistoriqueScore.date, termine: editHistoriqueScore.termine !== false }; if (editHistoriqueScore.type === 'Division' && editHistoriqueScore.sousMatchs?.length > 0) { ud.sousMatchs = editHistoriqueScore.sousMatchs; ud.scoreDyno = editHistoriqueScore.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreDyno || '0'), 0); ud.scoreAdversaire = editHistoriqueScore.sousMatchs.reduce((a: number, s: any) => a + parseInt(s.scoreAdv || '0'), 0) } else { ud.scoreDyno = parseInt(editHistoriqueScore.scoreDyno); ud.scoreAdversaire = parseInt(editHistoriqueScore.scoreAdv); if (editHistoriqueScore.type !== 'Division') ud.sousMatchs = [] }; await updateDoc(doc(db, 'matchs', editHistoriqueScore.id), ud); addLog('Match modifié'); setEditHistoriqueScore(null); alert('✅!') }
-
-  const toggleDispo = async (mid: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === mid); if (!m) return; const d = m.disponibles || []; const i = m.indisponibles || []; const isDispo = d.includes(pseudo); if (!isDispo && myPass) { const tt = getMatchTimeType(m); const uk = tt === 'hp' ? 'hpUsed' : 'hcUsed'; const tk = tt === 'hp' ? 'hpTotal' : 'hcTotal'; const rem = (myPass[tk] || 0) - (myPass[uk] || 0); if (rem < 2) alert('⚠️ Plus que ' + rem + ' jeton(s) !'); const np = { ...myPass, [uk]: (myPass[uk] || 0) + 2 }; setMyPass(np); await updateDoc(doc(db, 'users', user.uid), { evaPass: np }) } else if (isDispo && myPass) { const tt = getMatchTimeType(m); const uk = tt === 'hp' ? 'hpUsed' : 'hcUsed'; const np = { ...myPass, [uk]: Math.max(0, (myPass[uk] || 0) - 2) }; setMyPass(np); await updateDoc(doc(db, 'users', user.uid), { evaPass: np }) }; addLog(isDispo ? 'Retrait dispo: ' + m.adversaire : 'Dispo: ' + m.adversaire); await updateDoc(doc(db, 'matchs', mid), { disponibles: isDispo ? d.filter((p: string) => p !== pseudo) : [...d, pseudo], indisponibles: i.filter((p: string) => p !== pseudo) }) }
-  const toggleIndispo = async (mid: string) => { if (!user) return; const m = matchs.find((x: any) => x.id === mid); if (!m) return; const d = m.disponibles || []; const i = m.indisponibles || []; if (d.includes(pseudo) && myPass) { const tt = getMatchTimeType(m); const uk = tt === 'hp' ? 'hpUsed' : 'hcUsed'; const np = { ...myPass, [uk]: Math.max(0, (myPass[uk] || 0) - 2) }; setMyPass(np); await updateDoc(doc(db, 'users', user.uid), { evaPass: np }) }; addLog('Indispo: ' + m.adversaire); await updateDoc(doc(db, 'matchs', mid), { indisponibles: i.includes(pseudo) ? i.filter((p: string) => p !== pseudo) : [...i, pseudo], disponibles: d.filter((p: string) => p !== pseudo) }) }
-
-  const fdf = (s: string) => { if (!s) return ''; if (s.includes('/')) return s; const [y, m, d] = s.split('-'); return d + '/' + m + '/' + y }
-  const fts = (t: number) => { const d = new Date(t); return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
-  const atc = (m: any) => { try { if (!m?.date) return; let y: string, mo: string, d: string; if (m.date.includes('/')) { const p = m.date.split('/'); d = p[0]; mo = p[1]; y = p[2] } else { const p = m.date.split('-'); y = p[0]; mo = p[1]; d = p[2] }; const md = y + mo + d; let h = '20', mi = '00'; if (m.horaires?.length > 0) { const p = m.horaires[0].split(':'); h = p[0]; mi = p[1] || '00' } else if (m.horaire1) { const p = m.horaire1.split(':'); h = p[0]; mi = p[1] || '00' }; const st = h + mi + '00'; const et = (parseInt(h) + 2).toString().padStart(2, '0') + mi + '00'; if (/iPad|iPhone|iPod/.test(navigator.userAgent)) { const ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:' + m.id + '@d\nDTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z\nDTSTART:' + md + 'T' + st + '\nDTEND:' + md + 'T' + et + '\nSUMMARY:DYNO vs ' + m.adversaire + '\nLOCATION:' + m.arene + '\nEND:VEVENT\nEND:VCALENDAR'; const b = new Blob([ics], { type: 'text/calendar' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'D_' + m.adversaire + '.ics'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u) } else { window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent('DYNO vs ' + m.adversaire) + '&dates=' + md + 'T' + st + '/' + md + 'T' + et + '&location=' + encodeURIComponent(m.arene), '_blank') } } catch (e: any) { alert('❌ ' + e.message) } }
-  const hts = (e: React.TouchEvent) => { ty.current = e.touches[0].clientY }
-  const htm = (e: React.TouchEvent) => { if (window.scrollY > 0) return; const d = e.touches[0].clientY - ty.current; if (d > 0) setPullDistance(Math.min(d * 0.4, 80)) }
-  const hte = () => { if (pullDistance > 60) { setIsRefreshing(true); setTimeout(() => window.location.reload(), 500) }; setPullDistance(0) }
-  const toggleMap = (map: string, type: 'picks' | 'bans') => { if (type === 'picks') { if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) }); else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] }) } else { if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) }); else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] }) } }
-  const genBilan = () => { const now = new Date(); const mm = historique.filter((m: any) => { const d = new Date(m.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const w = mm.filter((m: any) => (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length; const l = mm.filter((m: any) => (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length; const mn = notes.filter((n: any) => { const d = new Date(n.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const am = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.mental || 0), 0) / mn.length) : 0; const ac = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.communication || 0), 0) / mn.length) : 0; const ap = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.gameplay || 0), 0) / mn.length) : 0; return { nom: ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][now.getMonth()], m: mm.length, w, l, wr: mm.length > 0 ? Math.round((w / (w + l || 1)) * 100) : 0, am, ac, ap } }
 
   const handleVideoUrlChange = (url: string) => {
     setNewVideo(v => ({ ...v, youtubeUrl: url }))
-    const id = extractYoutubeId(url)
-    setVideoYtId(id)
+    setVideoYtId(ytId(url))
+  }
+
+  const resetVideoForm = () => {
+    setNewVideo({
+      titre: '',
+      description: '',
+      youtubeUrl: '',
+      jeu: 'EVA Esport Arena',
+      map: '',
+      categorie: 'strat',
+      tags: '',
+      publie: true
+    })
+    setVideoYtId('')
+    setVideoStep('form')
   }
 
   const publierStratVideo = async () => {
-    if (!user || !newVideo.titre || !videoYtId) return
+    if (!user || !newVideo.titre || !videoYtId) {
+      alert('⚠️ Titre et URL YouTube obligatoires')
+      return
+    }
+
     setVideoStep('publishing')
+
     try {
       await addDoc(collection(db, 'stratVideos'), {
         titre: newVideo.titre,
         description: newVideo.description,
         youtubeUrl: newVideo.youtubeUrl,
         youtubeId: videoYtId,
-        jeu: newVideo.jeu,
+        jeu: 'EVA Esport Arena',
         map: newVideo.map || 'All',
         categorie: newVideo.categorie,
         tags: newVideo.tags.split(',').map(t => t.trim()).filter(Boolean),
-        auteur: pseudo,
+        auteur: pseudo || user.email || 'Membre',
         auteurId: user.uid,
-        vues: 0,
         likes: [],
         publie: newVideo.publie,
         createdAt: Date.now()
       })
-      addLog('Vidéo: ' + newVideo.titre)
+
+      addLog('Vidéo publiée : ' + newVideo.titre)
+
       try {
         await fetch(DW, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            embeds: [{
-              title: '🎬 Nouvelle Strat Vidéo !',
-              description: newVideo.titre,
-              color: 13934871,
-              fields: [
-                { name: '📂 Catégorie', value: newVideo.categorie, inline: true },
-                { name: '🎮 Jeu', value: newVideo.jeu, inline: true },
-                { name: '👤 Par', value: pseudo, inline: true },
-                { name: '🔗 Lien', value: newVideo.youtubeUrl, inline: false }
-              ],
-              thumbnail: { url: `https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg` },
-              footer: { text: 'DYNO Esport', icon_url: LG }
-            }]
+            embeds: [
+              {
+                title: '📺 Nouvelle Strat Vidéo !',
+                description: newVideo.titre,
+                color: 13934871,
+                fields: [
+                  { name: '🎮 Jeu', value: 'EVA Esport Arena', inline: true },
+                  { name: '🗺️ Map', value: newVideo.map || 'All', inline: true },
+                  { name: '👤 Par', value: pseudo || user.email || 'Membre', inline: true },
+                  { name: '🔗 YouTube', value: newVideo.youtubeUrl, inline: false }
+                ],
+                thumbnail: {
+                  url: `https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`
+                },
+                footer: { text: 'DYNO Esport', icon_url: LG }
+              }
+            ]
           })
         })
       } catch {}
+
       setVideoStep('done')
     } catch (e: any) {
-      alert('❌ ' + e.message)
       setVideoStep('form')
+      alert('❌ ' + e.message)
     }
   }
 
-  const likerVideo = async (vid: StratVideo) => {
+  const likerVideo = async (v: StratVideo) => {
     if (!user) return
-    const likes = vid.likes || []
-    const newLikes = likes.includes(user.uid) ? likes.filter((id: string) => id !== user.uid) : [...likes, user.uid]
-    await updateDoc(doc(db, 'stratVideos', vid.id), { likes: newLikes })
+    const likes = v.likes || []
+    const next = likes.includes(user.uid)
+      ? likes.filter(id => id !== user.uid)
+      : [...likes, user.uid]
+
+    await updateDoc(doc(db, 'stratVideos', v.id), { likes: next })
   }
 
-  const togglePublierVideo = async (vid: StratVideo) => {
-    await updateDoc(doc(db, 'stratVideos', vid.id), { publie: !vid.publie })
-    if (selectedVideo?.id === vid.id) setSelectedVideo({ ...vid, publie: !vid.publie })
+  const togglePublierVideo = async (v: StratVideo) => {
+    await updateDoc(doc(db, 'stratVideos', v.id), { publie: !v.publie })
+    if (selectedVideo?.id === v.id) {
+      setSelectedVideo({ ...v, publie: !v.publie })
+    }
   }
 
-  const filteredVideos = stratVideos.filter(v => {
-    const matchCat = videoFilter === 'all' || v.categorie === videoFilter
-    const matchSearch = !videoSearch || v.titre.toLowerCase().includes(videoSearch.toLowerCase()) || v.description?.toLowerCase().includes(videoSearch.toLowerCase()) || v.tags?.some(t => t.toLowerCase().includes(videoSearch.toLowerCase()))
-    const visible = isAdmin || v.publie || v.auteurId === user?.uid
-    return matchCat && matchSearch && visible
-  })
+  const del = async (col: string, id: string) => {
+    if (!confirm('Supprimer ?')) return
+    await deleteDoc(doc(db, col, id))
+  }
 
-  const victoires = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
-  const defaites = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
-  const totalMatchs = victoires + defaites
-  const winRate = totalMatchs > 0 ? Math.round((victoires / totalMatchs) * 100) : 0
-  const prochainsMatchs = matchs.filter((m: any) => !m.termine).sort((a: any, b: any) => new Date(a.date + 'T' + (a.horaires?.[0] || a.horaire1 || '20:00')).getTime() - new Date(b.date + 'T' + (b.horaires?.[0] || b.horaire1 || '20:00')).getTime())
-  const historique = matchs.filter((m: any) => m.termine)
-  const ytId = (url: string) => { const m = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/); return m ? m[1] : null }
-  const hcRem = myPass ? (myPass.hcTotal || 0) - (myPass.hcUsed || 0) : 0
-  const hpRem = myPass ? (myPass.hpTotal || 0) - (myPass.hpUsed || 0) : 0
+  const addMatch = async () => {
+    if (!newMatch.adversaire || !newMatch.date || !newMatch.horaire1) {
+      alert('⚠️ Adversaire, date et horaire obligatoires')
+      return
+    }
+
+    await addDoc(collection(db, 'matchs'), {
+      ...newMatch,
+      termine: false,
+      disponibles: [],
+      indisponibles: [],
+      createdAt: Date.now()
+    })
+
+    setNewMatch({
+      adversaire: '',
+      date: '',
+      horaire1: '',
+      horaire2: '',
+      arene: 'Arène 1',
+      type: 'Ligue'
+    })
+  }
+
+  const addReplay = async () => {
+    if (!newReplay.titre || !newReplay.lien) return
+    await addDoc(collection(db, 'replays'), {
+      ...newReplay,
+      createdAt: Date.now()
+    })
+    setNewReplay({ titre: '', lien: '' })
+  }
+
+  const filteredVideos = useMemo(() => {
+    return stratVideos.filter(v => {
+      const cat = videoFilter === 'all' || v.categorie === videoFilter
+      const search =
+        !videoSearch ||
+        v.titre.toLowerCase().includes(videoSearch.toLowerCase()) ||
+        v.description?.toLowerCase().includes(videoSearch.toLowerCase()) ||
+        v.tags?.some(t => t.toLowerCase().includes(videoSearch.toLowerCase()))
+
+      const visible = isAdmin || v.publie || v.auteurId === user?.uid
+
+      return cat && search && visible
+    })
+  }, [stratVideos, videoFilter, videoSearch, isAdmin, user])
+
+  const prochainsMatchs = matchs.filter(m => !m.termine)
+  const victoires = matchs.filter(m => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
+  const defaites = matchs.filter(m => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
+  const total = victoires + defaites
+  const winRate = total ? Math.round((victoires / total) * 100) : 0
 
   const H = ({ title, icon }: { title: string; icon?: string }) => (
-    <div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 glow-pulse tab-content">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
-      <img src={LG} alt="D" className="w-14 h-14 mx-auto mb-2 relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-      <h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent relative z-10">{icon} {title}</h2>
+    <div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15">
+      <img src={LG} alt="DYNO" className="w-14 h-14 mx-auto mb-2 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+      <h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">
+        {icon} {title}
+      </h2>
     </div>
   )
 
   const menuItems = [
     { t: 'matchs', i: '📅', l: 'Matchs' },
-    { t: 'historique', i: '📜', l: 'Résultats' },
-    { t: 'strats', i: '🎯', l: 'Strats' },
-    { t: 'compos', i: '📋', l: 'Compos' },
-    { t: 'fiches', i: '🔍', l: 'Fiches' },
-    { t: 'notes', i: '📊', l: 'Notes' },
-    { t: 'idees', i: '💡', l: 'Boîte à idées' },
     { t: 'stratVideos', i: '📺', l: 'Strat Vidéo' },
     { t: 'rec', i: '🎬', l: 'Replays' },
     { t: 'roster', i: '👥', l: 'Roster' },
     { t: 'stats', i: '📈', l: 'Stats' },
-    { t: 'logs', i: '📋', l: 'Logs' },
     { t: 'admin', i: '⚙️', l: 'Admin' }
   ]
 
-  if (showSplash) return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-      <P />
-      <div className="text-center relative z-10">
-        <img src={LG} alt="D" className="w-48 h-48 mx-auto splash-logo drop-shadow-[0_0_40px_rgba(212,175,55,0.6)]" />
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6 splash-text">DYNO</h1>
-        <p className="text-gray-400 mt-3 splash-sub tracking-[0.3em] uppercase text-sm">Esport Team</p>
+  if (showSplash) {
+    return (
+      <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-black">
+        <P />
+        <div className="text-center relative z-10">
+          <img src={LG} alt="DYNO" className="w-48 h-48 mx-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.6)]" />
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] bg-clip-text text-transparent mt-6">
+            DYNO
+          </h1>
+          <p className="text-gray-400 mt-3 tracking-[0.3em] uppercase text-sm">Esport Team</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
-    <div className="min-h-screen pb-6 relative">
+    <div className="min-h-screen bg-black text-white pb-8 relative">
       <P />
-      <header className="backdrop-blur-2xl bg-black/30 border-b border-white/5 sticky top-0 z-40 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-        <div className="max-w-lg mx-auto px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowMenu(!showMenu)} className="w-9 h-9 rounded-xl flex items-center justify-center text-lg bg-white/5 border border-white/10 hover:bg-[#D4AF37]/20 transition-all">☰</button>
-            <img src={LG} alt="D" className="w-8 h-8 drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]" />
+
+      <header className="backdrop-blur-2xl bg-black/40 border-b border-white/5 sticky top-0 z-40">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowMenu(true)}
+              className="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 text-xl"
+            >
+              ☰
+            </button>
+            <img src={LG} alt="DYNO" className="w-11 h-11" />
             <div>
-              <h1 className="text-base font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent leading-tight">DYNO</h1>
-              <p className="text-[8px] text-gray-600 uppercase tracking-widest">Esport</p>
+              <h1 className="text-xl font-black text-[#D4AF37] leading-none">DYNO</h1>
+              <p className="text-[10px] text-gray-500 tracking-widest uppercase">Esport</p>
             </div>
           </div>
-          <div className="flex gap-1 items-center">
-            {user && myPass && <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-white/5 border border-white/10"><span className="text-blue-400 text-[8px] font-bold">{hcRem}HC</span><span className="text-gray-700 text-[7px]">|</span><span className="text-purple-400 text-[8px] font-bold">{hpRem}HP</span></div>}
-            {user && <button onClick={requestNotificationPermission} className={"w-7 h-7 rounded-full flex items-center justify-center text-xs " + (notificationsEnabled ? "bg-[#D4AF37]/20 border border-[#D4AF37]/40" : "bg-white/5 border border-white/10")}>{notificationsEnabled ? '🔔' : '🔕'}</button>}
-            {showInstall && <button onClick={handleInstall} className="px-2 py-1 rounded-lg text-[9px] font-bold bg-blue-600 text-white">📲</button>}
-            {user ? <button onClick={handleSignOut} className="px-2 py-1 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white text-[10px]">👋 {pseudo}</button> : <button onClick={() => setIsSignUp(false)} className="px-2 py-1 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-[10px]">👤</button>}
-          </div>
+
+          {user ? (
+            <button
+              onClick={handleSignOut}
+              className="px-3 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-bold"
+            >
+              👋 {pseudo || 'Membre'}
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsSignUp(false)}
+              className="px-3 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-xs font-bold"
+            >
+              Connexion
+            </button>
+          )}
         </div>
       </header>
 
       {showMenu && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="w-64 bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border-r border-[#D4AF37]/20 shadow-[4px_0_32px_rgba(0,0,0,0.8)] overflow-y-auto">
+          <div className="w-64 bg-gradient-to-b from-[#1a1a1a] to-[#050505] border-r border-[#D4AF37]/20">
             <div className="p-5 border-b border-[#D4AF37]/10 flex items-center gap-3">
-              <img src={LG} alt="D" className="w-12 h-12" />
+              <img src={LG} alt="DYNO" className="w-12 h-12" />
               <div>
-                <h2 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">DYNO</h2>
+                <h2 className="text-lg font-bold text-[#D4AF37]">DYNO</h2>
                 <p className="text-[9px] text-gray-600 uppercase tracking-widest">Esport Team</p>
               </div>
             </div>
+
             <div className="py-3">
-              {menuItems.map(({ t, i, l }) => (
-                <button key={t} onClick={() => { setActiveTab(t); setShowMenu(false) }} className={"w-full px-5 py-3 flex items-center gap-3 transition-all " + (activeTab === t ? "bg-[#D4AF37]/15 text-[#D4AF37] border-r-2 border-[#D4AF37]" : "text-gray-500 hover:text-gray-300 hover:bg-white/5")}>
-                  <span className="text-lg">{i}</span>
-                  <span className="text-sm font-bold tracking-wider uppercase">{l}</span>
-                  {t === 'stratVideos' && <span className="ml-auto px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[8px] font-bold border border-red-500/20">YT</span>}
-                  {activeTab === t && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />}
+              {menuItems.map(item => (
+                <button
+                  key={item.t}
+                  onClick={() => {
+                    setActiveTab(item.t)
+                    setShowMenu(false)
+                  }}
+                  className={
+                    'w-full px-5 py-3 flex items-center gap-3 transition-all ' +
+                    (activeTab === item.t
+                      ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-r-2 border-[#D4AF37]'
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5')
+                  }
+                >
+                  <span>{item.i}</span>
+                  <span className="text-sm font-bold uppercase">{item.l}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div className="flex-1 bg-black/60" onClick={() => setShowMenu(false)} />
+
+          <div className="flex-1 bg-black/70" onClick={() => setShowMenu(false)} />
         </div>
       )}
 
-      <main className="max-w-lg mx-auto px-4 py-6 relative z-10" onTouchStart={hts} onTouchMove={htm} onTouchEnd={hte}>
-        {pullDistance > 0 && <div className="flex justify-center mb-4" style={{ height: pullDistance }}><span className={"text-[#D4AF37] text-2xl " + (pullDistance > 60 ? 'animate-spin' : '')}>{isRefreshing ? '⏳' : pullDistance > 60 ? '🔄' : '⬇️'}</span></div>}
+      <main className="max-w-lg mx-auto px-4 py-6 relative z-10">
+        {activeTab === 'matchs' && (
+          <div>
+            <H title="Prochains Matchs" icon="📅" />
 
-        {activeTab === 'matchs' && <div><H title="Prochains Matchs" /><div className="flex justify-end mb-3"><div className="flex bg-white/5 rounded-xl border border-white/10 overflow-hidden"><button onClick={() => setViewMode('list')} className={"px-3 py-1.5 text-xs " + (viewMode === 'list' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>☰</button><button onClick={() => setViewMode('grid')} className={"px-3 py-1.5 text-xs " + (viewMode === 'grid' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-600')}>⊞</button></div></div>{loading ? <div className="space-y-4"><div className="skeleton h-48 w-full" /><div className="skeleton h-48 w-full" /></div> : prochainsMatchs.length === 0 ? <div className="text-center py-10 text-gray-600">📭 Aucun match planifié</div> : <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'space-y-4'}>{prochainsMatchs.map((match: any, idx: number) => <div key={match.id} className="card-glow bg-black/30 backdrop-blur-lg rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex items-center justify-between mb-3"><span className={"px-2.5 py-1 rounded-full text-[9px] font-bold uppercase " + (match.type === 'Ligue' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' : match.type === 'Scrim' ? 'bg-green-500/20 text-green-400 border border-green-500/20' : match.type === 'Tournoi' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/20' : match.type === 'Division' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' : 'bg-gray-500/20 text-gray-400 border border-gray-500/20')}>{match.type}</span><div className="flex items-center gap-1.5"><span className={"px-1.5 py-0.5 rounded text-[7px] font-bold " + (getMatchTimeType(match) === 'hp' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400')}>{getMatchTimeType(match) === 'hp' ? 'HP' : 'HC'}</span><span className="text-[#D4AF37] font-bold text-xs">{fdf(match.date)}</span></div></div>{countdowns[match.id] && <div className={"rounded-2xl p-2.5 mb-3 text-center border " + (countdowns[match.id] === '🔴 EN COURS' ? 'bg-red-500/10 border-red-500/15' : 'bg-[#D4AF37]/10 border-[#D4AF37]/15')}><p className="text-[9px] text-gray-600 uppercase">Countdown</p><p className={"text-lg font-bold font-mono " + (countdowns[match.id] === '🔴 EN COURS' ? 'text-red-400 animate-pulse' : 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent')}>{countdowns[match.id]}</p></div>}<div className="flex items-center gap-3 mb-3"><img src={LG} alt="D" className="w-10 h-10" /><span className="text-gray-700 font-light">VS</span><div className="flex-1 text-right"><p className="font-bold text-white text-sm">{match.adversaire}</p><p className="text-[10px] text-[#D4AF37]/60">🏟️ {match.arene}</p></div></div><div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 uppercase">⏰ Horaire</p><p className="text-[#D4AF37] font-bold text-xs">{match.horaires?.join(' / ') || [match.horaire1, match.horaire2].filter(Boolean).join(' / ') || '20:00'}</p></div><div className="bg-white/5 rounded-xl p-2.5 mb-2 border border-white/5"><p className="text-[9px] text-gray-600 mb-1.5 uppercase">👥 Disponibles ({(match.disponibles || []).length})</p>{(match.disponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.disponibles || []).map((p: string, i: number) => <span key={i} className="bg-[#D4AF37]/15 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[9px] font-bold border border-[#D4AF37]/15">{p}</span>)}</div>}</div><div className="bg-white/5 rounded-xl p-2.5 mb-3 border border-red-500/10"><p className="text-[9px] text-gray-600 mb-1.5 uppercase">🚫 Indisponibles ({(match.indisponibles || []).length})</p>{(match.indisponibles || []).length > 0 && <div className="flex flex-wrap gap-1">{(match.indisponibles || []).map((p: string, i: number) => <span key={i} className="bg-red-500/15 text-red-400 px-2 py-0.5 rounded-lg text-[9px] font-bold border border-red-500/15">{p}</span>)}</div>}</div><button onClick={() => atc(match)} className="w-full mb-2 py-2 rounded-xl font-bold bg-blue-600/20 text-blue-400 border border-blue-500/15 text-xs">📅 Ajouter au Calendrier</button><div className="flex gap-2"><button onClick={() => toggleDispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30' : 'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]')}>{!user ? '🔐' : (match.disponibles || []).includes(pseudo) ? '✅ Dispo (-2🎟️)' : '📅 Dispo'}</button><button onClick={() => toggleIndispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.indisponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30' : 'bg-white/5 border border-red-500/15 text-red-400')}>{!user ? '🔐' : (match.indisponibles || []).includes(pseudo) ? '❌ Indispo' : '🚫 Indispo'}</button></div></div>)}</div>}</div>}
+            {prochainsMatchs.length === 0 ? (
+              <div className="text-center py-12 text-gray-600">📭 Aucun match planifié</div>
+            ) : (
+              <div className="space-y-4">
+                {prochainsMatchs.map(m => (
+                  <div key={m.id} className="bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="px-2.5 py-1 rounded-full text-[9px] font-bold bg-blue-500/20 text-blue-400">
+                        {m.type}
+                      </span>
+                      <span className="text-[#D4AF37] text-xs font-bold">{fdf(m.date)}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3 mb-3">
+                      <img src={LG} alt="DYNO" className="w-10 h-10" />
+                      <span className="text-gray-700">VS</span>
+                      <div className="flex-1 text-right">
+                        <p className="font-bold">{m.adversaire}</p>
+                        <p className="text-[10px] text-[#D4AF37]/60">🏟️ {m.arene}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/5 rounded-xl p-3 text-xs text-gray-400">
+                      ⏰ {m.horaire1} {m.horaire2 ? `/ ${m.horaire2}` : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'stratVideos' && (
+          <div>
+            <H title="Strat Vidéo" icon="📺" />
+
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
+                <p className="text-xl font-bold text-[#D4AF37]">{stratVideos.length}</p>
+                <p className="text-[9px] text-gray-600 uppercase">Total</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
+                <p className="text-xl font-bold text-green-400">{stratVideos.filter(v => v.publie).length}</p>
+                <p className="text-[9px] text-gray-600 uppercase">Publiées</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
+                <p className="text-xl font-bold text-red-400">
+                  {stratVideos.reduce((s, v) => s + (v.likes?.length || 0), 0)}
+                </p>
+                <p className="text-[9px] text-gray-600 uppercase">Likes</p>
+              </div>
+            </div>
+
+            {user && (
+              <button
+                onClick={() => {
+                  resetVideoForm()
+                  setShowAddVideo(true)
+                }}
+                className="w-full mb-4 py-3 rounded-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white text-sm"
+              >
+                📺 Publier une Strat Vidéo
+              </button>
+            )}
+
+            <a
+              href={YT}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full mb-4 py-2.5 rounded-xl font-bold bg-red-600/10 text-red-400 border border-red-500/20 text-center text-xs"
+            >
+              🔴 Chaîne YouTube DYNO
+            </a>
+
+            <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
+              <button
+                onClick={() => setVideoFilter('all')}
+                className={
+                  'flex-shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border ' +
+                  (videoFilter === 'all'
+                    ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30'
+                    : 'bg-white/5 text-gray-500 border-white/10')
+                }
+              >
+                Toutes
+              </button>
+
+              {CATS.map(c => (
+                <button
+                  key={c.v}
+                  onClick={() => setVideoFilter(c.v)}
+                  className={
+                    'flex-shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border ' +
+                    (videoFilter === c.v
+                      ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30'
+                      : 'bg-white/5 text-gray-500 border-white/10')
+                  }
+                >
+                  {c.i} {c.l}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={videoSearch}
+              onChange={e => setVideoSearch(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-4 text-white text-sm focus:outline-none"
+            />
+
+            {filteredVideos.length === 0 ? (
+              <div className="text-center py-12 text-gray-600">
+                <p className="text-4xl mb-2">📺</p>
+                <p>Aucune vidéo</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredVideos.map(v => (
+                  <div key={v.id} className="bg-black/30 rounded-3xl border border-[#D4AF37]/15 overflow-hidden">
+                    <div
+                      className="relative cursor-pointer"
+                      onClick={() => {
+                        setSelectedVideo(v)
+                        setPlayerLoaded(false)
+                      }}
+                    >
+                      <img
+                        src={`https://img.youtube.com/vi/${v.youtubeId}/hqdefault.jpg`}
+                        alt={v.titre}
+                        className="w-full aspect-video object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                        <div className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center">
+                          ▶
+                        </div>
+                      </div>
+                      {!v.publie && (
+                        <span className="absolute top-2 left-2 bg-yellow-500 text-black text-[9px] px-2 py-1 rounded-lg font-black">
+                          BROUILLON
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-4">
+                      <h3 className="font-bold text-sm mb-1">{v.titre}</h3>
+                      {v.description && <p className="text-gray-500 text-[10px] mb-2">{v.description}</p>}
+
+                      <div className="flex gap-2 flex-wrap mb-3">
+                        <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[9px]">
+                          🎮 {v.jeu}
+                        </span>
+                        {v.map !== 'All' && (
+                          <span className="bg-white/5 text-gray-500 px-2 py-0.5 rounded-lg text-[9px]">
+                            🗺️ {v.map}
+                          </span>
+                        )}
+                        <span className="bg-red-500/10 text-red-400 px-2 py-0.5 rounded-lg text-[9px]">
+                          {CATS.find(c => c.v === v.categorie)?.i} {CATS.find(c => c.v === v.categorie)?.l}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedVideo(v)
+                            setPlayerLoaded(false)
+                          }}
+                          className="flex-1 py-2 rounded-xl bg-red-600/15 text-red-400 border border-red-500/20 text-xs font-bold"
+                        >
+                          ▶ Regarder
+                        </button>
+
+                        <button
+                          onClick={() => likerVideo(v)}
+                          className={
+                            'py-2 px-3 rounded-xl text-xs font-bold border ' +
+                            (user && v.likes?.includes(user.uid)
+                              ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                              : 'bg-white/5 text-gray-500 border-white/10')
+                          }
+                        >
+                          ❤️ {v.likes?.length || 0}
+                        </button>
+
+                        {(isAdmin || user?.uid === v.auteurId) && (
                           <>
-                            <button onClick={() => togglePublierVideo(v)} className={"py-2 px-2 rounded-xl text-xs border " + (v.publie ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20')}>
+                            <button
+                              onClick={() => togglePublierVideo(v)}
+                              className="py-2 px-2 rounded-xl text-xs bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+                            >
                               {v.publie ? '👁' : '✅'}
                             </button>
-                            <button onClick={() => { if (confirm('Supprimer ?')) del('stratVideos', v.id) }} className="py-2 px-2 rounded-xl bg-red-500/10 text-red-400/60 border border-red-500/10 text-xs">🗑️</button>
+                            <button
+                              onClick={() => del('stratVideos', v.id)}
+                              className="py-2 px-2 rounded-xl bg-red-500/10 text-red-400 border border-red-500/10 text-xs"
+                            >
+                              🗑️
+                            </button>
                           </>
                         )}
                       </div>
@@ -621,230 +814,287 @@ function App() {
             )}
 
             {selectedVideo && (
-              <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col">
-                <div className="flex items-center justify-between p-4 border-b border-white/10">
-                  <button onClick={() => setSelectedVideo(null)} className="text-gray-400 hover:text-white text-sm flex items-center gap-2">
+              <div className="fixed inset-0 bg-black/95 z-50 flex flex-col">
+                <div className="flex justify-between items-center p-4 border-b border-white/10">
+                  <button onClick={() => setSelectedVideo(null)} className="text-gray-400 text-sm">
                     ← Retour
                   </button>
-                  <div className="flex gap-2">
-                    {(isAdmin || user?.uid === selectedVideo.auteurId) && (
-                      <button onClick={() => togglePublierVideo(selectedVideo)} className={"px-3 py-1 rounded-lg text-xs font-bold " + (selectedVideo.publie ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400')}>
-                        {selectedVideo.publie ? '📝 Brouillon' : '✅ Publier'}
-                      </button>
-                    )}
-                    <a href={selectedVideo.youtubeUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-lg bg-red-600/20 text-red-400 text-xs font-bold flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
-                      YouTube
-                    </a>
-                  </div>
+                  <a
+                    href={selectedVideo.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-red-400 text-xs font-bold"
+                  >
+                    YouTube
+                  </a>
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
-                  {!playerLoaded ? (
-                    <div className="relative aspect-video cursor-pointer" onClick={() => setPlayerLoaded(true)}>
-                      <img src={`https://img.youtube.com/vi/${selectedVideo.youtubeId}/maxresdefault.jpg`} alt={selectedVideo.titre} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${selectedVideo.youtubeId}/hqdefault.jpg` }} />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center shadow-2xl shadow-red-500/40">
-                          <svg className="w-10 h-10 text-white ml-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                        </div>
+                {!playerLoaded ? (
+                  <div className="relative aspect-video cursor-pointer" onClick={() => setPlayerLoaded(true)}>
+                    <img
+                      src={`https://img.youtube.com/vi/${selectedVideo.youtubeId}/hqdefault.jpg`}
+                      alt={selectedVideo.titre}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center text-3xl">
+                        ▶
                       </div>
-                      <p className="absolute bottom-3 left-0 right-0 text-center text-white/60 text-xs">Appuyer pour lancer</p>
                     </div>
-                  ) : (
-                    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                      <iframe
-                        className="absolute top-0 left-0 w-full h-full"
-                        src={`https://www.youtube.com/embed/${selectedVideo.youtubeId}?autoplay=1&rel=0`}
-                        title={selectedVideo.titre}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                  )}
+                  </div>
+                ) : (
+                  <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                    <iframe
+                      className="absolute top-0 left-0 w-full h-full"
+                      src={`https://www.youtube.com/embed/${selectedVideo.youtubeId}?autoplay=1&rel=0`}
+                      title={selectedVideo.titre}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
 
-                  <div className="p-4 space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <h2 className="text-white font-bold text-base flex-1">{selectedVideo.titre}</h2>
-                      <button onClick={() => user && likerVideo(selectedVideo)} className={"px-3 py-1.5 rounded-xl font-bold text-sm transition-all " + (user && selectedVideo.likes?.includes(user.uid) ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-white/5 text-gray-500 border border-white/10')}>
-                        ❤️ {selectedVideo.likes?.length || 0}
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">
-                        {CATS.find(c => c.v === selectedVideo.categorie)?.i} {CATS.find(c => c.v === selectedVideo.categorie)?.l}
+                <div className="p-4 space-y-3 overflow-y-auto">
+                  <h2 className="font-bold text-lg">{selectedVideo.titre}</h2>
+                  <p className="text-gray-400 text-sm">{selectedVideo.description}</p>
+                  <div className="flex gap-2 flex-wrap text-[10px]">
+                    <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-1 rounded-lg">
+                      🎮 {selectedVideo.jeu}
+                    </span>
+                    {selectedVideo.map !== 'All' && (
+                      <span className="bg-white/5 text-gray-400 px-2 py-1 rounded-lg">
+                        🗺️ {selectedVideo.map}
                       </span>
-                      <span className="bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg text-[10px] border border-white/10">🎮 {selectedVideo.jeu}</span>
-                      {selectedVideo.map && selectedVideo.map !== 'All' && <span className="bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg text-[10px] border border-white/10">🗺️ {selectedVideo.map}</span>}
-                      {!selectedVideo.publie && <span className="bg-yellow-500/20 text-yellow-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-yellow-500/20">BROUILLON</span>}
-                    </div>
-
-                    {selectedVideo.description && (
-                      <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                        <p className="text-[9px] text-gray-500 uppercase font-bold mb-1.5">📝 Description</p>
-                        <p className="text-gray-300 text-xs whitespace-pre-wrap">{selectedVideo.description}</p>
-                      </div>
                     )}
-
-                    {selectedVideo.tags?.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedVideo.tags.map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg">#{t}</span>)}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-3 text-[10px] text-gray-600 border-t border-white/5 pt-3">
-                      <span>👤 {selectedVideo.auteur}</span>
-                      <span>•</span>
-                      <span>{new Date(selectedVideo.createdAt).toLocaleDateString('fr-FR')}</span>
-                    </div>
+                    <span className="bg-white/5 text-gray-400 px-2 py-1 rounded-lg">
+                      👤 {selectedVideo.auteur}
+                    </span>
                   </div>
                 </div>
               </div>
             )}
 
             {showAddVideo && (
-              <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col">
-                <div className="flex items-center justify-between p-4 border-b border-white/10">
-                  <button onClick={() => { setShowAddVideo(false); setVideoStep('form') }} className="text-gray-400 text-sm">✕ Fermer</button>
-                  <h3 className="text-sm font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">
-                    {videoStep === 'form' ? '📺 Nouvelle vidéo' : videoStep === 'preview' ? '👁 Prévisualisation' : videoStep === 'publishing' ? '⏳ Publication...' : '✅ Publiée !'}
+              <div className="fixed inset-0 bg-black/95 z-50 flex flex-col">
+                <div className="flex justify-between items-center p-4 border-b border-white/10">
+                  <button
+                    onClick={() => {
+                      setShowAddVideo(false)
+                      resetVideoForm()
+                    }}
+                    className="text-gray-400 text-sm"
+                  >
+                    ✕ Fermer
+                  </button>
+                  <h3 className="text-sm font-bold text-[#D4AF37]">
+                    {videoStep === 'form'
+                      ? '📺 Nouvelle vidéo'
+                      : videoStep === 'preview'
+                        ? '👁 Prévisualisation'
+                        : videoStep === 'publishing'
+                          ? '⏳ Publication'
+                          : '✅ Publiée'}
                   </h3>
                   <div className="w-16" />
-                </div>
-
-                <div className="flex items-center gap-0 px-4 py-3 border-b border-white/5">
-                  {['Infos', 'Preview', 'Pub.', 'OK'].map((s, i) => (
-                    <div key={s} className="flex items-center flex-1">
-                      <div className={"w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black " + (['form','preview','publishing','done'].indexOf(videoStep) >= i ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-gray-600')}>{i + 1}</div>
-                      {i < 3 && <div className={"flex-1 h-px " + (['form','preview','publishing','done'].indexOf(videoStep) > i ? 'bg-[#D4AF37]/50' : 'bg-white/10')} />}
-                    </div>
-                  ))}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4">
                   {videoStep === 'form' && (
                     <div className="space-y-4">
                       <div>
-                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 flex items-center gap-1.5 block">
-                          <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
-                          URL YouTube *
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">
+                          🔴 URL YouTube *
                         </label>
                         <input
                           type="url"
-                          placeholder="https://www.youtube.com/watch?v=..."
                           value={newVideo.youtubeUrl}
                           onChange={e => handleVideoUrlChange(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-red-500/40"
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none"
                         />
-                        {newVideo.youtubeUrl && !videoYtId && <p className="text-red-400 text-[10px] mt-1">⚠️ URL invalide</p>}
-                        {videoYtId && <p className="text-green-400 text-[10px] mt-1">✅ ID détecté : {videoYtId}</p>}
+                        {videoYtId && <p className="text-green-400 text-[10px] mt-1">✅ ID : {videoYtId}</p>}
                       </div>
 
                       {videoYtId && (
-                        <div className="rounded-xl overflow-hidden border border-white/10">
-                          <img src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`} alt="preview" className="w-full aspect-video object-cover" />
-                        </div>
+                        <img
+                          src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`}
+                          alt="Preview"
+                          className="w-full aspect-video object-cover rounded-xl border border-white/10"
+                        />
                       )}
 
                       <div>
-                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Titre *</label>
-                        <input type="text" placeholder="Ex: Rush B Dust2 - Strat anti-éco" value={newVideo.titre} onChange={e => setNewVideo(v => ({ ...v, titre: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" />
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">
+                          Titre *
+                        </label>
+                        <input
+                          value={newVideo.titre}
+                          onChange={e => setNewVideo(v => ({ ...v, titre: e.target.value }))}
+                          placeholder="Start Lunar"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none"
+                        />
                       </div>
 
                       <div>
-                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Description</label>
-                        <textarea value={newVideo.description} onChange={e => setNewVideo(v => ({ ...v, description: e.target.value }))} rows={3} placeholder="Décris la stratégie, les timing clés..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" />
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">
+                          Description
+                        </label>
+                        <textarea
+                          value={newVideo.description}
+                          onChange={e => setNewVideo(v => ({ ...v, description: e.target.value }))}
+                          rows={3}
+                          placeholder="Décris la stratégie..."
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none"
+                        />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🎮 Jeu</label>
-                          <div className="w-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-xl px-3 py-2.5 text-[#D4AF37] text-sm font-bold flex items-center gap-2">
-                            <img src={LG} alt="EVA" className="w-5 h-5" />
-                            EVA Esport Arena
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🗺️ Map</label>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {AM.map(m => (
-                              <button
-                                key={m}
-                                type="button"
-                                onClick={() => setNewVideo(v => ({ ...v, map: v.map === m ? '' : m }))}
-                                className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border " + (newVideo.map === m ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-lg shadow-[#D4AF37]/20' : 'bg-white/5 text-gray-500 border-white/10 hover:border-[#D4AF37]/40')}
-                              >
-                                {m}
-                              </button>
-                            ))}
-                          </div>
+                      <div>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">
+                          🎮 Jeu
+                        </label>
+                        <div className="w-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-xl px-3 py-2.5 text-[#D4AF37] text-sm font-bold flex items-center gap-2">
+                          <img src={LG} alt="EVA" className="w-5 h-5" />
+                          EVA Esport Arena
                         </div>
                       </div>
 
                       <div>
-                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">📂 Catégorie</label>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">
+                          🗺️ Map
+                        </label>
                         <div className="grid grid-cols-3 gap-1.5">
-                          {CATS.map(c => (
-                            <button key={c.v} type="button" onClick={() => setNewVideo(v => ({ ...v, categorie: c.v as any }))} className={"py-2 rounded-xl text-[10px] font-bold border transition-all " + (newVideo.categorie === c.v ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/40' : 'bg-white/5 text-gray-500 border-white/10')}>
-                              {c.i} {c.l}
+                          {AM.map(m => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setNewVideo(v => ({ ...v, map: v.map === m ? '' : m }))}
+                              className={
+                                'px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border ' +
+                                (newVideo.map === m
+                                  ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-lg shadow-[#D4AF37]/20'
+                                  : 'bg-white/5 text-gray-500 border-white/10 hover:border-[#D4AF37]/40')
+                              }
+                            >
+                              {m}
                             </button>
                           ))}
                         </div>
                       </div>
 
                       <div>
-                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">🏷️ Tags (virgules)</label>
-                        <input type="text" placeholder="rush, anti-éco, b-site" value={newVideo.tags} onChange={e => setNewVideo(v => ({ ...v, tags: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" />
-                      </div>
-
-                      <div className="flex items-center gap-3 bg-white/5 rounded-xl p-4 border border-white/10">
-                        <button type="button" onClick={() => setNewVideo(v => ({ ...v, publie: !v.publie }))} className={"relative w-12 h-6 rounded-full transition-colors " + (newVideo.publie ? 'bg-green-500' : 'bg-white/20')}>
-                          <div className={"absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-lg transition-transform " + (newVideo.publie ? 'translate-x-6' : 'translate-x-0.5')} />
-                        </button>
-                        <div>
-                          <p className="text-white text-sm font-bold">{newVideo.publie ? '✅ Publié' : '📝 Brouillon'}</p>
-                          <p className="text-gray-600 text-[9px]">{newVideo.publie ? 'Visible par tous les membres' : 'Visible uniquement par vous'}</p>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">
+                          📂 Catégorie
+                        </label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {CATS.map(c => (
+                            <button
+                              key={c.v}
+                              type="button"
+                              onClick={() => setNewVideo(v => ({ ...v, categorie: c.v }))}
+                              className={
+                                'py-2 rounded-xl text-[10px] font-bold border ' +
+                                (newVideo.categorie === c.v
+                                  ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/40'
+                                  : 'bg-white/5 text-gray-500 border-white/10')
+                              }
+                            >
+                              {c.i} {c.l}
+                            </button>
+                          ))}
                         </div>
                       </div>
 
-                      <div className="flex gap-3 pt-2">
-                        <button onClick={() => setShowAddVideo(false)} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button>
+                      <input
+                        value={newVideo.tags}
+                        onChange={e => setNewVideo(v => ({ ...v, tags: e.target.value }))}
+                        placeholder="rush, anti-éco, b-site"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none"
+                      />
+
+                      <div className="flex items-center gap-3 bg-white/5 rounded-xl p-4 border border-white/10">
                         <button
-                          onClick={() => { if (!newVideo.titre || !videoYtId) { alert('⚠️ Titre et URL requis'); return }; setVideoStep('preview') }}
-                          disabled={!newVideo.titre || !videoYtId}
-                          className={"flex-1 py-3 rounded-xl font-bold text-sm " + (newVideo.titre && videoYtId ? 'bg-gradient-to-r from-red-600 to-red-700 text-white' : 'bg-white/10 text-gray-600')}
+                          type="button"
+                          onClick={() => setNewVideo(v => ({ ...v, publie: !v.publie }))}
+                          className={
+                            'relative w-12 h-6 rounded-full transition-colors ' +
+                            (newVideo.publie ? 'bg-green-500' : 'bg-white/20')
+                          }
+                        >
+                          <div
+                            className={
+                              'absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ' +
+                              (newVideo.publie ? 'translate-x-6' : 'translate-x-0.5')
+                            }
+                          />
+                        </button>
+                        <div>
+                          <p className="font-bold">{newVideo.publie ? '✅ Publié' : '📝 Brouillon'}</p>
+                          <p className="text-gray-600 text-[10px]">
+                            {newVideo.publie ? 'Visible par tous les membres' : 'Visible uniquement par vous'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setShowAddVideo(false)}
+                          className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-500 font-bold"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (!newVideo.titre || !videoYtId) {
+                              alert('⚠️ Titre et URL requis')
+                              return
+                            }
+                            setVideoStep('preview')
+                          }}
+                          className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold"
                         >
                           Prévisualiser →
                         </button>
                       </div>
                     </div>
                   )}
+
                   {videoStep === 'preview' && (
                     <div className="space-y-4">
-                      <div className="rounded-xl overflow-hidden border border-white/10">
-                        <img src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`} alt={newVideo.titre} className="w-full aspect-video object-cover" />
-                      </div>
-                      <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-3">
-                        <h3 className="text-white font-bold">{newVideo.titre}</h3>
-                        <div className="flex flex-wrap gap-2">
-                          <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">
-                            {CATS.find(c => c.v === newVideo.categorie)?.i} {CATS.find(c => c.v === newVideo.categorie)?.l}
+                      <img
+                        src={`https://img.youtube.com/vi/${videoYtId}/hqdefault.jpg`}
+                        alt="Preview"
+                        className="w-full aspect-video object-cover rounded-xl"
+                      />
+                      <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                        <h3 className="font-bold mb-2">{newVideo.titre}</h3>
+                        <div className="flex flex-wrap gap-2 text-[10px]">
+                          <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-1 rounded-lg">
+                            🎮 EVA Esport Arena
                           </span>
-                          <span className="bg-white/5 text-gray-400 px-2 py-0.5 rounded-lg text-[10px] border border-white/10">🎮 {newVideo.jeu}</span>
-                          {newVideo.map && <span className="bg-white/5 text-gray-400 px-2 py-0.5 rounded-lg text-[10px] border border-white/10">🗺️ {newVideo.map}</span>}
-                          <span className={"px-2 py-0.5 rounded-lg text-[10px] font-bold " + (newVideo.publie ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20')}>{newVideo.publie ? '✅ Public' : '📝 Brouillon'}</span>
+                          {newVideo.map && (
+                            <span className="bg-white/5 text-gray-400 px-2 py-1 rounded-lg">
+                              🗺️ {newVideo.map}
+                            </span>
+                          )}
+                          <span className="bg-red-500/10 text-red-400 px-2 py-1 rounded-lg">
+                            {CATS.find(c => c.v === newVideo.categorie)?.i}{' '}
+                            {CATS.find(c => c.v === newVideo.categorie)?.l}
+                          </span>
                         </div>
-                        {newVideo.description && <p className="text-gray-400 text-xs">{newVideo.description}</p>}
-                        {newVideo.tags && <div className="flex flex-wrap gap-1">{newVideo.tags.split(',').map(t => t.trim()).filter(Boolean).map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">#{t}</span>)}</div>}
+                        {newVideo.description && <p className="text-gray-400 text-sm mt-3">{newVideo.description}</p>}
                       </div>
-                      <div className="bg-red-500/5 border border-red-500/15 rounded-xl p-3">
-                        <p className="text-red-400 text-[10px] font-bold mb-1">📺 Publication</p>
-                        <p className="text-gray-500 text-[10px]">La vidéo sera ajoutée à la section Strat Vidéo et une notification sera envoyée sur Discord.</p>
-                      </div>
+
                       <div className="flex gap-3">
-                        <button onClick={() => setVideoStep('form')} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">← Modifier</button>
-                        <button onClick={publierStratVideo} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-red-600 to-red-700 text-white text-sm flex items-center justify-center gap-2">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
+                        <button
+                          onClick={() => setVideoStep('form')}
+                          className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-500 font-bold"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          onClick={publierStratVideo}
+                          className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold"
+                        >
                           Publier !
                         </button>
                       </div>
@@ -852,31 +1102,29 @@ function App() {
                   )}
 
                   {videoStep === 'publishing' && (
-                    <div className="flex flex-col items-center justify-center py-20 space-y-6">
-                      <div className="w-20 h-20 rounded-full bg-red-600/20 border border-red-500/30 flex items-center justify-center animate-pulse">
-                        <svg className="w-10 h-10 text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
+                    <div className="flex flex-col items-center justify-center py-20 space-y-5">
+                      <div className="w-20 h-20 rounded-full bg-red-600/20 flex items-center justify-center animate-pulse text-4xl">
+                        📺
                       </div>
-                      <p className="text-white font-bold">Publication en cours...</p>
-                      <p className="text-gray-500 text-sm text-center">Envoi sur Discord et sauvegarde dans Firebase</p>
-                      <div className="w-48 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full animate-pulse w-3/4" />
-                      </div>
+                      <p className="font-bold">Publication en cours...</p>
                     </div>
                   )}
 
                   {videoStep === 'done' && (
-                    <div className="flex flex-col items-center justify-center py-20 space-y-6 text-center">
-                      <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
-                        <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                    <div className="flex flex-col items-center justify-center py-20 space-y-5 text-center">
+                      <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center text-4xl">
+                        ✅
                       </div>
-                      <div>
-                        <h3 className="text-white font-bold text-xl mb-2">Vidéo publiée ! 🎉</h3>
-                        <p className="text-gray-500 text-sm">Notification Discord envoyée</p>
-                      </div>
-                      <div className="flex gap-3 w-full">
-                        <button onClick={() => { setShowAddVideo(false); setVideoStep('form') }} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-400 text-sm">Fermer</button>
-                        <a href={newVideo.youtubeUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white text-sm text-center">Voir sur YT</a>
-                      </div>
+                      <h3 className="font-bold text-xl">Vidéo publiée !</h3>
+                      <button
+                        onClick={() => {
+                          setShowAddVideo(false)
+                          resetVideoForm()
+                        }}
+                        className="w-full py-3 rounded-xl bg-[#D4AF37] text-black font-bold"
+                      >
+                        Fermer
+                      </button>
                     </div>
                   )}
                 </div>
@@ -885,238 +1133,258 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'rec' && <div><H title="Replays" icon="🎬" /><a href={YT} target="_blank" className="block w-full mb-5 py-2.5 rounded-xl font-bold bg-red-600/15 text-red-400 border border-red-500/15 text-center text-xs">🔴 Chaîne YouTube DYNO</a>{replays.length === 0 ? <div className="text-center py-10 text-gray-600">📹 Aucun replay</div> : <div className="space-y-3">{replays.map((r: any, idx: number) => <div key={r.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15" style={{ animationDelay: (idx * 0.1) + 's' }}><div className="flex justify-between mb-2"><h3 className="font-bold text-[#D4AF37] text-sm">{r.titre}</h3>{isAdmin && <button onClick={() => del('replays', r.id)} className="text-red-400/40 text-[9px]">🗑️</button>}</div>{ytId(r.lien) ? <div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden"><iframe src={'https://www.youtube.com/embed/' + ytId(r.lien)} className="absolute top-0 left-0 w-full h-full" frameBorder="0" allowFullScreen /></div> : <a href={r.lien} target="_blank" className="block py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-center text-sm">▶️</a>}</div>)}</div>}</div>}
+        {activeTab === 'rec' && (
+          <div>
+            <H title="Replays" icon="🎬" />
+            <a
+              href={YT}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full mb-5 py-2.5 rounded-xl font-bold bg-red-600/15 text-red-400 border border-red-500/15 text-center text-xs"
+            >
+              🔴 Chaîne YouTube DYNO
+            </a>
+
+            {replays.length === 0 ? (
+              <div className="text-center py-10 text-gray-600">📹 Aucun replay</div>
+            ) : (
+              <div className="space-y-3">
+                {replays.map(r => (
+                  <div key={r.id} className="bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15">
+                    <div className="flex justify-between mb-2">
+                      <h3 className="font-bold text-[#D4AF37] text-sm">{r.titre}</h3>
+                      {isAdmin && (
+                        <button onClick={() => del('replays', r.id)} className="text-red-400/60">
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                    {ytId(r.lien) ? (
+                      <div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden">
+                        <iframe
+                          src={'https://www.youtube.com/embed/' + ytId(r.lien)}
+                          className="absolute top-0 left-0 w-full h-full"
+                          allowFullScreen
+                        />
+                      </div>
+                    ) : (
+                      <a
+                        href={r.lien}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block py-2.5 rounded-xl font-bold bg-[#D4AF37] text-black text-center text-sm"
+                      >
+                        ▶️ Ouvrir
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {activeTab === 'roster' && (
           <div>
             <H title="Roster" icon="👥" />
-            {user && (
-              <div className="card-glow bg-black/30 rounded-3xl p-6 border border-[#D4AF37]/15 mb-6 relative overflow-hidden tab-content">
-                <div className="absolute -right-4 -top-4 text-6xl opacity-5">🛡️</div>
-                <p className="text-[10px] text-[#D4AF37] font-black mb-5 uppercase tracking-widest">👤 Mon Profil</p>
-                <div className="flex items-center gap-5 mb-6">
-                  <div className="relative group">
-                    <div className="absolute inset-0 bg-[#D4AF37] blur-lg opacity-10 group-hover:opacity-20 transition-opacity rounded-2xl"></div>
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt="avatar" className="w-20 h-20 rounded-2xl object-cover border-2 border-[#D4AF37]/40 relative z-10 shadow-2xl" />
-                    ) : (
-                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-3xl border-2 border-[#D4AF37]/20 relative z-10">
-                        {pseudo?.[0]?.toUpperCase()}
-                      </div>
-                    )}
-                    <label className={`absolute -bottom-2 -right-2 text-black w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-4 border-[#030303] cursor-pointer z-20 hover:scale-110 active:scale-90 transition-all ${uploadingAvatar ? 'bg-gray-500 animate-pulse' : 'bg-[#D4AF37]'}`}>
-                      <span className="text-xs">{uploadingAvatar ? '⏳' : '📷'}</span>
-                      <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={uploadingAvatar} />
-                    </label>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-black text-xl tracking-tight leading-none mb-1">{pseudo}</p>
-                    <p className="text-[#D4AF37] text-[10px] font-bold uppercase tracking-tighter opacity-70 mb-2">Membre Officiel DYNO</p>
-                    {myPass && (
-                      <div className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
-                        <span className="text-sm">{EVA_PASSES[myPass.type]?.icon}</span>
-                        <span className="text-[9px] font-black text-gray-400 uppercase">{EVA_PASSES[myPass.type]?.label}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-3 pt-4 border-t border-white/5">
-                  <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest">Ou coller une URL</p>
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="https://..." value={avatarUrl?.startsWith('data:') ? 'Image uploadée ✅' : avatarUrl} onChange={e => setAvatarUrl(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-[10px] focus:outline-none" />
-                    <button onClick={saveAvatar} className="px-4 rounded-xl font-bold bg-white/5 border border-white/10 text-[#D4AF37]">💾</button>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {user && (
-              <div className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15 mb-5">
-                <p className="text-[10px] text-[#D4AF37] font-bold mb-3 uppercase tracking-widest">🎟️ Mon EVA Pass</p>
-                {myPass ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{EVA_PASSES[myPass.type]?.icon}</span>
-                        <span className={"px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r text-white " + (EVA_PASSES[myPass.type]?.color || 'from-gray-500 to-gray-700')}>{EVA_PASSES[myPass.type]?.label}</span>
-                      </div>
-                      <button onClick={() => { setMyPass(null); updateDoc(doc(db, 'users', user.uid), { evaPass: null }) }} className="text-red-400/40 text-[9px]">Changer</button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/15 text-center"><p className="text-[8px] text-blue-400 uppercase font-bold mb-1">🔵 HC</p><p className="text-xl font-bold text-blue-400">{hcRem}<span className="text-gray-600 text-sm">/{myPass.hcTotal || 0}</span></p><div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: (myPass.hcTotal > 0 ? (hcRem / myPass.hcTotal) * 100 : 0) + '%' }} /></div></div>
-                      <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/15 text-center"><p className="text-[8px] text-purple-400 uppercase font-bold mb-1">🟣 HP</p><p className="text-xl font-bold text-purple-400">{hpRem}<span className="text-gray-600 text-sm">/{myPass.hpTotal || 0}</span></p><div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-purple-500 h-1.5 rounded-full transition-all" style={{ width: (myPass.hpTotal > 0 ? (hpRem / myPass.hpTotal) * 100 : 0) + '%' }} /></div></div>
-                    </div>
-                    <div className="bg-white/5 rounded-xl p-3 border border-white/5 mb-2">
-                      <p className="text-[8px] text-gray-500 uppercase font-bold mb-2">✏️ Modifier</p>
-                      <div className="grid grid-cols-2 gap-2 mb-2">
-                        <div><label className="text-[8px] text-blue-400 mb-1 block">HC utilisés</label><input type="number" min="0" max={myPass.hcTotal || 99} value={myPass.hcUsed || 0} onChange={e => setMyPass({ ...myPass, hcUsed: parseInt(e.target.value) || 0 })} className="w-full bg-black/30 border border-blue-500/20 rounded-lg px-3 py-2 text-white text-center text-sm font-bold focus:outline-none" /></div>
-                        <div><label className="text-[8px] text-purple-400 mb-1 block">HP utilisés</label><input type="number" min="0" max={myPass.hpTotal || 99} value={myPass.hpUsed || 0} onChange={e => setMyPass({ ...myPass, hpUsed: parseInt(e.target.value) || 0 })} className="w-full bg-black/30 border border-purple-500/20 rounded-lg px-3 py-2 text-white text-center text-sm font-bold focus:outline-none" /></div>
-                      </div>
-                      <div className="mb-2"><label className="text-[8px] text-[#D4AF37] mb-1 block">📅 Reset</label><input type="date" value={myPass.dateReset || ''} onChange={e => setMyPass({ ...myPass, dateReset: e.target.value })} className="w-full bg-black/30 border border-[#D4AF37]/20 rounded-lg px-3 py-2 text-white text-xs focus:outline-none" /></div>
-                      {myPass.dateReset && <p className="text-[8px] text-gray-600 text-center mb-2">🔄 Reset le {fdf(myPass.dateReset)}</p>}
-                      <button onClick={async () => { await updateDoc(doc(db, 'users', user.uid), { evaPass: myPass }); addLog('Pass modifié'); alert('✅!') }} className="w-full py-2 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-xs">💾</button>
-                    </div>
-                    <p className="text-[8px] text-gray-600 text-center">HP = Ven 18h-23h20 • Sam/Dim 13h-23h</p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-gray-500 text-xs mb-3 text-center">Sélectionne ton abonnement :</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {Object.entries(EVA_PASSES).map(([key, p]) => (
-                        <button key={key} onClick={() => selectPass(key)} className={"rounded-xl p-3 border text-center transition-all hover:scale-105 " + (key === 'bronze' ? 'bg-amber-900/20 border-amber-700/30' : key === 'argent' ? 'bg-gray-500/20 border-gray-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30')}>
-                          <span className="text-2xl block mb-1">{p.icon}</span>
-                          <p className="text-white text-[10px] font-bold">{p.label}</p>
-                          <p className="text-blue-400 text-[8px]">{p.hc} HC</p>
-                          <p className="text-purple-400 text-[8px]">{p.hp} HP</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            {user && (
-              <div className="card-glow bg-black/30 rounded-2xl p-3 border border-pink-500/10 mb-5">
-                <p className="text-[9px] text-pink-400 mb-1.5 uppercase font-bold">🎂 Anniversaire</p>
-                <div className="flex gap-2">
-                  <input type="date" value={anniversaire} onChange={e => setAnniversaire(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none" />
-                  <button onClick={sauvegarderAnniversaire} className="px-3 py-2 rounded-lg font-bold bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs">💾</button>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              {joueurs.filter((j: any) => j.actif !== false).map((j: any, idx: number) => {
-                const userDoc = allPasses.find((p: any) => p.pseudo === j.pseudo)
-                const playerAvatar = allPasses.find((p: any) => p.pseudo === j.pseudo)?.avatarUrl
-                return (
-                  <div key={j.id} className="card-glow bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15 flex items-center gap-4" style={{ animationDelay: (idx * 0.1) + 's' }}>
-                    <div className="relative">
-                      {playerAvatar ? (
-                        <img src={playerAvatar} alt={j.pseudo} className="w-14 h-14 rounded-2xl object-cover border border-[#D4AF37]/30 shadow-xl" />
-                      ) : (
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-xl border border-[#D4AF37]/15">
-                          {j.pseudo[0]?.toUpperCase()}
-                        </div>
-                      )}
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-black animate-pulse"></div>
+            {players.length === 0 ? (
+              <div className="text-center py-10 text-gray-600">Aucun joueur</div>
+            ) : (
+              <div className="space-y-3">
+                {players.map(p => (
+                  <div key={p.id} className="bg-black/30 rounded-3xl p-4 border border-[#D4AF37]/15 flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center text-xl font-black">
+                      {p.pseudo?.[0]?.toUpperCase()}
                     </div>
                     <div className="flex-1">
-                      <p className="font-black text-white text-base">{j.pseudo}</p>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold">🎮 {j.role}</p>
-                      {userDoc && (
-                        <div className="flex gap-3 mt-1">
-                          <span className="text-[9px] text-blue-400 font-black">{(userDoc.hcTotal || 0) - (userDoc.hcUsed || 0)} HC</span>
-                          <span className="text-[9px] text-purple-400 font-black">{(userDoc.hpTotal || 0) - (userDoc.hpUsed || 0)} HP</span>
-                        </div>
-                      )}
+                      <p className="font-black">{p.pseudo}</p>
+                      <p className="text-gray-500 text-[10px] uppercase">{p.role || 'Joueur'}</p>
                     </div>
-                    {isAdmin && <button onClick={() => del('players', j.id)} className="w-8 h-8 rounded-xl bg-red-500/10 text-red-500/40 flex items-center justify-center">🗑️</button>}
                   </div>
-                )
-              })}
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'stats' && (
+          <div>
+            <H title="Statistiques" icon="📈" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center">
+                <p className="text-3xl font-bold text-[#D4AF37]">{winRate}%</p>
+                <p className="text-[9px] text-gray-600 uppercase">Win Rate</p>
+              </div>
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                <p className="text-3xl font-bold">{matchs.length}</p>
+                <p className="text-[9px] text-gray-600 uppercase">Matchs</p>
+              </div>
+              <div className="bg-green-500/10 rounded-2xl p-4 border border-green-500/15 text-center">
+                <p className="text-3xl font-bold text-green-400">{victoires}</p>
+                <p className="text-[9px] text-gray-600 uppercase">Victoires</p>
+              </div>
+              <div className="bg-red-500/10 rounded-2xl p-4 border border-red-500/15 text-center">
+                <p className="text-3xl font-bold text-red-400">{defaites}</p>
+                <p className="text-[9px] text-gray-600 uppercase">Défaites</p>
+              </div>
             </div>
           </div>
         )}
 
-        {activeTab === 'stats' && <div><H title="Statistiques" icon="📈" /><div className="grid grid-cols-2 gap-3 mb-5"><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{winRate}%</p><p className="text-[9px] text-gray-600 mt-1.5 uppercase">Win Rate</p></div><div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{totalMatchs}</p><p className="text-[9px] text-gray-600 mt-1.5 uppercase">Matchs</p></div></div><div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15 mb-5"><h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">📊 Répartition</h3><div className="space-y-3"><div><div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">🏆 Victoires</span><span className="text-[#D4AF37] font-bold text-xs">{victoires}</span></div><div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-2 rounded-full transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (victoires / totalMatchs) * 100 : 0) + '%' }} /></div></div><div><div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">❌ Défaites</span><span className="text-red-500 font-bold text-xs">{defaites}</span></div><div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-red-600 to-red-500 h-2 rounded-full transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (defaites / totalMatchs) * 100 : 0) + '%' }} /></div></div></div></div><button onClick={() => setShowBilan(true)} className="w-full py-3 rounded-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/20 text-sm">📊 Bilan du mois</button>{showBilan && (() => { const b = genBilan(); return <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📊 Bilan {b.nom}</h3><div className="space-y-3 mb-5"><div className="grid grid-cols-3 gap-2"><div className="bg-white/5 rounded-xl p-3 border border-white/5 text-center"><p className="text-2xl font-bold text-white">{b.m}</p><p className="text-[9px] text-gray-600 uppercase">Matchs</p></div><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-2xl font-bold text-green-400">{b.w}W</p><p className="text-[9px] text-gray-600 uppercase">Vic.</p></div><div className="bg-red-500/10 rounded-xl p-3 border border-red-500/10 text-center"><p className="text-2xl font-bold text-red-400">{b.l}L</p><p className="text-[9px] text-gray-600 uppercase">Déf.</p></div></div><div className="bg-[#D4AF37]/10 rounded-xl p-4 border border-[#D4AF37]/15 text-center"><p className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{b.wr}%</p><p className="text-[9px] text-gray-600 uppercase mt-1">Win Rate</p></div><div className="grid grid-cols-3 gap-2"><div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/10 text-center"><p className="text-xl font-bold text-purple-400">{b.am}</p><p className="text-[9px] text-gray-600">🧠</p></div><div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/10 text-center"><p className="text-xl font-bold text-blue-400">{b.ac}</p><p className="text-[9px] text-gray-600">💬</p></div><div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-xl font-bold text-green-400">{b.ap}</p><p className="text-[9px] text-gray-600">🎯</p></div></div></div><button onClick={() => setShowBilan(false)} className="w-full py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-400 text-sm">Fermer</button></div></div> })()}</div>}
-
-        {activeTab === 'logs' && <div><H title="Logs d'activité" icon="📋" />{logs.length === 0 ? <div className="text-center py-10 text-gray-600">📋 Aucune activité</div> : <div className="space-y-2">{logs.map((l: any, idx: number) => <div key={l.id || idx} className="bg-white/5 rounded-xl p-3 border border-white/5 flex items-start gap-3"><div className="w-8 h-8 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center text-[#D4AF37] font-bold text-xs flex-shrink-0">{l.joueur?.[0]?.toUpperCase() || '?'}</div><div className="flex-1"><p className="text-white text-xs"><span className="text-[#D4AF37] font-bold">{l.joueur}</span> {l.action}</p><p className="text-gray-700 text-[9px] mt-0.5">{fts(l.createdAt)}</p></div></div>)}</div>}</div>}
-
         {activeTab === 'admin' && (
           <div>
             <H title="Admin" icon="⚙️" />
+
             {!isAdmin ? (
-              <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
-                <input type="password" placeholder="Mot de passe admin" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />
-                <button onClick={handleAdminLogin} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">🔐 Connexion Admin</button>
+              <div className="bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
+                <input
+                  type="password"
+                  placeholder="Mot de passe admin"
+                  value={adminPassword}
+                  onChange={e => setAdminPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none"
+                />
+                <button
+                  onClick={handleAdminLogin}
+                  className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm"
+                >
+                  🔐 Connexion Admin
+                </button>
               </div>
             ) : (
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Dernière activité</p><p className="text-[#D4AF37] font-bold text-xs">{logs[0]?.joueur || '—'}</p></div>
-                  <div className="card-glow bg-blue-500/10 rounded-2xl p-4 border border-blue-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Membres</p><p className="text-blue-400 font-bold text-xs">{joueurs.length} joueurs</p></div>
-                  <div className="card-glow bg-green-500/10 rounded-2xl p-4 border border-green-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Victoires</p><p className="text-green-400 font-bold text-xs">{victoires} wins</p></div>
-                  <div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Strat Vidéos</p><p className="text-red-400 font-bold text-xs">{stratVideos.length} vidéos</p></div>
-                </div>
-                <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
-                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">➕ Planifier un Match</h3>
-                  <input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={e => setNouveauMatch({ ...nouveauMatch, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
-                  <input type="date" value={nouveauMatch.date} onChange={e => setNouveauMatch({ ...nouveauMatch, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <input type="time" value={nouveauMatch.horaire1} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire1: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" />
-                    <input type="time" value={nouveauMatch.horaire2} onChange={e => setNouveauMatch({ ...nouveauMatch, horaire2: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" />
+                  <div className="bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15">
+                    <p className="text-[8px] text-gray-500 uppercase font-black mb-1">Membres</p>
+                    <p className="text-[#D4AF37] font-bold text-xs">{players.length} joueurs</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <select value={nouveauMatch.arene} onChange={e => setNouveauMatch({ ...nouveauMatch, arene: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Arène 1">Arène 1</option><option value="Arène 2">Arène 2</option></select>
-                    <select value={nouveauMatch.type} onChange={e => setNouveauMatch({ ...nouveauMatch, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"><option value="Ligue">Ligue</option><option value="Scrim">Scrim</option><option value="Tournoi">Tournoi</option><option value="Division">Division</option></select>
+                  <div className="bg-red-500/10 rounded-2xl p-4 border border-red-500/15">
+                    <p className="text-[8px] text-gray-500 uppercase font-black mb-1">Strat Vidéos</p>
+                    <p className="text-red-400 font-bold text-xs">{stratVideos.length} vidéos</p>
                   </div>
-                  {nouveauMatch.type === 'Division' && <div className="bg-white/5 rounded-xl p-3 mb-2 border border-white/5"><div className="flex justify-between mb-2"><p className="text-[10px] text-[#D4AF37] font-bold uppercase">🏆 Sous-matchs</p><button onClick={ajouterSousMatch} className="px-2 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">➕</button></div>{nouveauMatch.sousMatchs.length > 0 ? <div className="space-y-1">{nouveauMatch.sousMatchs.map((sm, i) => <div key={i} className="flex justify-between bg-black/30 rounded-lg px-2 py-1.5"><div><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div><button onClick={() => supprimerSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button></div>)}</div> : <p className="text-[9px] text-gray-600 text-center">Aucun</p>}</div>}
-                  <button onClick={ajouterMatch} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">📅 Créer + Discord</button>
                 </div>
-                <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
-                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">🗑️ Gestion Matchs</h3>
-                  {matchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun match</p> : (
-                    <div className="space-y-1.5">
-                      {matchs.map((m: any) => (
-                        <div key={m.id} className="flex justify-between bg-white/5 rounded-xl p-2.5 border border-white/5">
-                          <div><p className="text-[#D4AF37] font-bold text-[10px]">{m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)} • {m.termine ? '✅' : '⏳'}</p></div>
-                          <div className="flex items-center gap-1.5">
-                            {m.termine && <button onClick={() => setEditHistoriqueScore({ id: m.id, adversaire: m.adversaire || '', scoreDyno: String(m.scoreDyno || 0), scoreAdv: String(m.scoreAdversaire || 0), type: m.type || 'Ligue', arene: m.arene || 'Arène 1', date: m.date || '', termine: true, sousMatchs: m.sousMatchs || [] })} className="text-[#D4AF37]/60 text-sm">✏️</button>}
-                            <button onClick={() => del('matchs', m.id)} className="text-red-400/40">🗑️</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+
+                <div className="bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
+                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">➕ Planifier un match</h3>
+                  <input
+                    placeholder="Adversaire"
+                    value={newMatch.adversaire}
+                    onChange={e => setNewMatch(v => ({ ...v, adversaire: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none"
+                  />
+                  <input
+                    type="date"
+                    value={newMatch.date}
+                    onChange={e => setNewMatch(v => ({ ...v, date: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none"
+                  />
+                  <input
+                    type="time"
+                    value={newMatch.horaire1}
+                    onChange={e => setNewMatch(v => ({ ...v, horaire1: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none"
+                  />
+                  <button
+                    onClick={addMatch}
+                    className="w-full py-2.5 rounded-xl font-bold bg-[#D4AF37] text-black text-sm"
+                  >
+                    📅 Créer
+                  </button>
                 </div>
-                <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
+
+                <div className="bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
                   <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">🎬 Ajouter Replay</h3>
-                  <input type="text" placeholder="Titre" value={nouveauReplay.titre} onChange={e => setNouveauReplay({ ...nouveauReplay, titre: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
-                  <input type="text" placeholder="Lien YouTube" value={nouveauReplay.lien} onChange={e => setNouveauReplay({ ...nouveauReplay, lien: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
-                  <button onClick={ajouterReplay} className="w-full py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">➕ Publier</button>
+                  <input
+                    placeholder="Titre"
+                    value={newReplay.titre}
+                    onChange={e => setNewReplay(v => ({ ...v, titre: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none"
+                  />
+                  <input
+                    placeholder="Lien YouTube"
+                    value={newReplay.lien}
+                    onChange={e => setNewReplay(v => ({ ...v, lien: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none"
+                  />
+                  <button
+                    onClick={addReplay}
+                    className="w-full py-2.5 rounded-xl font-bold bg-[#D4AF37] text-black text-sm"
+                  >
+                    ➕ Publier
+                  </button>
                 </div>
-                <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
-                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">✏️ Saisir Scores</h3>
-                  {prochainsMatchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun match à scorer</p> : (
-                    <div className="space-y-2">
-                      {prochainsMatchs.map((m: any) => (
-                        <div key={m.id} className="bg-white/5 rounded-xl p-3 border border-white/5 flex items-center justify-between">
-                          <p className="font-bold text-[#D4AF37] text-xs">vs {m.adversaire}</p>
-                          <button onClick={() => setScoreEdit({ id: m.id, scoreDyno: '', scoreAdv: '' })} className="px-3 py-1.5 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-[10px]">📝</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <button onClick={handleAdminLogout} className="w-full bg-white/5 border border-red-500/15 text-red-400 py-2.5 rounded-xl font-bold text-sm">🚪 Déconnexion Admin</button>
               </div>
             )}
           </div>
         )}
       </main>
 
-      {scoreEdit && <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4"><div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10"><h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">📝 Score</h3><div className="grid grid-cols-2 gap-3 mb-5"><div><label className="text-gray-600 text-[10px] mb-1 block uppercase text-center">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-3xl font-bold focus:outline-none" /></div><div><label className="text-gray-600 text-[10px] mb-1 block uppercase text-center">Adversaire</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white text-center text-3xl font-bold focus:outline-none" /></div></div><div className="flex gap-2"><button onClick={() => setScoreEdit(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button><button onClick={updateScore} className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-sm">✅</button></div></div></div>}
-
       {!user && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 p-4">
           <P />
-          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-7 w-full max-w-sm border border-[#D4AF37]/20 relative z-10 shadow-[0_0_50px_rgba(212,175,55,0.15)]">
-            <img src={LG} alt="D" className="w-20 h-20 mx-auto mb-6 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
-            <h3 className="text-xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-6 text-center uppercase tracking-widest">{isSignUp ? 'REJOINDRE DYNO' : 'ACCÈS ÉQUIPE'}</h3>
-            {isSignUp && <input type="text" placeholder="Pseudo" value={pseudo} onChange={e => setPseudo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />}
-            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />
-            <input type="password" placeholder="Mot de passe" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-6 text-white text-sm focus:outline-none" />
-            {isSignUp ? (
-              <button onClick={handleSignUp} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">CRÉER LE COMPTE</button>
-            ) : (
-              <button onClick={handleSignIn} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">SE CONNECTER</button>
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-7 w-full max-w-sm border border-[#D4AF37]/20 relative z-10">
+            <img src={LG} alt="DYNO" className="w-20 h-20 mx-auto mb-6" />
+            <h3 className="text-xl font-black text-[#D4AF37] mb-6 text-center uppercase tracking-widest">
+              {isSignUp ? 'REJOINDRE DYNO' : 'ACCÈS ÉQUIPE'}
+            </h3>
+
+            {isSignUp && (
+              <input
+                placeholder="Pseudo"
+                value={pseudo}
+                onChange={e => setPseudo(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none"
+              />
             )}
+
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none"
+            />
+
+            <input
+              type="password"
+              placeholder="Mot de passe"
+              value={authPassword}
+              onChange={e => setAuthPassword(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-6 text-white text-sm focus:outline-none"
+            />
+
+            {isSignUp ? (
+              <button
+                onClick={handleSignUp}
+                className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm"
+              >
+                CRÉER LE COMPTE
+              </button>
+            ) : (
+              <button
+                onClick={handleSignIn}
+                className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm"
+              >
+                SE CONNECTER
+              </button>
+            )}
+
             <div className="border-t border-white/5 pt-4 text-center">
               {isSignUp ? (
-                <button onClick={() => setIsSignUp(false)} className="text-[#D4AF37] text-[10px] font-bold hover:underline uppercase opacity-70">Déjà membre ? Connexion</button>
+                <button
+                  onClick={() => setIsSignUp(false)}
+                  className="text-[#D4AF37] text-[10px] font-bold uppercase opacity-70"
+                >
+                  Déjà membre ? Connexion
+                </button>
               ) : (
-                <button onClick={() => setIsSignUp(true)} className="text-[#D4AF37] text-[10px] font-bold hover:underline uppercase opacity-70">Pas encore de compte ? Rejoindre</button>
+                <button
+                  onClick={() => setIsSignUp(true)}
+                  className="text-[#D4AF37] text-[10px] font-bold uppercase opacity-70"
+                >
+                  Pas encore de compte ? Rejoindre
+                </button>
               )}
             </div>
           </div>
@@ -1125,5 +1393,3 @@ function App() {
     </div>
   )
 }
-
-export default App
