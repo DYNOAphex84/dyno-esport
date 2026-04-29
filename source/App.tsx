@@ -28,7 +28,6 @@ setPersistence(auth, browserLocalPersistence).catch(() => {})
 
 const DW = 'https://discord.com/api/webhooks/1489600048474886295/HfR7YhCRuDpjN6NCw133bShUF9Gj1gak-fWtTYVYgI2G_gllQ001kRfH0w57mUuCTytp'
 const DW_IDEES = 'https://discord.com/api/webhooks/1494393266441945180/FZWrs3w9Oz-TjsU5oKaPCn7FpmFJLXPlZrq6jWzS8Oxi8Rl54LKz8XA8Q7IQED_NEcLZ'
-const DW_IDEES = 'https://discord.com/api/webhooks/1494393266441945180/FZWrs3w9Oz-TjsU5oKaPCn7FpmFJLXPlZrq6jWzS8Oxi8Rl54LKz8XA8Q7IQED_NEcLZ'
 const DW_VIDEOS = 'https://discord.com/api/webhooks/1499033761914814566/k6-FPqkt-9raiw-FR9Gb2rSHqYr3NXzf52mmWYk4Y9aNwR0kSm0kpRC5UuDph9gc-FAd'
 const YT = 'https://youtube.com/@jonathanla890?si=eHtXG1hjlmCuZ-RC'
 const LG = 'https://i.imgur.com/gTLj57a.png'
