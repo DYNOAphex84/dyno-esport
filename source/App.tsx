@@ -87,7 +87,7 @@ const extractYoutubeId = (url: string): string => {
 }
 
 const CATS = [
-  { v: 'strat', l: 'Stratégie', i: '🎯' },
+  { v: 'strat', l: 'Strategie', i: '🎯' },
   { v: 'tutorial', l: 'Tutoriel', i: '📚' },
   { v: 'highlight', l: 'Highlight', i: '⭐' },
   { v: 'replay', l: 'Replay', i: '🎬' },
@@ -172,6 +172,19 @@ function App() {
   const [videoYtId, setVideoYtId] = useState('')
   const [videoStep, setVideoStep] = useState<'form' | 'preview' | 'publishing' | 'done'>('form')
   const [playerLoaded, setPlayerLoaded] = useState(false)
+  const [killSessions, setKillSessions] = useState<any[]>([])
+  const [showNewSession, setShowNewSession] = useState(false)
+  const [currentSession, setCurrentSession] = useState<any>(null)
+  const [killSessionUrl, setKillSessionUrl] = useState('')
+  const [killSessionTitle, setKillSessionTitle] = useState('')
+  const [killPlayer, setKillPlayer] = useState('')
+  const [killList, setKillList] = useState<any[]>([])
+  const [killType, setKillType] = useState('kill')
+  const [ytReady, setYtReady] = useState(false)
+  const [ytPlayer, setYtPlayer] = useState<any>(null)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const timeInterval = useRef<any>(null)
   const pm = useRef(0), pn = useRef(0), pc = useRef(0), ps = useRef(0), pi = useRef(0), ty = useRef(0)
 
   const addLog = async (action: string) => {
@@ -210,17 +223,17 @@ function App() {
       const compressed = await compressImage(e.target.files[0])
       setAvatarUrl(compressed)
       await updateDoc(doc(db, 'users', user.uid), { avatarUrl: compressed })
-      addLog('Photo de profil mise à jour')
-      alert('✅ Photo enregistrée !')
-    } catch (err: any) { alert('❌ Erreur : ' + err.message) }
+      addLog('Photo de profil mise a jour')
+      alert('Photo enregistree !')
+    } catch (err: any) { alert('Erreur : ' + err.message) }
     finally { setUploadingAvatar(false) }
   }
 
   const saveAvatar = async () => {
     if (!user || !avatarUrl) return
     await updateDoc(doc(db, 'users', user.uid), { avatarUrl })
-    addLog('Avatar URL mis à jour')
-    alert('✅ URL enregistrée !')
+    addLog('Avatar URL mis a jour')
+    alert('URL enregistree !')
   }
   useEffect(() => { if (window.location.search.includes('reset=1')) { localStorage.clear(); window.location.href = window.location.pathname } }, [])
 
@@ -234,11 +247,11 @@ function App() {
 
   const requestNotificationPermission = async () => {
     try {
-      if (!('Notification' in window)) { alert('❌'); return }
+      if (!('Notification' in window)) { alert('Non supporte'); return }
       const p = await Notification.requestPermission()
-      if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('✅ Notifs activées !') }
-      else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false'); alert('❌') }
-    } catch { alert('❌') }
+      if (p === 'granted') { setNotificationsEnabled(true); localStorage.setItem('dyno-notifs', 'true'); alert('Notifs activees !') }
+      else { setNotificationsEnabled(false); localStorage.setItem('dyno-notifs', 'false'); alert('Refuse') }
+    } catch { alert('Erreur') }
   }
 
   const getMatchDateTime = useCallback((m: any): Date | null => {
@@ -357,6 +370,7 @@ function App() {
   useEffect(() => { const u = onSnapshot(collection(db, 'users'), (s: any) => { const d: any[] = []; s.forEach((x: any) => { const data = x.data(); if (data.evaPass) d.push({ oduserId: x.id, pseudo: data.pseudo, avatarUrl: data.avatarUrl, ...data.evaPass }) }); setAllPasses(d) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'logs'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setLogs(d.slice(0, 50)) }); return () => u() }, [])
   useEffect(() => { const q = query(collection(db, 'stratVideos'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: StratVideo[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() } as StratVideo)); setStratVideos(d) }); return () => u() }, [])
+  useEffect(() => { const q = query(collection(db, 'killSessions'), orderBy('createdAt', 'desc')); const u = onSnapshot(q, (s: any) => { const d: any[] = []; s.forEach((x: any) => d.push({ id: x.id, ...x.data() })); setKillSessions(d) }); return () => u() }, [])
 
   useEffect(() => { if (!notificationsEnabled || pm.current === 0) { pm.current = matchs.length; return }; if (matchs.length > pm.current) { const n = matchs[0]; if (n) sendNotification('Nouveau match !', 'DYNO vs ' + n.adversaire, 'nm') }; pm.current = matchs.length }, [matchs, notificationsEnabled, sendNotification])
   useEffect(() => { if (!notificationsEnabled || pn.current === 0) { pn.current = notes.length; return }; if (notes.length > pn.current) { const n = notes[0]; if (n) sendNotification('Nouvelle note !', n.joueur + ' a note un match', 'nn') }; pn.current = notes.length }, [notes, notificationsEnabled, sendNotification])
@@ -468,6 +482,7 @@ function App() {
   const hte = () => { if (pullDistance > 60) { setIsRefreshing(true); setTimeout(() => window.location.reload(), 500) }; setPullDistance(0) }
   const toggleMap = (map: string, type: 'picks' | 'bans') => { if (type === 'picks') { if (nouvelleStrat.picks.includes(map)) setNouvelleStrat({ ...nouvelleStrat, picks: nouvelleStrat.picks.filter(m => m !== map) }); else if (nouvelleStrat.picks.length < 4) setNouvelleStrat({ ...nouvelleStrat, picks: [...nouvelleStrat.picks, map] }) } else { if (nouvelleStrat.bans.includes(map)) setNouvelleStrat({ ...nouvelleStrat, bans: nouvelleStrat.bans.filter(m => m !== map) }); else if (nouvelleStrat.bans.length < 4) setNouvelleStrat({ ...nouvelleStrat, bans: [...nouvelleStrat.bans, map] }) } }
   const genBilan = () => { const now = new Date(); const mm = historique.filter((m: any) => { const d = new Date(m.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const w = mm.filter((m: any) => (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length; const l = mm.filter((m: any) => (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length; const mn = notes.filter((n: any) => { const d = new Date(n.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }); const am = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.mental || 0), 0) / mn.length) : 0; const ac = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.communication || 0), 0) / mn.length) : 0; const ap = mn.length > 0 ? Math.round(mn.reduce((a: number, n: any) => a + parseInt(n.gameplay || 0), 0) / mn.length) : 0; return { nom: ['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec'][now.getMonth()], m: mm.length, w, l, wr: mm.length > 0 ? Math.round((w / (w + l || 1)) * 100) : 0, am, ac, ap } }
+  const atc = (m: any) => { try { if (!m?.date) return; let y: string, mo: string, d: string; if (m.date.includes('/')) { const p = m.date.split('/'); d = p[0]; mo = p[1]; y = p[2] } else { const p = m.date.split('-'); y = p[0]; mo = p[1]; d = p[2] }; const md = y + mo + d; let h = '20', mi = '00'; if (m.horaires?.length > 0) { const p = m.horaires[0].split(':'); h = p[0]; mi = p[1] || '00' } else if (m.horaire1) { const p = m.horaire1.split(':'); h = p[0]; mi = p[1] || '00' }; const st = h + mi + '00'; const et = (parseInt(h) + 2).toString().padStart(2, '0') + mi + '00'; window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent('DYNO vs ' + m.adversaire) + '&dates=' + md + 'T' + st + '/' + md + 'T' + et + '&location=' + encodeURIComponent(m.arene), '_blank') } catch (e: any) { alert(e.message) } }
 
   const handleVideoUrlChange = (url: string) => {
     setNewVideo(v => ({ ...v, youtubeUrl: url }))
@@ -480,7 +495,7 @@ function App() {
     try {
       await addDoc(collection(db, 'stratVideos'), { titre: newVideo.titre, description: newVideo.description, youtubeUrl: newVideo.youtubeUrl, youtubeId: videoYtId, jeu: newVideo.jeu, map: newVideo.map || 'All', categorie: newVideo.categorie, tags: newVideo.tags.split(',').map(t => t.trim()).filter(Boolean), auteur: pseudo, auteurId: user.uid, vues: 0, likes: [], publie: newVideo.publie, createdAt: Date.now() })
       addLog('Video: ' + newVideo.titre)
-            try { await fetch(DW_VIDEOS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: 'Nouvelle Strat Video !', description: newVideo.titre, color: 13934871, fields: [{ name: 'Categorie', value: newVideo.categorie, inline: true }, { name: 'Jeu', value: newVideo.jeu, inline: true }, { name: 'Par', value: pseudo, inline: true }], thumbnail: { url: 'https://img.youtube.com/vi/' + videoYtId + '/hqdefault.jpg' }, footer: { text: 'DYNO Esport', icon_url: LG } }] }) }) } catch {}
+      try { await fetch(DW_VIDEOS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: 'Nouvelle Strat Video !', description: newVideo.titre, color: 13934871, fields: [{ name: 'Categorie', value: newVideo.categorie, inline: true }, { name: 'Jeu', value: newVideo.jeu, inline: true }, { name: 'Par', value: pseudo, inline: true }], thumbnail: { url: 'https://img.youtube.com/vi/' + videoYtId + '/hqdefault.jpg' }, footer: { text: 'DYNO Esport', icon_url: LG } }] }) }) } catch {}
       setVideoStep('done')
     } catch (e: any) { alert(e.message); setVideoStep('form') }
   }
@@ -504,6 +519,86 @@ function App() {
     return matchCat && matchSearch && visible
   })
 
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+    const s = Math.floor(seconds % 60)
+    return m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0')
+  }
+
+  const initYouTubePlayer = (videoId: string) => {
+    if ((window as any).YT && (window as any).YT.Player) {
+      createPlayer(videoId)
+    } else {
+      const tag = document.createElement('script')
+      tag.src = 'https://www.youtube.com/iframe_api'
+      document.head.appendChild(tag)
+      ;(window as any).onYouTubeIframeAPIReady = () => createPlayer(videoId)
+    }
+  }
+
+  const createPlayer = (videoId: string) => {
+    const p = new (window as any).YT.Player('yt-kill-player', {
+      videoId, width: '100%', height: '100%',
+      playerVars: { rel: 0, modestbranding: 1 },
+      events: {
+        onReady: () => { setYtReady(true); setYtPlayer(p) },
+        onStateChange: (e: any) => {
+          if (e.data === 1) {
+            setIsPlaying(true)
+            timeInterval.current = setInterval(() => { setCurrentTime(p.getCurrentTime()) }, 100)
+          } else {
+            setIsPlaying(false)
+            if (timeInterval.current) clearInterval(timeInterval.current)
+          }
+        }
+      }
+    })
+  }
+
+  const registerKill = () => {
+    if (!ytPlayer || !killPlayer) return
+    const time = ytPlayer.getCurrentTime()
+    const newKill = { player: killPlayer, time, type: killType, formattedTime: formatTime(time), createdAt: Date.now() }
+    setKillList(prev => [...prev, newKill].sort((a, b) => a.time - b.time))
+  }
+
+  const removeKill = (index: number) => { setKillList(prev => prev.filter((_, i) => i !== index)) }
+  const seekTo = (time: number) => { if (ytPlayer) ytPlayer.seekTo(time, true) }
+
+  const saveKillSession = async () => {
+    if (!user || !killSessionTitle || killList.length === 0) return
+    const sessionData = { titre: killSessionTitle, youtubeUrl: killSessionUrl, youtubeId: extractYoutubeId(killSessionUrl), kills: killList, auteur: pseudo, auteurId: user.uid, createdAt: Date.now() }
+    if (currentSession) { await updateDoc(doc(db, 'killSessions', currentSession.id), sessionData) }
+    else { await addDoc(collection(db, 'killSessions'), sessionData) }
+    addLog('Kill session: ' + killSessionTitle)
+    alert('Session sauvegardee !')
+    setShowNewSession(false); setCurrentSession(null); setKillList([]); setKillSessionTitle(''); setKillSessionUrl(''); setYtPlayer(null); setYtReady(false)
+    if (timeInterval.current) clearInterval(timeInterval.current)
+  }
+
+  const exportKills = (session: any) => {
+    let text = 'KILL TRACKER - ' + session.titre + '\n\n'
+    const players = [...new Set(session.kills.map((k: any) => k.player))]
+    players.forEach((p: any) => {
+      const pKills = session.kills.filter((k: any) => k.player === p)
+      text += p + ' (' + pKills.length + ' kills)\n'
+      pKills.forEach((k: any) => { text += '  ' + k.formattedTime + ' - ' + k.type + '\n' })
+      text += '\n'
+    })
+    navigator.clipboard.writeText(text)
+    alert('Copie dans le presse-papier !')
+  }
+
+  const openSession = (session: any) => {
+    setCurrentSession(session); setKillSessionTitle(session.titre); setKillSessionUrl(session.youtubeUrl); setKillList(session.kills || []); setShowNewSession(true)
+    setTimeout(() => initYouTubePlayer(session.youtubeId), 500)
+  }
+
+  const deleteSession = async (id: string) => {
+    if (!confirm('Supprimer cette session ?')) return
+    await deleteDoc(doc(db, 'killSessions', id)); addLog('Kill session supprimee')
+  }
+
   const victoires = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) > (m.scoreAdversaire || 0)).length
   const defaites = matchs.filter((m: any) => m.termine && (m.scoreDyno || 0) < (m.scoreAdversaire || 0)).length
   const totalMatchs = victoires + defaites
@@ -513,7 +608,6 @@ function App() {
   const ytId = (url: string) => { const m = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/); return m ? m[1] : null }
   const hcRem = myPass ? (myPass.hcTotal || 0) - (myPass.hcUsed || 0) : 0
   const hpRem = myPass ? (myPass.hpTotal || 0) - (myPass.hpUsed || 0) : 0
-  const atc = (m: any) => { try { if (!m?.date) return; let y: string, mo: string, d: string; if (m.date.includes('/')) { const p = m.date.split('/'); d = p[0]; mo = p[1]; y = p[2] } else { const p = m.date.split('-'); y = p[0]; mo = p[1]; d = p[2] }; const md = y + mo + d; let h = '20', mi = '00'; if (m.horaires?.length > 0) { const p = m.horaires[0].split(':'); h = p[0]; mi = p[1] || '00' } else if (m.horaire1) { const p = m.horaire1.split(':'); h = p[0]; mi = p[1] || '00' }; const st = h + mi + '00'; const et = (parseInt(h) + 2).toString().padStart(2, '0') + mi + '00'; window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent('DYNO vs ' + m.adversaire) + '&dates=' + md + 'T' + st + '/' + md + 'T' + et + '&location=' + encodeURIComponent(m.arene), '_blank') } catch (e: any) { alert(e.message) } }
   const H = ({ title, icon }: { title: string; icon?: string }) => (
     <div className="relative rounded-3xl p-7 mb-5 text-center overflow-hidden bg-gradient-to-br from-[#D4AF37]/10 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/15 glow-pulse tab-content">
       <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent" />
@@ -531,6 +625,7 @@ function App() {
     { t: 'notes', i: '📊', l: 'Notes' },
     { t: 'idees', i: '💡', l: 'Boite a idees' },
     { t: 'stratVideos', i: '📺', l: 'Strat Video' },
+    { t: 'killTracker', i: '💀', l: 'Kill Tracker' },
     { t: 'rec', i: '🎬', l: 'Replays' },
     { t: 'roster', i: '👥', l: 'Roster' },
     { t: 'stats', i: '📈', l: 'Stats' },
@@ -597,6 +692,7 @@ function App() {
                   <span className="text-lg">{i}</span>
                   <span className="text-sm font-bold tracking-wider uppercase">{l}</span>
                   {t === 'stratVideos' && <span className="ml-auto px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[8px] font-bold border border-red-500/20">YT</span>}
+                  {t === 'killTracker' && <span className="ml-auto px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-[8px] font-bold border border-orange-500/20">NEW</span>}
                   {activeTab === t && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />}
                 </button>
               ))}
@@ -669,7 +765,7 @@ function App() {
                     </div>
                     <button onClick={() => atc(match)} className="w-full mb-2 py-2 rounded-xl font-bold bg-blue-600/20 text-blue-400 border border-blue-500/15 text-xs">Ajouter au Calendrier</button>
                     <div className="flex gap-2">
-                      <button onClick={() => toggleDispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30' : 'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]')}>{!user ? 'Connecte-toi' : (match.disponibles || []).includes(pseudo) ? 'Dispo' : 'Dispo'}</button>
+                      <button onClick={() => toggleDispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.disponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black shadow-lg shadow-[#D4AF37]/30' : 'bg-white/5 border border-[#D4AF37]/15 text-[#D4AF37]')}>Dispo</button>
                       <button onClick={() => toggleIndispo(match.id)} disabled={!user} className={"flex-1 py-2.5 rounded-xl font-bold transition-all text-xs " + (!user ? 'bg-white/5 text-gray-700' : (match.indisponibles || []).includes(pseudo) ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30' : 'bg-white/5 border border-red-500/15 text-red-400')}>Indispo</button>
                     </div>
                   </div>
@@ -1132,10 +1228,7 @@ function App() {
                 Publier une Strat Video
               </button>
             )}
-            <a href={YT} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 w-full mb-4 py-2.5 rounded-xl font-bold bg-red-600/10 text-red-400 border border-red-500/20 text-center text-xs justify-center">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
-              Chaine YouTube DYNO
-            </a>
+            <a href={YT} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 w-full mb-4 py-2.5 rounded-xl font-bold bg-red-600/10 text-red-400 border border-red-500/20 text-center text-xs justify-center">Chaine YouTube DYNO</a>
             <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
               <button onClick={() => setVideoFilter('all')} className={"flex-shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all " + (videoFilter === 'all' ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30' : 'bg-white/5 text-gray-500 border-white/10')}>Toutes</button>
               {CATS.map(c => (
@@ -1143,14 +1236,10 @@ function App() {
               ))}
             </div>
             <div className="relative mb-4">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">🔍</span>
               <input type="text" placeholder="Rechercher..." value={videoSearch} onChange={e => setVideoSearch(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#D4AF37]/40" />
             </div>
             {filteredVideos.length === 0 ? (
-              <div className="text-center py-10 text-gray-600">
-                <p className="text-4xl mb-3">📺</p>
-                <p>Aucune video trouvee</p>
-              </div>
+              <div className="text-center py-10 text-gray-600"><p className="text-4xl mb-3">📺</p><p>Aucune video</p></div>
             ) : (
               <div className="space-y-4">
                 {filteredVideos.map((v, idx) => (
@@ -1163,9 +1252,7 @@ function App() {
                         </div>
                       </div>
                       {!v.publie && <div className="absolute top-2 left-2 bg-yellow-500/90 px-2 py-0.5 rounded-lg text-[9px] text-black font-black">BROUILLON</div>}
-                      <div className="absolute top-2 right-2">
-                        <span className="bg-black/70 px-2 py-0.5 rounded-lg text-[9px] text-white font-bold">{CATS.find(c => c.v === v.categorie)?.i} {CATS.find(c => c.v === v.categorie)?.l}</span>
-                      </div>
+                      <div className="absolute top-2 right-2"><span className="bg-black/70 px-2 py-0.5 rounded-lg text-[9px] text-white font-bold">{CATS.find(c => c.v === v.categorie)?.i} {CATS.find(c => c.v === v.categorie)?.l}</span></div>
                     </div>
                     <div className="p-4">
                       <h3 className="font-bold text-white text-sm mb-1 leading-tight">{v.titre}</h3>
@@ -1175,13 +1262,9 @@ function App() {
                         {v.map && v.map !== 'All' && <span className="bg-white/5 text-gray-500 px-2 py-0.5 rounded-lg text-[9px] border border-white/10">{v.map}</span>}
                         <span className="text-gray-600 text-[9px] ml-auto">par {v.auteur}</span>
                       </div>
-                      {v.tags?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {v.tags.slice(0, 4).map(t => <span key={t} className="text-[8px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">#{t}</span>)}
-                        </div>
-                      )}
+                      {v.tags?.length > 0 && <div className="flex flex-wrap gap-1 mb-3">{v.tags.slice(0, 4).map(t => <span key={t} className="text-[8px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">#{t}</span>)}</div>}
                       <div className="flex gap-2">
-                        <button onClick={() => { setSelectedVideo(v); setPlayerLoaded(false) }} className="flex-1 py-2 rounded-xl bg-red-600/15 text-red-400 border border-red-500/20 text-xs font-bold flex items-center justify-center gap-1">Regarder</button>
+                        <button onClick={() => { setSelectedVideo(v); setPlayerLoaded(false) }} className="flex-1 py-2 rounded-xl bg-red-600/15 text-red-400 border border-red-500/20 text-xs font-bold">Regarder</button>
                         <button onClick={() => user && likerVideo(v)} className={"py-2 px-3 rounded-xl text-xs font-bold border transition-all " + (user && v.likes?.includes(user.uid) ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-white/5 text-gray-500 border-white/10')}>❤️ {v.likes?.length || 0}</button>
                         <a href={v.youtubeUrl} target="_blank" rel="noopener noreferrer" className="py-2 px-3 rounded-xl bg-white/5 text-gray-500 border border-white/10 text-xs font-bold">YT</a>
                         {(isAdmin || user?.uid === v.auteurId) && (
@@ -1196,28 +1279,24 @@ function App() {
                 ))}
               </div>
             )}
-
             {selectedVideo && (
               <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
-                  <button onClick={() => setSelectedVideo(null)} className="text-gray-400 hover:text-white text-sm">← Retour</button>
+                  <button onClick={() => setSelectedVideo(null)} className="text-gray-400 hover:text-white text-sm">Retour</button>
                   <div className="flex gap-2">
-                    {(isAdmin || user?.uid === selectedVideo.auteurId) && (
-                      <button onClick={() => togglePublierVideo(selectedVideo)} className={"px-3 py-1 rounded-lg text-xs font-bold " + (selectedVideo.publie ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400')}>{selectedVideo.publie ? 'Brouillon' : 'Publier'}</button>
-                    )}
+                    {(isAdmin || user?.uid === selectedVideo.auteurId) && <button onClick={() => togglePublierVideo(selectedVideo)} className={"px-3 py-1 rounded-lg text-xs font-bold " + (selectedVideo.publie ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400')}>{selectedVideo.publie ? 'Brouillon' : 'Publier'}</button>}
                     <a href={selectedVideo.youtubeUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-lg bg-red-600/20 text-red-400 text-xs font-bold">YouTube</a>
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {!playerLoaded ? (
                     <div className="relative aspect-video cursor-pointer" onClick={() => setPlayerLoaded(true)}>
-                      <img src={'https://img.youtube.com/vi/' + selectedVideo.youtubeId + '/maxresdefault.jpg'} alt={selectedVideo.titre} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = 'https://img.youtube.com/vi/' + selectedVideo.youtubeId + '/hqdefault.jpg' }} />
+                      <img src={'https://img.youtube.com/vi/' + selectedVideo.youtubeId + '/hqdefault.jpg'} alt={selectedVideo.titre} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                         <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center shadow-2xl shadow-red-500/40">
                           <svg className="w-10 h-10 text-white ml-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                         </div>
                       </div>
-                      <p className="absolute bottom-3 left-0 right-0 text-center text-white/60 text-xs">Appuyer pour lancer</p>
                     </div>
                   ) : (
                     <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
@@ -1235,27 +1314,13 @@ function App() {
                       {selectedVideo.map && selectedVideo.map !== 'All' && <span className="bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg text-[10px] border border-white/10">{selectedVideo.map}</span>}
                       {!selectedVideo.publie && <span className="bg-yellow-500/20 text-yellow-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-yellow-500/20">BROUILLON</span>}
                     </div>
-                    {selectedVideo.description && (
-                      <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                        <p className="text-[9px] text-gray-500 uppercase font-bold mb-1.5">Description</p>
-                        <p className="text-gray-300 text-xs whitespace-pre-wrap">{selectedVideo.description}</p>
-                      </div>
-                    )}
-                    {selectedVideo.tags?.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedVideo.tags.map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg">#{t}</span>)}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 text-[10px] text-gray-600 border-t border-white/5 pt-3">
-                      <span>par {selectedVideo.auteur}</span>
-                      <span>-</span>
-                      <span>{new Date(selectedVideo.createdAt).toLocaleDateString('fr-FR')}</span>
-                    </div>
+                    {selectedVideo.description && <div className="bg-white/5 rounded-xl p-3 border border-white/10"><p className="text-[9px] text-gray-500 uppercase font-bold mb-1.5">Description</p><p className="text-gray-300 text-xs whitespace-pre-wrap">{selectedVideo.description}</p></div>}
+                    {selectedVideo.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{selectedVideo.tags.map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg">#{t}</span>)}</div>}
+                    <div className="flex items-center gap-3 text-[10px] text-gray-600 border-t border-white/5 pt-3"><span>par {selectedVideo.auteur}</span><span>-</span><span>{new Date(selectedVideo.createdAt).toLocaleDateString('fr-FR')}</span></div>
                   </div>
                 </div>
               </div>
             )}
-
             {showAddVideo && (
               <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
@@ -1280,11 +1345,7 @@ function App() {
                         {newVideo.youtubeUrl && !videoYtId && <p className="text-red-400 text-[10px] mt-1">URL invalide</p>}
                         {videoYtId && <p className="text-green-400 text-[10px] mt-1">ID detecte : {videoYtId}</p>}
                       </div>
-                      {videoYtId && (
-                        <div className="rounded-xl overflow-hidden border border-white/10">
-                          <img src={'https://img.youtube.com/vi/' + videoYtId + '/hqdefault.jpg'} alt="preview" className="w-full aspect-video object-cover" />
-                        </div>
-                      )}
+                      {videoYtId && <div className="rounded-xl overflow-hidden border border-white/10"><img src={'https://img.youtube.com/vi/' + videoYtId + '/hqdefault.jpg'} alt="preview" className="w-full aspect-video object-cover" /></div>}
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Titre *</label>
                         <input type="text" placeholder="Ex: Start Lunar" value={newVideo.titre} onChange={e => setNewVideo(v => ({ ...v, titre: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" />
@@ -1296,8 +1357,7 @@ function App() {
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Jeu</label>
                         <div className="w-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-xl px-3 py-2.5 text-[#D4AF37] text-sm font-bold flex items-center gap-2">
-                          <img src={LG} alt="EVA" className="w-5 h-5" />
-                          EVA Esport Arena
+                          <img src={LG} alt="EVA" className="w-5 h-5" /> EVA Esport Arena
                         </div>
                       </div>
                       <div>
@@ -1337,9 +1397,7 @@ function App() {
                   )}
                   {videoStep === 'preview' && (
                     <div className="space-y-4">
-                      <div className="rounded-xl overflow-hidden border border-white/10">
-                        <img src={'https://img.youtube.com/vi/' + videoYtId + '/hqdefault.jpg'} alt={newVideo.titre} className="w-full aspect-video object-cover" />
-                      </div>
+                      <div className="rounded-xl overflow-hidden border border-white/10"><img src={'https://img.youtube.com/vi/' + videoYtId + '/hqdefault.jpg'} alt={newVideo.titre} className="w-full aspect-video object-cover" /></div>
                       <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-3">
                         <h3 className="text-white font-bold">{newVideo.titre}</h3>
                         <div className="flex flex-wrap gap-2">
@@ -1349,7 +1407,6 @@ function App() {
                           <span className={"px-2 py-0.5 rounded-lg text-[10px] font-bold " + (newVideo.publie ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20')}>{newVideo.publie ? 'Public' : 'Brouillon'}</span>
                         </div>
                         {newVideo.description && <p className="text-gray-400 text-xs">{newVideo.description}</p>}
-                        {newVideo.tags && <div className="flex flex-wrap gap-1">{newVideo.tags.split(',').map(t => t.trim()).filter(Boolean).map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">#{t}</span>)}</div>}
                       </div>
                       <div className="flex gap-3">
                         <button onClick={() => setVideoStep('form')} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Modifier</button>
@@ -1363,9 +1420,6 @@ function App() {
                         <svg className="w-10 h-10 text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
                       </div>
                       <p className="text-white font-bold">Publication en cours...</p>
-                      <div className="w-48 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full animate-pulse w-3/4" />
-                      </div>
                     </div>
                   )}
                   {videoStep === 'done' && (
@@ -1373,13 +1427,189 @@ function App() {
                       <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
                         <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                       </div>
-                      <div>
-                        <h3 className="text-white font-bold text-xl mb-2">Video publiee !</h3>
-                        <p className="text-gray-500 text-sm">Notification Discord envoyee</p>
-                      </div>
+                      <h3 className="text-white font-bold text-xl">Video publiee !</h3>
                       <div className="flex gap-3 w-full">
                         <button onClick={() => { setShowAddVideo(false); setVideoStep('form') }} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-400 text-sm">Fermer</button>
                         <a href={newVideo.youtubeUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white text-sm text-center">Voir sur YT</a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'killTracker' && (
+          <div>
+            <H title="Kill Tracker" icon="💀" />
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
+                <p className="text-xl font-bold text-[#D4AF37]">{killSessions.length}</p>
+                <p className="text-[9px] text-gray-600 uppercase">Sessions</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
+                <p className="text-xl font-bold text-red-400">{killSessions.reduce((s, ses) => s + (ses.kills?.length || 0), 0)}</p>
+                <p className="text-[9px] text-gray-600 uppercase">Total Kills</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
+                <p className="text-xl font-bold text-orange-400">{killSessions.reduce((s, ses) => s + (ses.kills?.filter((k: any) => k.type === 'headshot').length || 0), 0)}</p>
+                <p className="text-[9px] text-gray-600 uppercase">Headshots</p>
+              </div>
+            </div>
+            {user && (
+              <button onClick={() => { setShowNewSession(true); setCurrentSession(null); setKillList([]); setKillSessionTitle(''); setKillSessionUrl(''); setYtPlayer(null); setYtReady(false); setKillPlayer('') }} className="w-full mb-4 py-3 rounded-2xl font-bold bg-gradient-to-r from-orange-600 to-red-700 text-white text-sm shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
+                💀 Nouvelle Session Kill Tracker
+              </button>
+            )}
+            {killSessions.length === 0 ? (
+              <div className="text-center py-10 text-gray-600"><p className="text-4xl mb-3">💀</p><p>Aucune session</p></div>
+            ) : (
+              <div className="space-y-4">
+                {killSessions.map((ses, idx) => {
+                  const players = [...new Set((ses.kills || []).map((k: any) => k.player))] as string[]
+                  return (
+                    <div key={ses.id} className="card-glow bg-black/30 rounded-3xl border border-[#D4AF37]/15 overflow-hidden" style={{ animationDelay: (idx * 0.05) + 's' }}>
+                      <div className="relative">
+                        <img src={'https://img.youtube.com/vi/' + ses.youtubeId + '/hqdefault.jpg'} alt={ses.titre} className="w-full aspect-video object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                        <div className="absolute bottom-3 left-4 right-4">
+                          <h3 className="font-bold text-white text-sm">{ses.titre}</h3>
+                          <p className="text-gray-400 text-[10px]">par {ses.auteur} - {new Date(ses.createdAt).toLocaleDateString('fr-FR')}</p>
+                        </div>
+                        <div className="absolute top-2 right-2 bg-red-600/90 px-2.5 py-1 rounded-lg text-white text-[10px] font-black">{ses.kills?.length || 0} KILLS</div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {players.map(p => {
+                            const count = (ses.kills || []).filter((k: any) => k.player === p).length
+                            return (
+                              <div key={p} className="bg-white/5 rounded-lg px-2.5 py-1.5 border border-white/10 flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] text-[8px] font-black">{p[0]?.toUpperCase()}</div>
+                                <span className="text-white text-[10px] font-bold">{p}</span>
+                                <span className="text-red-400 text-[10px] font-black">{count}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {(ses.kills || []).slice(0, 8).map((k: any, ki: number) => (
+                            <span key={ki} className={"px-1.5 py-0.5 rounded text-[8px] font-bold " + (k.type === 'headshot' ? 'bg-orange-500/20 text-orange-400' : k.type === 'clutch' ? 'bg-purple-500/20 text-purple-400' : k.type === 'ace' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400')}>{k.formattedTime} {k.player}</span>
+                          ))}
+                          {(ses.kills || []).length > 8 && <span className="text-gray-600 text-[8px]">+{ses.kills.length - 8}</span>}
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => openSession(ses)} className="flex-1 py-2 rounded-xl bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/20 text-xs font-bold">Ouvrir</button>
+                          <button onClick={() => exportKills(ses)} className="py-2 px-3 rounded-xl bg-white/5 text-gray-400 border border-white/10 text-xs font-bold">📋</button>
+                          <a href={ses.youtubeUrl} target="_blank" rel="noopener noreferrer" className="py-2 px-3 rounded-xl bg-red-600/15 text-red-400 border border-red-500/20 text-xs font-bold">YT</a>
+                          {(isAdmin || user?.uid === ses.auteurId) && <button onClick={() => deleteSession(ses.id)} className="py-2 px-2 rounded-xl bg-red-500/10 text-red-400/60 border border-red-500/10 text-xs">🗑️</button>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {showNewSession && (
+              <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-50 flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                  <button onClick={() => { setShowNewSession(false); setYtPlayer(null); if (timeInterval.current) clearInterval(timeInterval.current) }} className="text-gray-400 text-sm">Fermer</button>
+                  <h3 className="text-sm font-bold bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">{currentSession ? 'Modifier' : 'Nouvelle Session'}</h3>
+                  <button onClick={saveKillSession} disabled={!killSessionTitle || killList.length === 0} className={"px-3 py-1 rounded-lg text-xs font-bold " + (killSessionTitle && killList.length > 0 ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-gray-600')}>Sauvegarder</button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {!ytReady && (
+                    <div className="p-4 space-y-3">
+                      <div>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Titre *</label>
+                        <input type="text" placeholder="Ex: Scrim vs Team Alpha" value={killSessionTitle} onChange={e => setKillSessionTitle(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">URL YouTube *</label>
+                        <input type="url" placeholder="https://www.youtube.com/watch?v=..." value={killSessionUrl} onChange={e => setKillSessionUrl(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" />
+                      </div>
+                      {killSessionUrl && extractYoutubeId(killSessionUrl) && (
+                        <div className="rounded-xl overflow-hidden border border-white/10">
+                          <img src={'https://img.youtube.com/vi/' + extractYoutubeId(killSessionUrl) + '/hqdefault.jpg'} alt="preview" className="w-full aspect-video object-cover" />
+                        </div>
+                      )}
+                      <button onClick={() => { const vid = extractYoutubeId(killSessionUrl); if (!vid || !killSessionTitle) { alert('Titre et URL requis'); return }; initYouTubePlayer(vid) }} disabled={!killSessionTitle || !killSessionUrl || !extractYoutubeId(killSessionUrl)} className={"w-full py-3 rounded-xl font-bold text-sm " + (killSessionTitle && extractYoutubeId(killSessionUrl) ? 'bg-gradient-to-r from-orange-600 to-red-700 text-white' : 'bg-white/10 text-gray-600')}>Lancer le tracker</button>
+                    </div>
+                  )}
+                  {ytReady && (
+                    <div>
+                      <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                        <div id="yt-kill-player" className="absolute top-0 left-0 w-full h-full" />
+                      </div>
+                      <div className="p-4 space-y-3">
+                        <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-gray-500 text-[10px] uppercase font-bold">Temps</span>
+                            <span className={"text-lg font-mono font-bold " + (isPlaying ? 'text-green-400' : 'text-gray-500')}>{formatTime(currentTime)}</span>
+                          </div>
+                          <div className="w-full bg-white/5 rounded-full h-1.5">
+                            <div className="bg-gradient-to-r from-orange-500 to-red-500 h-1.5 rounded-full transition-all" style={{ width: (ytPlayer?.getDuration ? (currentTime / ytPlayer.getDuration()) * 100 : 0) + '%' }} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Joueur</label>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {joueurs.filter((j: any) => j.actif !== false).map((j: any) => (
+                              <button key={j.id} onClick={() => setKillPlayer(j.pseudo)} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border " + (killPlayer === j.pseudo ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'bg-white/5 text-gray-500 border-white/10')}>{j.pseudo}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Type</label>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            <button onClick={() => setKillType('kill')} className={"py-2 rounded-xl text-[10px] font-bold border transition-all " + (killType === 'kill' ? 'bg-red-500/20 text-red-400 border-red-500/40' : 'bg-white/5 text-gray-500 border-white/10')}>💀 Kill</button>
+                            <button onClick={() => setKillType('headshot')} className={"py-2 rounded-xl text-[10px] font-bold border transition-all " + (killType === 'headshot' ? 'bg-orange-500/20 text-orange-400 border-orange-500/40' : 'bg-white/5 text-gray-500 border-white/10')}>🎯 Head</button>
+                            <button onClick={() => setKillType('clutch')} className={"py-2 rounded-xl text-[10px] font-bold border transition-all " + (killType === 'clutch' ? 'bg-purple-500/20 text-purple-400 border-purple-500/40' : 'bg-white/5 text-gray-500 border-white/10')}>👑 Clutch</button>
+                            <button onClick={() => setKillType('ace')} className={"py-2 rounded-xl text-[10px] font-bold border transition-all " + (killType === 'ace' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' : 'bg-white/5 text-gray-500 border-white/10')}>⭐ Ace</button>
+                          </div>
+                        </div>
+                        <button onClick={registerKill} disabled={!killPlayer} className={"w-full py-4 rounded-2xl font-black text-lg transition-all " + (killPlayer ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30 active:scale-95' : 'bg-white/10 text-gray-600')}>💀 KILL ! ({killPlayer || 'Choisis un joueur'})</button>
+                        {killList.length > 0 && (
+                          <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                            <div className="flex items-center justify-between p-3 border-b border-white/5">
+                              <p className="text-[10px] text-[#D4AF37] uppercase font-bold">Kills ({killList.length})</p>
+                              <button onClick={() => exportKills({ titre: killSessionTitle, kills: killList })} className="px-2 py-1 rounded-lg bg-white/5 text-gray-400 text-[9px] font-bold border border-white/10">📋 Copier</button>
+                            </div>
+                            <div className="max-h-60 overflow-y-auto">
+                              {killList.map((k, i) => (
+                                <div key={i} className="flex items-center justify-between px-3 py-2 border-b border-white/5 last:border-0">
+                                  <button onClick={() => seekTo(k.time)} className="flex items-center gap-2 flex-1 text-left">
+                                    <span className="text-[#D4AF37] font-mono font-bold text-xs">{k.formattedTime}</span>
+                                    <span className="text-white text-[10px] font-bold">{k.player}</span>
+                                    <span className={"px-1.5 py-0.5 rounded text-[8px] font-bold " + (k.type === 'headshot' ? 'bg-orange-500/20 text-orange-400' : k.type === 'clutch' ? 'bg-purple-500/20 text-purple-400' : k.type === 'ace' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400')}>{k.type}</span>
+                                  </button>
+                                  <button onClick={() => removeKill(i)} className="text-red-400/40 text-[10px] ml-2">x</button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {killList.length > 0 && (
+                          <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-2">Stats</p>
+                            <div className="space-y-1">
+                              {[...new Set(killList.map(k => k.player))].map(p => {
+                                const pKills = killList.filter(k => k.player === p)
+                                const heads = pKills.filter(k => k.type === 'headshot').length
+                                return (
+                                  <div key={p} className="flex items-center justify-between">
+                                    <span className="text-white text-xs font-bold">{p}</span>
+                                    <div className="flex gap-2">
+                                      <span className="text-red-400 text-[10px] font-bold">{pKills.length} kills</span>
+                                      {heads > 0 && <span className="text-orange-400 text-[10px] font-bold">{heads} HS</span>}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        <button onClick={saveKillSession} disabled={killList.length === 0} className={"w-full py-3 rounded-xl font-bold text-sm " + (killList.length > 0 ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-white/10 text-gray-600')}>Sauvegarder</button>
                       </div>
                     </div>
                   )}
@@ -1488,7 +1718,6 @@ function App() {
                       {myPass.dateReset && <p className="text-[8px] text-gray-600 text-center mb-2">Reset le {fdf(myPass.dateReset)}</p>}
                       <button onClick={async () => { await updateDoc(doc(db, 'users', user.uid), { evaPass: myPass }); addLog('Pass modifie'); alert('OK !') }} className="w-full py-2 rounded-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black text-xs">Sauvegarder</button>
                     </div>
-                    <p className="text-[8px] text-gray-600 text-center">HP = Ven 18h-23h20 / Sam-Dim 13h-23h</p>
                   </div>
                 ) : (
                   <div>
@@ -1637,7 +1866,7 @@ function App() {
                   <div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Derniere activite</p><p className="text-[#D4AF37] font-bold text-xs">{logs[0]?.joueur || '-'}</p></div>
                   <div className="card-glow bg-blue-500/10 rounded-2xl p-4 border border-blue-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Membres</p><p className="text-blue-400 font-bold text-xs">{joueurs.length} joueurs</p></div>
                   <div className="card-glow bg-green-500/10 rounded-2xl p-4 border border-green-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Victoires</p><p className="text-green-400 font-bold text-xs">{victoires} wins</p></div>
-                  <div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Strat Videos</p><p className="text-red-400 font-bold text-xs">{stratVideos.length} videos</p></div>
+                  <div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Videos + Kills</p><p className="text-red-400 font-bold text-xs">{stratVideos.length}V / {killSessions.length}K</p></div>
                 </div>
                 <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
                   <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">Planifier un Match</h3>
@@ -1653,17 +1882,11 @@ function App() {
                   </div>
                   {nouveauMatch.type === 'Division' && (
                     <div className="bg-white/5 rounded-xl p-3 mb-2 border border-white/5">
-                      <div className="flex justify-between mb-2">
-                        <p className="text-[10px] text-[#D4AF37] font-bold uppercase">Sous-matchs</p>
-                        <button onClick={ajouterSousMatch} className="px-2 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">+</button>
-                      </div>
+                      <div className="flex justify-between mb-2"><p className="text-[10px] text-[#D4AF37] font-bold uppercase">Sous-matchs</p><button onClick={ajouterSousMatch} className="px-2 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] text-xs">+</button></div>
                       {nouveauMatch.sousMatchs.length > 0 ? (
                         <div className="space-y-1">{nouveauMatch.sousMatchs.map((sm, i) => (
                           <div key={i} className="flex justify-between bg-black/30 rounded-lg px-2 py-1.5">
-                            <div>
-                              <p className="text-[9px] text-gray-400">{sm.adversaire}</p>
-                              <p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p>
-                            </div>
+                            <div><p className="text-[9px] text-gray-400">{sm.adversaire}</p><p className="text-[10px] font-bold"><span className="text-[#D4AF37]">{sm.scoreDyno}</span>-<span className="text-gray-500">{sm.scoreAdv}</span></p></div>
                             <button onClick={() => supprimerSousMatch(i)} className="text-red-400/40 text-xs">🗑️</button>
                           </div>
                         ))}</div>
@@ -1719,14 +1942,8 @@ function App() {
           <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10">
             <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">Score</h3>
             <div className="grid grid-cols-2 gap-3 mb-5">
-              <div>
-                <label className="text-gray-600 text-[10px] mb-1 block uppercase text-center">DYNO</label>
-                <input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-3xl font-bold focus:outline-none" />
-              </div>
-              <div>
-                <label className="text-gray-600 text-[10px] mb-1 block uppercase text-center">Adversaire</label>
-                <input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white text-center text-3xl font-bold focus:outline-none" />
-              </div>
+              <div><label className="text-gray-600 text-[10px] mb-1 block uppercase text-center">DYNO</label><input type="number" placeholder="0" value={scoreEdit.scoreDyno} onChange={e => setScoreEdit({ ...scoreEdit, scoreDyno: e.target.value })} className="w-full bg-white/5 border border-[#D4AF37]/30 rounded-xl px-4 py-4 text-white text-center text-3xl font-bold focus:outline-none" /></div>
+              <div><label className="text-gray-600 text-[10px] mb-1 block uppercase text-center">Adversaire</label><input type="number" placeholder="0" value={scoreEdit.scoreAdv} onChange={e => setScoreEdit({ ...scoreEdit, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white text-center text-3xl font-bold focus:outline-none" /></div>
             </div>
             <div className="flex gap-2">
               <button onClick={() => setScoreEdit(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button>
