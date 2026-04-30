@@ -1536,19 +1536,26 @@ function App() {
                       <button onClick={() => { const vid = extractYoutubeId(killSessionUrl); if (!vid || !killSessionTitle) { alert('Titre et URL requis'); return }; initYouTubePlayer(vid) }} disabled={!killSessionTitle || !killSessionUrl || !extractYoutubeId(killSessionUrl)} className={"w-full py-3 rounded-xl font-bold text-sm " + (killSessionTitle && extractYoutubeId(killSessionUrl) ? 'bg-gradient-to-r from-orange-600 to-red-700 text-white' : 'bg-white/10 text-gray-600')}>Lancer le tracker</button>
                     </div>
                   )}
-                  {ytReady && (
+                                    {ytReady && (
                     <div>
                       <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                        <div id="yt-kill-player" className="absolute top-0 left-0 w-full h-full" />
+                        <iframe className="absolute top-0 left-0 w-full h-full" src={'https://www.youtube.com/embed/' + extractYoutubeId(killSessionUrl) + '?rel=0'} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
                       </div>
                       <div className="p-4 space-y-3">
                         <div className="bg-white/5 rounded-xl p-3 border border-white/10">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-500 text-[10px] uppercase font-bold">Temps</span>
+                            <span className="text-gray-500 text-[10px] uppercase font-bold">Timer</span>
                             <span className={"text-lg font-mono font-bold " + (isPlaying ? 'text-green-400' : 'text-gray-500')}>{formatTime(currentTime)}</span>
                           </div>
-                          <div className="w-full bg-white/5 rounded-full h-1.5">
-                            <div className="bg-gradient-to-r from-orange-500 to-red-500 h-1.5 rounded-full transition-all" style={{ width: (ytPlayer?.getDuration ? (currentTime / ytPlayer.getDuration()) * 100 : 0) + '%' }} />
+                          <div className="flex gap-2">
+                            {!isPlaying ? (
+                              <button onClick={() => { setIsPlaying(true); timeInterval.current = setInterval(() => { setCurrentTime(prev => prev + 0.1) }, 100) }} className="flex-1 py-2 rounded-lg font-bold bg-green-500/20 text-green-400 border border-green-500/20 text-xs">▶ Play</button>
+                            ) : (
+                              <button onClick={() => { setIsPlaying(false); if (timeInterval.current) clearInterval(timeInterval.current) }} className="flex-1 py-2 rounded-lg font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 text-xs">⏸ Pause</button>
+                            )}
+                            <button onClick={() => { setCurrentTime(0); setIsPlaying(false); if (timeInterval.current) clearInterval(timeInterval.current) }} className="py-2 px-3 rounded-lg font-bold bg-red-500/20 text-red-400 border border-red-500/20 text-xs">Reset</button>
+                            <button onClick={() => setCurrentTime(prev => Math.max(0, prev - 5))} className="py-2 px-3 rounded-lg font-bold bg-white/5 text-gray-400 border border-white/10 text-xs">-5s</button>
+                            <button onClick={() => setCurrentTime(prev => prev + 5)} className="py-2 px-3 rounded-lg font-bold bg-white/5 text-gray-400 border border-white/10 text-xs">+5s</button>
                           </div>
                         </div>
                         <div>
@@ -1578,17 +1585,41 @@ function App() {
                             <div className="max-h-60 overflow-y-auto">
                               {killList.map((k, i) => (
                                 <div key={i} className="flex items-center justify-between px-3 py-2 border-b border-white/5 last:border-0">
-                                  <button onClick={() => seekTo(k.time)} className="flex items-center gap-2 flex-1 text-left">
+                                  <div className="flex items-center gap-2 flex-1">
                                     <span className="text-[#D4AF37] font-mono font-bold text-xs">{k.formattedTime}</span>
                                     <span className="text-white text-[10px] font-bold">{k.player}</span>
                                     <span className={"px-1.5 py-0.5 rounded text-[8px] font-bold " + (k.type === 'headshot' ? 'bg-orange-500/20 text-orange-400' : k.type === 'clutch' ? 'bg-purple-500/20 text-purple-400' : k.type === 'ace' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400')}>{k.type}</span>
-                                  </button>
+                                  </div>
                                   <button onClick={() => removeKill(i)} className="text-red-400/40 text-[10px] ml-2">x</button>
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
+                        {killList.length > 0 && (
+                          <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-2">Stats</p>
+                            <div className="space-y-1">
+                              {[...new Set(killList.map(k => k.player))].map(p => {
+                                const pKills = killList.filter(k => k.player === p)
+                                const heads = pKills.filter(k => k.type === 'headshot').length
+                                return (
+                                  <div key={p} className="flex items-center justify-between">
+                                    <span className="text-white text-xs font-bold">{p}</span>
+                                    <div className="flex gap-2">
+                                      <span className="text-red-400 text-[10px] font-bold">{pKills.length} kills</span>
+                                      {heads > 0 && <span className="text-orange-400 text-[10px] font-bold">{heads} HS</span>}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        <button onClick={saveKillSession} disabled={killList.length === 0} className={"w-full py-3 rounded-xl font-bold text-sm " + (killList.length > 0 ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black' : 'bg-white/10 text-gray-600')}>Sauvegarder</button>
+                      </div>
+                    </div>
+                  )}
                         {killList.length > 0 && (
                           <div className="bg-white/5 rounded-xl p-3 border border-white/10">
                             <p className="text-[10px] text-gray-500 uppercase font-bold mb-2">Stats</p>
