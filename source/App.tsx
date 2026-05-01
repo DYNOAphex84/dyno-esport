@@ -75,14 +75,21 @@ interface StratVideo {
 }
 
 const extractYoutubeId = (url: string): string => {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?#\s]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/
-  ]
-  for (const p of patterns) {
-    const m = url.match(p)
-    if (m) return m[1]
-  }
+  if (!url) return ''
+  // Nettoyer l'URL
+  let clean = url.trim()
+  // youtu.be/XXXXXXXXXXX
+  let m = clean.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/)
+  if (m) return m[1]
+  // youtube.com/watch?v=XXXXXXXXXXX
+  m = clean.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
+  if (m) return m[1]
+  // youtube.com/embed/XXXXXXXXXXX
+  m = clean.match(/embed\/([a-zA-Z0-9_-]{11})/)
+  if (m) return m[1]
+  // ID seul
+  m = clean.match(/^([a-zA-Z0-9_-]{11})$/)
+  if (m) return m[1]
   return ''
 }
 
