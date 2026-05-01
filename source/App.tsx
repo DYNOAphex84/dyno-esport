@@ -562,10 +562,9 @@ function App() {
     })
   }
 
-  const registerKill = () => {
-    if (!ytPlayer || !killPlayer) return
-    const time = ytPlayer.getCurrentTime()
-    const newKill = { player: killPlayer, time, type: killType, formattedTime: formatTime(time), createdAt: Date.now() }
+    const registerKill = () => {
+    if (!killPlayer) return
+    const newKill = { player: killPlayer, time: currentTime, type: killType, formattedTime: formatTime(currentTime), createdAt: Date.now() }
     setKillList(prev => [...prev, newKill].sort((a, b) => a.time - b.time))
   }
 
