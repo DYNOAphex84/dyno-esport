@@ -562,10 +562,11 @@ function App() {
     })
   }
 
-    const registerKill = () => {
+      const registerKill = () => {
     if (!killPlayer) return
     const newKill = { player: killPlayer, time: currentTime, type: killType, formattedTime: formatTime(currentTime), createdAt: Date.now() }
     setKillList(prev => [...prev, newKill].sort((a, b) => a.time - b.time))
+    try { if (navigator.vibrate) navigator.vibrate(killType === 'ace' ? [100, 50, 100, 50, 100] : killType === 'clutch' ? [100, 50, 100] : killType === 'headshot' ? [50, 30, 50] : [50]) } catch {}
   }
 
   const removeKill = (index: number) => { setKillList(prev => prev.filter((_, i) => i !== index)) }
