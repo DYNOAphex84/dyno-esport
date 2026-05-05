@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { initializeApp } from 'firebase/app'
 import {
@@ -75,21 +76,14 @@ interface StratVideo {
 }
 
 const extractYoutubeId = (url: string): string => {
-  if (!url) return ''
-  // Nettoyer l'URL
-  let clean = url.trim()
-  // youtu.be/XXXXXXXXXXX
-  let m = clean.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/)
-  if (m) return m[1]
-  // youtube.com/watch?v=XXXXXXXXXXX
-  m = clean.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
-  if (m) return m[1]
-  // youtube.com/embed/XXXXXXXXXXX
-  m = clean.match(/embed\/([a-zA-Z0-9_-]{11})/)
-  if (m) return m[1]
-  // ID seul
-  m = clean.match(/^([a-zA-Z0-9_-]{11})$/)
-  if (m) return m[1]
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?#\s]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ]
+  for (const p of patterns) {
+    const m = url.match(p)
+    if (m) return m[1]
+  }
   return ''
 }
 
@@ -562,11 +556,11 @@ function App() {
     })
   }
 
-      const registerKill = () => {
-    if (!killPlayer) return
-    const newKill = { player: killPlayer, time: currentTime, type: killType, formattedTime: formatTime(currentTime), createdAt: Date.now() }
+  const registerKill = () => {
+    if (!ytPlayer || !killPlayer) return
+    const time = ytPlayer.getCurrentTime()
+    const newKill = { player: killPlayer, time, type: killType, formattedTime: formatTime(time), createdAt: Date.now() }
     setKillList(prev => [...prev, newKill].sort((a, b) => a.time - b.time))
-    try { if (navigator.vibrate) navigator.vibrate(killType === 'ace' ? [100, 50, 100, 50, 100] : killType === 'clutch' ? [100, 50, 100] : killType === 'headshot' ? [50, 30, 50] : [50]) } catch {}
   }
 
   const removeKill = (index: number) => { setKillList(prev => prev.filter((_, i) => i !== index)) }
@@ -1269,6 +1263,7 @@ function App() {
                         {v.map && v.map !== 'All' && <span className="bg-white/5 text-gray-500 px-2 py-0.5 rounded-lg text-[9px] border border-white/10">{v.map}</span>}
                         <span className="text-gray-600 text-[9px] ml-auto">par {v.auteur}</span>
                       </div>
+                      {v.tags?.length > 0 && <div className="flex flex-wrap gap-1 mb-3">{v.tags.slice(0, 4).map(t => <span key={t} className="text-[8px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">#{t}</span>)}</div>}
                       <div className="flex gap-2">
                         <button onClick={() => { setSelectedVideo(v); setPlayerLoaded(false) }} className="flex-1 py-2 rounded-xl bg-red-600/15 text-red-400 border border-red-500/20 text-xs font-bold">Regarder</button>
                         <button onClick={() => user && likerVideo(v)} className={"py-2 px-3 rounded-xl text-xs font-bold border transition-all " + (user && v.likes?.includes(user.uid) ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-white/5 text-gray-500 border-white/10')}>❤️ {v.likes?.length || 0}</button>
@@ -1318,8 +1313,10 @@ function App() {
                       <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{CATS.find(c => c.v === selectedVideo.categorie)?.i} {CATS.find(c => c.v === selectedVideo.categorie)?.l}</span>
                       <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[#D4AF37]/20 flex items-center gap-1"><img src={LG} alt="EVA" className="w-3.5 h-3.5" /> EVA Esport Arena</span>
                       {selectedVideo.map && selectedVideo.map !== 'All' && <span className="bg-white/5 text-gray-400 px-2.5 py-1 rounded-lg text-[10px] border border-white/10">{selectedVideo.map}</span>}
+                      {!selectedVideo.publie && <span className="bg-yellow-500/20 text-yellow-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-yellow-500/20">BROUILLON</span>}
                     </div>
-                    {selectedVideo.description && <div className="bg-white/5 rounded-xl p-3 border border-white/10"><p className="text-gray-300 text-xs whitespace-pre-wrap">{selectedVideo.description}</p></div>}
+                    {selectedVideo.description && <div className="bg-white/5 rounded-xl p-3 border border-white/10"><p className="text-[9px] text-gray-500 uppercase font-bold mb-1.5">Description</p><p className="text-gray-300 text-xs whitespace-pre-wrap">{selectedVideo.description}</p></div>}
+                    {selectedVideo.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{selectedVideo.tags.map(t => <span key={t} className="text-[9px] text-gray-600 bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg">#{t}</span>)}</div>}
                     <div className="flex items-center gap-3 text-[10px] text-gray-600 border-t border-white/5 pt-3"><span>par {selectedVideo.auteur}</span><span>-</span><span>{new Date(selectedVideo.createdAt).toLocaleDateString('fr-FR')}</span></div>
                   </div>
                 </div>
@@ -1345,7 +1342,7 @@ function App() {
                     <div className="space-y-4">
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">URL YouTube *</label>
-                        <input type="url" placeholder="https://www.youtube.com/watch?v=..." value={newVideo.youtubeUrl} onChange={e => handleVideoUrlChange(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none" />
+                        <input type="url" placeholder="https://www.youtube.com/watch?v=..." value={newVideo.youtubeUrl} onChange={e => handleVideoUrlChange(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-red-500/40" />
                         {newVideo.youtubeUrl && !videoYtId && <p className="text-red-400 text-[10px] mt-1">URL invalide</p>}
                         {videoYtId && <p className="text-green-400 text-[10px] mt-1">ID detecte : {videoYtId}</p>}
                       </div>
@@ -1356,17 +1353,19 @@ function App() {
                       </div>
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Description</label>
-                        <textarea value={newVideo.description} onChange={e => setNewVideo(v => ({ ...v, description: e.target.value }))} rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" />
+                        <textarea value={newVideo.description} onChange={e => setNewVideo(v => ({ ...v, description: e.target.value }))} rows={3} placeholder="Decris la strategie..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none resize-none" />
                       </div>
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Jeu</label>
-                        <div className="w-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-xl px-3 py-2.5 text-[#D4AF37] text-sm font-bold flex items-center gap-2"><img src={LG} alt="EVA" className="w-5 h-5" /> EVA Esport Arena</div>
+                        <div className="w-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-xl px-3 py-2.5 text-[#D4AF37] text-sm font-bold flex items-center gap-2">
+                          <img src={LG} alt="EVA" className="w-5 h-5" /> EVA Esport Arena
+                        </div>
                       </div>
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Map</label>
                         <div className="grid grid-cols-3 gap-1.5">
                           {AM.map(m => (
-                            <button key={m} type="button" onClick={() => setNewVideo(v => ({ ...v, map: v.map === m ? '' : m }))} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border " + (newVideo.map === m ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'bg-white/5 text-gray-500 border-white/10')}>{m}</button>
+                            <button key={m} type="button" onClick={() => setNewVideo(v => ({ ...v, map: v.map === m ? '' : m }))} className={"px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border " + (newVideo.map === m ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'bg-white/5 text-gray-500 border-white/10 hover:border-[#D4AF37]/40')}>{m}</button>
                           ))}
                         </div>
                       </div>
@@ -1380,13 +1379,16 @@ function App() {
                       </div>
                       <div>
                         <label className="text-gray-500 text-[10px] uppercase font-bold mb-1.5 block">Tags (virgules)</label>
-                        <input type="text" placeholder="rush, start" value={newVideo.tags} onChange={e => setNewVideo(v => ({ ...v, tags: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" />
+                        <input type="text" placeholder="rush, start, b-site" value={newVideo.tags} onChange={e => setNewVideo(v => ({ ...v, tags: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none" />
                       </div>
                       <div className="flex items-center gap-3 bg-white/5 rounded-xl p-4 border border-white/10">
                         <button type="button" onClick={() => setNewVideo(v => ({ ...v, publie: !v.publie }))} className={"relative w-12 h-6 rounded-full transition-colors " + (newVideo.publie ? 'bg-green-500' : 'bg-white/20')}>
                           <div className={"absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-lg transition-transform " + (newVideo.publie ? 'translate-x-6' : 'translate-x-0.5')} />
                         </button>
-                        <p className="text-white text-sm font-bold">{newVideo.publie ? 'Publie' : 'Brouillon'}</p>
+                        <div>
+                          <p className="text-white text-sm font-bold">{newVideo.publie ? 'Publie' : 'Brouillon'}</p>
+                          <p className="text-gray-600 text-[9px]">{newVideo.publie ? 'Visible par tous' : 'Visible par vous'}</p>
+                        </div>
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setShowAddVideo(false)} className="flex-1 py-3 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button>
@@ -1403,6 +1405,7 @@ function App() {
                           <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[10px] font-bold border border-[#D4AF37]/15">{CATS.find(c => c.v === newVideo.categorie)?.i} {CATS.find(c => c.v === newVideo.categorie)?.l}</span>
                           <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-lg text-[10px] font-bold border border-[#D4AF37]/20 flex items-center gap-1"><img src={LG} alt="EVA" className="w-3 h-3" /> EVA</span>
                           {newVideo.map && <span className="bg-white/5 text-gray-400 px-2 py-0.5 rounded-lg text-[10px] border border-white/10">{newVideo.map}</span>}
+                          <span className={"px-2 py-0.5 rounded-lg text-[10px] font-bold " + (newVideo.publie ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20')}>{newVideo.publie ? 'Public' : 'Brouillon'}</span>
                         </div>
                         {newVideo.description && <p className="text-gray-400 text-xs">{newVideo.description}</p>}
                       </div>
@@ -1456,7 +1459,7 @@ function App() {
               </div>
             </div>
             {user && (
-              <button onClick={() => { setShowNewSession(true); setCurrentSession(null); setKillList([]); setKillSessionTitle(''); setKillSessionUrl(''); setYtReady(false); setKillPlayer(''); setCurrentTime(0); setIsPlaying(false); if (timeInterval.current) clearInterval(timeInterval.current) }} className="w-full mb-4 py-3 rounded-2xl font-bold bg-gradient-to-r from-orange-600 to-red-700 text-white text-sm shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
+              <button onClick={() => { setShowNewSession(true); setCurrentSession(null); setKillList([]); setKillSessionTitle(''); setKillSessionUrl(''); setYtPlayer(null); setYtReady(false); setKillPlayer('') }} className="w-full mb-4 py-3 rounded-2xl font-bold bg-gradient-to-r from-orange-600 to-red-700 text-white text-sm shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
                 💀 Nouvelle Session Kill Tracker
               </button>
             )}
@@ -1490,6 +1493,12 @@ function App() {
                             )
                           })}
                         </div>
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {(ses.kills || []).slice(0, 8).map((k: any, ki: number) => (
+                            <span key={ki} className={"px-1.5 py-0.5 rounded text-[8px] font-bold " + (k.type === 'headshot' ? 'bg-orange-500/20 text-orange-400' : k.type === 'clutch' ? 'bg-purple-500/20 text-purple-400' : k.type === 'ace' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400')}>{k.formattedTime} {k.player}</span>
+                          ))}
+                          {(ses.kills || []).length > 8 && <span className="text-gray-600 text-[8px]">+{ses.kills.length - 8}</span>}
+                        </div>
                         <div className="flex gap-2">
                           <button onClick={() => openSession(ses)} className="flex-1 py-2 rounded-xl bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/20 text-xs font-bold">Ouvrir</button>
                           <button onClick={() => exportKills(ses)} className="py-2 px-3 rounded-xl bg-white/5 text-gray-400 border border-white/10 text-xs font-bold">📋</button>
@@ -1505,7 +1514,7 @@ function App() {
             {showNewSession && (
               <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-50 flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
-                  <button onClick={() => { setShowNewSession(false); setYtReady(false); setIsPlaying(false); if (timeInterval.current) clearInterval(timeInterval.current) }} className="text-gray-400 text-sm">Fermer</button>
+                  <button onClick={() => { setShowNewSession(false); setYtPlayer(null); if (timeInterval.current) clearInterval(timeInterval.current) }} className="text-gray-400 text-sm">Fermer</button>
                   <h3 className="text-sm font-bold bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">{currentSession ? 'Modifier' : 'Nouvelle Session'}</h3>
                   <button onClick={saveKillSession} disabled={!killSessionTitle || killList.length === 0} className={"px-3 py-1 rounded-lg text-xs font-bold " + (killSessionTitle && killList.length > 0 ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-gray-600')}>Sauvegarder</button>
                 </div>
@@ -1525,29 +1534,22 @@ function App() {
                           <img src={'https://img.youtube.com/vi/' + extractYoutubeId(killSessionUrl) + '/hqdefault.jpg'} alt="preview" className="w-full aspect-video object-cover" />
                         </div>
                       )}
-                      <button onClick={() => { const vid = extractYoutubeId(killSessionUrl); if (!vid || !killSessionTitle) { alert('Titre et URL requis'); return }; setYtReady(true); setCurrentTime(0); setIsPlaying(false) }} disabled={!killSessionTitle || !killSessionUrl || !extractYoutubeId(killSessionUrl)} className={"w-full py-3 rounded-xl font-bold text-sm " + (killSessionTitle && extractYoutubeId(killSessionUrl) ? 'bg-gradient-to-r from-orange-600 to-red-700 text-white' : 'bg-white/10 text-gray-600')}>Lancer le tracker</button>
+                      <button onClick={() => { const vid = extractYoutubeId(killSessionUrl); if (!vid || !killSessionTitle) { alert('Titre et URL requis'); return }; initYouTubePlayer(vid) }} disabled={!killSessionTitle || !killSessionUrl || !extractYoutubeId(killSessionUrl)} className={"w-full py-3 rounded-xl font-bold text-sm " + (killSessionTitle && extractYoutubeId(killSessionUrl) ? 'bg-gradient-to-r from-orange-600 to-red-700 text-white' : 'bg-white/10 text-gray-600')}>Lancer le tracker</button>
                     </div>
                   )}
                   {ytReady && (
                     <div>
                       <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                        <iframe className="absolute top-0 left-0 w-full h-full" src={'https://www.youtube.com/embed/' + extractYoutubeId(killSessionUrl) + '?rel=0'} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                        <div id="yt-kill-player" className="absolute top-0 left-0 w-full h-full" />
                       </div>
                       <div className="p-4 space-y-3">
                         <div className="bg-white/5 rounded-xl p-3 border border-white/10">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-500 text-[10px] uppercase font-bold">Timer</span>
+                            <span className="text-gray-500 text-[10px] uppercase font-bold">Temps</span>
                             <span className={"text-lg font-mono font-bold " + (isPlaying ? 'text-green-400' : 'text-gray-500')}>{formatTime(currentTime)}</span>
                           </div>
-                          <div className="flex gap-2">
-                            {!isPlaying ? (
-                              <button onClick={() => { setIsPlaying(true); const start = Date.now() - currentTime * 1000; timeInterval.current = setInterval(() => { setCurrentTime((Date.now() - start) / 1000) }, 100) }} className="flex-1 py-2 rounded-lg font-bold bg-green-500/20 text-green-400 border border-green-500/20 text-xs">Play</button>
-                            ) : (
-                              <button onClick={() => { setIsPlaying(false); if (timeInterval.current) clearInterval(timeInterval.current) }} className="flex-1 py-2 rounded-lg font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 text-xs">Pause</button>
-                            )}
-                            <button onClick={() => { setCurrentTime(0); setIsPlaying(false); if (timeInterval.current) clearInterval(timeInterval.current) }} className="py-2 px-3 rounded-lg font-bold bg-red-500/20 text-red-400 border border-red-500/20 text-xs">Reset</button>
-                            <button onClick={() => setCurrentTime(prev => Math.max(0, prev - 5))} className="py-2 px-3 rounded-lg font-bold bg-white/5 text-gray-400 border border-white/10 text-xs">-5s</button>
-                            <button onClick={() => setCurrentTime(prev => prev + 5)} className="py-2 px-3 rounded-lg font-bold bg-white/5 text-gray-400 border border-white/10 text-xs">+5s</button>
+                          <div className="w-full bg-white/5 rounded-full h-1.5">
+                            <div className="bg-gradient-to-r from-orange-500 to-red-500 h-1.5 rounded-full transition-all" style={{ width: (ytPlayer?.getDuration ? (currentTime / ytPlayer.getDuration()) * 100 : 0) + '%' }} />
                           </div>
                         </div>
                         <div>
@@ -1577,11 +1579,11 @@ function App() {
                             <div className="max-h-60 overflow-y-auto">
                               {killList.map((k, i) => (
                                 <div key={i} className="flex items-center justify-between px-3 py-2 border-b border-white/5 last:border-0">
-                                  <div className="flex items-center gap-2 flex-1">
+                                  <button onClick={() => seekTo(k.time)} className="flex items-center gap-2 flex-1 text-left">
                                     <span className="text-[#D4AF37] font-mono font-bold text-xs">{k.formattedTime}</span>
                                     <span className="text-white text-[10px] font-bold">{k.player}</span>
                                     <span className={"px-1.5 py-0.5 rounded text-[8px] font-bold " + (k.type === 'headshot' ? 'bg-orange-500/20 text-orange-400' : k.type === 'clutch' ? 'bg-purple-500/20 text-purple-400' : k.type === 'ace' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400')}>{k.type}</span>
-                                  </div>
+                                  </button>
                                   <button onClick={() => removeKill(i)} className="text-red-400/40 text-[10px] ml-2">x</button>
                                 </div>
                               ))}
@@ -1617,7 +1619,6 @@ function App() {
             )}
           </div>
         )}
-
         {activeTab === 'rec' && (
           <div>
             <H title="Replays" icon="🎬" />
@@ -1650,14 +1651,14 @@ function App() {
           <div>
             <H title="Roster" icon="👥" />
             {user && (
-              <div className="card-glow bg-black/30 rounded-3xl p-6 border border-[#D4AF37]/15 mb-6 relative overflow-hidden">
+              <div className="card-glow bg-black/30 rounded-3xl p-6 border border-[#D4AF37]/15 mb-6 relative overflow-hidden tab-content">
                 <p className="text-[10px] text-[#D4AF37] font-black mb-5 uppercase tracking-widest">Mon Profil</p>
                 <div className="flex items-center gap-5 mb-6">
-                  <div className="relative">
+                  <div className="relative group">
                     {avatarUrl ? (
-                      <img src={avatarUrl} alt="avatar" className="w-20 h-20 rounded-2xl object-cover border-2 border-[#D4AF37]/40 shadow-2xl" />
+                      <img src={avatarUrl} alt="avatar" className="w-20 h-20 rounded-2xl object-cover border-2 border-[#D4AF37]/40 relative z-10 shadow-2xl" />
                     ) : (
-                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-3xl border-2 border-[#D4AF37]/20">{pseudo?.[0]?.toUpperCase()}</div>
+                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-black flex items-center justify-center text-[#D4AF37] font-black text-3xl border-2 border-[#D4AF37]/20 relative z-10">{pseudo?.[0]?.toUpperCase()}</div>
                     )}
                     <label className={"absolute -bottom-2 -right-2 text-black w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-4 border-[#030303] cursor-pointer z-20 " + (uploadingAvatar ? 'bg-gray-500 animate-pulse' : 'bg-[#D4AF37]')}>
                       <span className="text-xs">{uploadingAvatar ? '...' : '📷'}</span>
@@ -1665,8 +1666,8 @@ function App() {
                     </label>
                   </div>
                   <div className="flex-1">
-                    <p className="text-white font-black text-xl leading-none mb-1">{pseudo}</p>
-                    <p className="text-[#D4AF37] text-[10px] font-bold uppercase opacity-70 mb-2">Membre DYNO</p>
+                    <p className="text-white font-black text-xl tracking-tight leading-none mb-1">{pseudo}</p>
+                    <p className="text-[#D4AF37] text-[10px] font-bold uppercase tracking-tighter opacity-70 mb-2">Membre Officiel DYNO</p>
                     {myPass && (
                       <div className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
                         <span className="text-sm">{EVA_PASSES[myPass.type]?.icon}</span>
@@ -1675,9 +1676,10 @@ function App() {
                     )}
                   </div>
                 </div>
-                <div className="pt-4 border-t border-white/5">
+                <div className="space-y-3 pt-4 border-t border-white/5">
+                  <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest">Ou coller une URL</p>
                   <div className="flex gap-2">
-                    <input type="text" placeholder="URL avatar..." value={avatarUrl?.startsWith('data:') ? 'Image uploadee' : avatarUrl} onChange={e => setAvatarUrl(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-[10px] focus:outline-none" />
+                    <input type="text" placeholder="https://..." value={avatarUrl?.startsWith('data:') ? 'Image uploadee' : avatarUrl} onChange={e => setAvatarUrl(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-[10px] focus:outline-none" />
                     <button onClick={saveAvatar} className="px-4 rounded-xl font-bold bg-white/5 border border-white/10 text-[#D4AF37]">💾</button>
                   </div>
                 </div>
@@ -1685,7 +1687,7 @@ function App() {
             )}
             {user && (
               <div className="card-glow bg-black/30 rounded-2xl p-4 border border-[#D4AF37]/15 mb-5">
-                <p className="text-[10px] text-[#D4AF37] font-bold mb-3 uppercase">Mon EVA Pass</p>
+                <p className="text-[10px] text-[#D4AF37] font-bold mb-3 uppercase tracking-widest">Mon EVA Pass</p>
                 {myPass ? (
                   <div>
                     <div className="flex items-center justify-between mb-3">
@@ -1699,13 +1701,16 @@ function App() {
                       <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/15 text-center">
                         <p className="text-[8px] text-blue-400 uppercase font-bold mb-1">HC</p>
                         <p className="text-xl font-bold text-blue-400">{hcRem}<span className="text-gray-600 text-sm">/{myPass.hcTotal || 0}</span></p>
+                        <div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: (myPass.hcTotal > 0 ? (hcRem / myPass.hcTotal) * 100 : 0) + '%' }} /></div>
                       </div>
                       <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/15 text-center">
                         <p className="text-[8px] text-purple-400 uppercase font-bold mb-1">HP</p>
                         <p className="text-xl font-bold text-purple-400">{hpRem}<span className="text-gray-600 text-sm">/{myPass.hpTotal || 0}</span></p>
+                        <div className="bg-white/5 rounded-full h-1.5 mt-2"><div className="bg-purple-500 h-1.5 rounded-full transition-all" style={{ width: (myPass.hpTotal > 0 ? (hpRem / myPass.hpTotal) * 100 : 0) + '%' }} /></div>
                       </div>
                     </div>
                     <div className="bg-white/5 rounded-xl p-3 border border-white/5 mb-2">
+                      <p className="text-[8px] text-gray-500 uppercase font-bold mb-2">Modifier</p>
                       <div className="grid grid-cols-2 gap-2 mb-2">
                         <div><label className="text-[8px] text-blue-400 mb-1 block">HC utilises</label><input type="number" min="0" max={myPass.hcTotal || 99} value={myPass.hcUsed || 0} onChange={e => setMyPass({ ...myPass, hcUsed: parseInt(e.target.value) || 0 })} className="w-full bg-black/30 border border-blue-500/20 rounded-lg px-3 py-2 text-white text-center text-sm font-bold focus:outline-none" /></div>
                         <div><label className="text-[8px] text-purple-400 mb-1 block">HP utilises</label><input type="number" min="0" max={myPass.hpTotal || 99} value={myPass.hpUsed || 0} onChange={e => setMyPass({ ...myPass, hpUsed: parseInt(e.target.value) || 0 })} className="w-full bg-black/30 border border-purple-500/20 rounded-lg px-3 py-2 text-white text-center text-sm font-bold focus:outline-none" /></div>
@@ -1720,7 +1725,7 @@ function App() {
                     <p className="text-gray-500 text-xs mb-3 text-center">Selectionne ton abonnement :</p>
                     <div className="grid grid-cols-3 gap-2">
                       {Object.entries(EVA_PASSES).map(([key, p]) => (
-                        <button key={key} onClick={() => selectPass(key)} className={"rounded-xl p-3 border text-center " + (key === 'bronze' ? 'bg-amber-900/20 border-amber-700/30' : key === 'argent' ? 'bg-gray-500/20 border-gray-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30')}>
+                        <button key={key} onClick={() => selectPass(key)} className={"rounded-xl p-3 border text-center transition-all hover:scale-105 " + (key === 'bronze' ? 'bg-amber-900/20 border-amber-700/30' : key === 'argent' ? 'bg-gray-500/20 border-gray-500/30' : 'bg-[#D4AF37]/20 border-[#D4AF37]/30')}>
                           <span className="text-2xl block mb-1">{p.icon}</span>
                           <p className="text-white text-[10px] font-bold">{p.label}</p>
                           <p className="text-blue-400 text-[8px]">{p.hc} HC</p>
@@ -1786,18 +1791,39 @@ function App() {
                 <p className="text-[9px] text-gray-600 mt-1.5 uppercase">Matchs</p>
               </div>
             </div>
-            <button onClick={() => setShowBilan(true)} className="w-full py-3 rounded-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white text-sm">Bilan du mois</button>
+            <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15 mb-5">
+              <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">Repartition</h3>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">Victoires</span><span className="text-[#D4AF37] font-bold text-xs">{victoires}</span></div>
+                  <div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-[#D4AF37] to-[#FFD700] h-2 rounded-full transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (victoires / totalMatchs) * 100 : 0) + '%' }} /></div>
+                </div>
+                <div>
+                  <div className="flex justify-between mb-1.5"><span className="text-gray-600 text-[10px]">Defaites</span><span className="text-red-500 font-bold text-xs">{defaites}</span></div>
+                  <div className="bg-white/5 rounded-full h-2"><div className="bg-gradient-to-r from-red-600 to-red-500 h-2 rounded-full transition-all duration-1000" style={{ width: (totalMatchs > 0 ? (defaites / totalMatchs) * 100 : 0) + '%' }} /></div>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setShowBilan(true)} className="w-full py-3 rounded-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/20 text-sm">Bilan du mois</button>
             {showBilan && (() => { const b = genBilan(); return (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start pt-16 justify-center z-50 p-4">
-                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10">
+                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm border border-white/10 max-h-[85vh] overflow-y-auto">
                   <h3 className="text-lg font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent mb-5 text-center">Bilan {b.nom}</h3>
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    <div className="bg-white/5 rounded-xl p-3 text-center"><p className="text-2xl font-bold text-white">{b.m}</p><p className="text-[9px] text-gray-600">Matchs</p></div>
-                    <div className="bg-green-500/10 rounded-xl p-3 text-center"><p className="text-2xl font-bold text-green-400">{b.w}W</p><p className="text-[9px] text-gray-600">Vic.</p></div>
-                    <div className="bg-red-500/10 rounded-xl p-3 text-center"><p className="text-2xl font-bold text-red-400">{b.l}L</p><p className="text-[9px] text-gray-600">Def.</p></div>
-                  </div>
-                  <div className="bg-[#D4AF37]/10 rounded-xl p-4 border border-[#D4AF37]/15 text-center mb-3">
-                    <p className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{b.wr}%</p>
+                  <div className="space-y-3 mb-5">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-white/5 rounded-xl p-3 border border-white/5 text-center"><p className="text-2xl font-bold text-white">{b.m}</p><p className="text-[9px] text-gray-600 uppercase">Matchs</p></div>
+                      <div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-2xl font-bold text-green-400">{b.w}W</p><p className="text-[9px] text-gray-600 uppercase">Vic.</p></div>
+                      <div className="bg-red-500/10 rounded-xl p-3 border border-red-500/10 text-center"><p className="text-2xl font-bold text-red-400">{b.l}L</p><p className="text-[9px] text-gray-600 uppercase">Def.</p></div>
+                    </div>
+                    <div className="bg-[#D4AF37]/10 rounded-xl p-4 border border-[#D4AF37]/15 text-center">
+                      <p className="text-4xl font-bold bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent">{b.wr}%</p>
+                      <p className="text-[9px] text-gray-600 uppercase mt-1">Win Rate</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-purple-500/10 rounded-xl p-3 border border-purple-500/10 text-center"><p className="text-xl font-bold text-purple-400">{b.am}</p><p className="text-[9px] text-gray-600">Mental</p></div>
+                      <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/10 text-center"><p className="text-xl font-bold text-blue-400">{b.ac}</p><p className="text-[9px] text-gray-600">Comm</p></div>
+                      <div className="bg-green-500/10 rounded-xl p-3 border border-green-500/10 text-center"><p className="text-xl font-bold text-green-400">{b.ap}</p><p className="text-[9px] text-gray-600">Perf</p></div>
+                    </div>
                   </div>
                   <button onClick={() => setShowBilan(false)} className="w-full py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-400 text-sm">Fermer</button>
                 </div>
@@ -1838,13 +1864,13 @@ function App() {
             ) : (
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Activite</p><p className="text-[#D4AF37] font-bold text-xs">{logs[0]?.joueur || '-'}</p></div>
-                  <div className="card-glow bg-blue-500/10 rounded-2xl p-4 border border-blue-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Membres</p><p className="text-blue-400 font-bold text-xs">{joueurs.length}</p></div>
-                  <div className="card-glow bg-green-500/10 rounded-2xl p-4 border border-green-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Victoires</p><p className="text-green-400 font-bold text-xs">{victoires}</p></div>
-                  <div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Videos/Kills</p><p className="text-red-400 font-bold text-xs">{stratVideos.length}V / {killSessions.length}K</p></div>
+                  <div className="card-glow bg-[#D4AF37]/10 rounded-2xl p-4 border border-[#D4AF37]/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Derniere activite</p><p className="text-[#D4AF37] font-bold text-xs">{logs[0]?.joueur || '-'}</p></div>
+                  <div className="card-glow bg-blue-500/10 rounded-2xl p-4 border border-blue-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Membres</p><p className="text-blue-400 font-bold text-xs">{joueurs.length} joueurs</p></div>
+                  <div className="card-glow bg-green-500/10 rounded-2xl p-4 border border-green-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Victoires</p><p className="text-green-400 font-bold text-xs">{victoires} wins</p></div>
+                  <div className="card-glow bg-red-500/10 rounded-2xl p-4 border border-red-500/15"><p className="text-[8px] text-gray-500 uppercase font-black mb-1">Videos + Kills</p><p className="text-red-400 font-bold text-xs">{stratVideos.length}V / {killSessions.length}K</p></div>
                 </div>
                 <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
-                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">Planifier Match</h3>
+                  <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">Planifier un Match</h3>
                   <input type="text" placeholder="Adversaire" value={nouveauMatch.adversaire} onChange={e => setNouveauMatch({ ...nouveauMatch, adversaire: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
                   <input type="date" value={nouveauMatch.date} onChange={e => setNouveauMatch({ ...nouveauMatch, date: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-2 text-white text-sm focus:outline-none" />
                   <div className="grid grid-cols-2 gap-2 mb-2">
@@ -1872,17 +1898,19 @@ function App() {
                 </div>
                 <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
                   <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">Gestion Matchs</h3>
-                  <div className="space-y-1.5">
-                    {matchs.map((m: any) => (
-                      <div key={m.id} className="flex justify-between bg-white/5 rounded-xl p-2.5 border border-white/5">
-                        <div><p className="text-[#D4AF37] font-bold text-[10px]">{m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)}</p></div>
-                        <div className="flex items-center gap-1.5">
-                          {m.termine && <button onClick={() => setEditHistoriqueScore({ id: m.id, adversaire: m.adversaire || '', scoreDyno: String(m.scoreDyno || 0), scoreAdv: String(m.scoreAdversaire || 0), type: m.type || 'Ligue', arene: m.arene || 'Arene 1', date: m.date || '', termine: true, sousMatchs: m.sousMatchs || [] })} className="text-[#D4AF37]/60 text-sm">✏️</button>}
-                          <button onClick={() => del('matchs', m.id)} className="text-red-400/40">🗑️</button>
+                  {matchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun match</p> : (
+                    <div className="space-y-1.5">
+                      {matchs.map((m: any) => (
+                        <div key={m.id} className="flex justify-between bg-white/5 rounded-xl p-2.5 border border-white/5">
+                          <div><p className="text-[#D4AF37] font-bold text-[10px]">{m.adversaire}</p><p className="text-gray-700 text-[9px]">{fdf(m.date)} - {m.termine ? 'OK' : 'En attente'}</p></div>
+                          <div className="flex items-center gap-1.5">
+                            {m.termine && <button onClick={() => setEditHistoriqueScore({ id: m.id, adversaire: m.adversaire || '', scoreDyno: String(m.scoreDyno || 0), scoreAdv: String(m.scoreAdversaire || 0), type: m.type || 'Ligue', arene: m.arene || 'Arene 1', date: m.date || '', termine: true, sousMatchs: m.sousMatchs || [] })} className="text-[#D4AF37]/60 text-sm">✏️</button>}
+                            <button onClick={() => del('matchs', m.id)} className="text-red-400/40">🗑️</button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
                   <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">Ajouter Replay</h3>
@@ -1892,7 +1920,7 @@ function App() {
                 </div>
                 <div className="card-glow bg-black/30 rounded-3xl p-5 border border-[#D4AF37]/15">
                   <h3 className="text-xs font-bold text-[#D4AF37] mb-3 uppercase">Saisir Scores</h3>
-                  {prochainsMatchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun</p> : (
+                  {prochainsMatchs.length === 0 ? <p className="text-gray-700 text-center text-xs">Aucun match a scorer</p> : (
                     <div className="space-y-2">
                       {prochainsMatchs.map((m: any) => (
                         <div key={m.id} className="bg-white/5 rounded-xl p-3 border border-white/5 flex items-center justify-between">
@@ -1955,6 +1983,10 @@ function App() {
                   <div><label className="text-gray-600 text-[10px] mb-1 block uppercase">Adv</label><input type="number" value={editHistoriqueScore.scoreAdv} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, scoreAdv: e.target.value })} className="w-full bg-white/5 border border-red-500/20 rounded-xl px-4 py-3 text-white text-center text-2xl font-bold focus:outline-none" /></div>
                 </div>
               )}
+              <label className="flex items-center gap-2 bg-white/5 rounded-xl p-3 border border-white/5 cursor-pointer">
+                <input type="checkbox" checked={editHistoriqueScore.termine === false} onChange={e => setEditHistoriqueScore({ ...editHistoriqueScore, termine: e.target.checked ? false : true })} className="w-4 h-4 rounded" />
+                <span className="text-gray-400 text-xs">Remettre en attente</span>
+              </label>
             </div>
             <div className="flex gap-2">
               <button onClick={() => setEditHistoriqueScore(null)} className="flex-1 py-2.5 rounded-xl font-bold bg-white/5 border border-white/10 text-gray-500 text-sm">Annuler</button>
@@ -1974,9 +2006,9 @@ function App() {
             <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-3 text-white text-sm focus:outline-none" />
             <input type="password" placeholder="Mot de passe" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-6 text-white text-sm focus:outline-none" />
             {isSignUp ? (
-              <button onClick={handleSignUp} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm">CREER LE COMPTE</button>
+              <button onClick={handleSignUp} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">CREER LE COMPTE</button>
             ) : (
-              <button onClick={handleSignIn} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm">SE CONNECTER</button>
+              <button onClick={handleSignIn} className="w-full py-4 rounded-2xl font-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-black mb-4 text-sm shadow-lg shadow-[#D4AF37]/20">SE CONNECTER</button>
             )}
             <div className="border-t border-white/5 pt-4 text-center">
               {isSignUp ? (
