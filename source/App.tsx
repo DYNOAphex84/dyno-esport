@@ -13,13 +13,14 @@ import {
 } from 'firebase/auth'
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDXwItLM0OZ0VmHj-DLZcH8OBy7wXiHBsM",
-  authDomain: "dyno-esport.firebaseapp.com",
-  projectId: "dyno-esport",
-  storageBucket: "dyno-esport.firebasestorage.app",
-  messagingSenderId: "808658404731",
-  appId: "1:808658404731:web:f3cf29142d3038816f29de"
-}
+  apiKey: "AIzaSyAj1nsX4HEMSOU5UxSXr69Av8QZOw-kv20",
+  authDomain: "dyno-esport-e1c7c.firebaseapp.com",
+  projectId: "dyno-esport-e1c7c",
+  storageBucket: "dyno-esport-e1c7c.firebasestorage.app",
+  messagingSenderId: "748196194589",
+  appId: "1:748196194589:web:854b7abba6ea8275c6d9f4",
+  measurementId: "G-K79HL9YGYC"
+};
 
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
