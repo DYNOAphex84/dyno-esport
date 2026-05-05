@@ -107,7 +107,7 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
   const [showSplash, setShowSplash] = useState(true)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [pseudo, setPseudo] = useState('')
   const [email, setEmail] = useState('')
